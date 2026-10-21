@@ -118,11 +118,22 @@ Mercado Livre e Shopee somam 227 de 402 (56%). É sugestão, não decisão, até
 
 O sistema atual usa duas listas de setor que não se ligam formalmente:
 
-1. **Setor de fabricação do produto**: vem do cadastro do produto e da planilha. Valores: SETOR 00 a SETOR 08, mais ADMIN e USINAGEM. É o lugar da fábrica onde o produto nasce. Concentração: SETOR 06 (107), SETOR 04 (88) e SETOR 01 (65).
+1. **Bancada de origem**: vem do cadastro do produto e da planilha. Valores: SETOR 00 a SETOR 08, mais ADMIN e USINAGEM. O setor numerado é a bancada de montagem. Cada operador monta produtos conforme a família, o conhecimento técnico e outros fatores, então a bancada não é fixa nem pertence sempre à mesma pessoa. Concentração: SETOR 06 (107), SETOR 04 (88) e SETOR 01 (65).
 2. **Setor responsável pela tratativa**: define quem resolve a reclamação, escolhido pela causa. Doze áreas: Embalagem / Expedição, Montagem, Solda, Pintura / Acabamento, Corte e Dobra, Qualidade / Engenharia, Compras, Logística, Comercial / Anúncios, Comercial / Pedidos, PCP e SAC / Pós-venda.
 
-O gargalo: a reclamação carrega os dois, mas nomes e estrutura são diferentes e não há mapa entre eles. O setor de fabricação mede a origem do defeito; o responsável mede quem trata. Misturar os dois impede dizer "qual setor produz mais problema" e "qual setor demora a resolver". A v2 trata os dois como entidades distintas, com a ligação explícita, e o ClickUp recebe o setor responsável.
+O gargalo: a reclamação carrega os dois, mas nomes e estrutura são diferentes e não há mapa entre eles. A bancada diz de onde o produto saiu; o setor responsável diz quem trata o tipo de ocorrência. Misturar os dois impede dizer "qual bancada concentra problema" e "qual setor demora a resolver". A v2 trata os dois como entidades distintas, e o ClickUp recebe o setor responsável.
+
+Confirmado com o cliente: a correlação certa é **bancada de origem × tipo de ocorrência**. Um defeito pode aparecer em qualquer bancada sem ser responsabilidade de quem montou, por exemplo uma parte elétrica mal dimensionada ou um lote de peças defeituoso. Por isso a análise não deve atribuir o defeito à bancada por padrão: ela cruza a ocorrência com a bancada e com a origem da causa (montagem, componente ou lote, projeto, embalagem, transporte, venda).
 
 Também há três empresas no mesmo SAC: ARTMAQ (251), AISA (130) e WORK (19). Tratar como marca ou empresa de origem, a confirmar.
 
-A decisão sobre a estrutura final de setores fica para o dono e o gestor. Pergunta aberta: o setor numerado corresponde a qual área física ou equipe?
+A decisão sobre a estrutura final de setores fica para o dono e o gestor.
+
+### Dois estágios da reclamação
+
+Confirmado com o cliente: a reclamação tem dois estágios, com urgência e prazo diferentes.
+
+1. **Resolver o problema do cliente.** Urgente, para evitar novos problemas. É onde valem os alertas e os prazos de 2 e 7 dias. Quando o produto físico precisa voltar, a análise do setor responsável acontece antes de finalizar; se o produto volta e não é analisado, a informação se perde.
+2. **Estudar e melhorar o produto ou o processo.** Leva mais tempo e é acompanhado até se saber se a melhoria funcionou. Corresponde ao plano de ação do sistema atual (`PlanoAcao`), que na v2 ganha acompanhamento do efeito: a ocorrência cai depois da ação?
+
+O sistema define o setor responsável e cria o card no ClickUp. O retorno do produto é decisão da análise do setor, não do registro.
