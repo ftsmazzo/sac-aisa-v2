@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+.cursor
+docs
+data
+.env
+.env.*
+!.env.example
+*.md
+coverage
+.DS_Store
+Thumbs.db
