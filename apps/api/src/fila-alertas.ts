@@ -13,7 +13,7 @@ import {
   transicoesPermitidas,
   urgenciaDe,
 } from "@sac-aisa/domain";
-import { type Escopo, filtroDeEscopo } from "./reclamacoes";
+import { type Escopo, filtroDeEscopo, filtroDeTreino } from "./reclamacoes";
 import { ErroEscrita } from "./reclamacoes-escrita";
 
 /** Reclamação em aberto, com só o que as regras de alerta e a fila precisam. */
@@ -103,13 +103,15 @@ export class ServicoFilaAlertas {
       perfil: usuario.perfil,
       setores: usuario.setores,
       marcas: usuario.marcas,
+      treino: usuario.modoTreino,
     };
-    const doEscopo = filtroDeEscopo(escopo);
     // Em aberto = ainda não finalizada pelo SAC (a solução devolvida sem finalização conta).
     const e: Prisma.ReclamacaoWhereInput[] = [
       { estado: { not: "finalizada" } },
       ...extra,
     ];
+    e.push(filtroDeTreino(escopo));
+    const doEscopo = filtroDeEscopo(escopo);
     if (doEscopo) e.push(doEscopo);
     return this.repo.abertas({ AND: e });
   }

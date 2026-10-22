@@ -255,6 +255,10 @@ model Reclamacao {
   peca             String        @default("")
   rascunho         Boolean       @default(false)
   origemRegistro   String        @default("web")
+  /// Dado fictício de demonstração. Fica fora de lista, fila, alertas e relatórios (salvo no modo treino).
+  treino           Boolean       @default(false)
+  /// Campos que vieram do canal (marketplace). Editar um deles exige motivo.
+  camposCanal      Json          @default("[]")
   criadoEm         DateTime      @default(now())
   criadoPorId      String?
   alteradoEm       DateTime      @updatedAt
@@ -289,6 +293,7 @@ model Reclamacao {
   @@index([setorRespId])
   @@index([causaId])
   @@index([produtoId])
+  @@index([treino])
   @@map("reclamacoes")
 }
 
@@ -708,6 +713,8 @@ model Usuario {
   senhaHash   String
   ativo       Boolean  @default(true)
   telefone    String?
+  /// Só vale para administrador e gestor: a visão mostra apenas dados de treino.
+  modoTreino  Boolean  @default(false)
   criadoEm    DateTime @default(now())
   criadoPorId String?
   alteradoEm  DateTime @updatedAt

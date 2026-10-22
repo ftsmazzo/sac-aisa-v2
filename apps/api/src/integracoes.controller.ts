@@ -190,6 +190,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
             estado: true,
             devolucao: true,
             custo: true,
+            treino: true,
           },
         },
         comentarios: {
@@ -233,6 +234,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
         causa: r.causa?.nome ?? "",
         pedido: r.pedido,
         dataAbertura: ISO(r.dataAbertura) ?? "",
+        treino: r.treino,
       },
     };
   }
@@ -396,9 +398,10 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     return r.count;
   }
 
-  async pendentes(agora: Date, limite: number) {
+  async pendentes(agora: Date, limite: number, incluirTreino = false) {
     const l = await this.prisma.clickupCard.findMany({
       where: {
+        ...(incluirTreino ? {} : { reclamacao: { treino: false } }),
         reclamacaoId: { not: null },
         proximaTentativaEm: { lte: agora },
         OR: [

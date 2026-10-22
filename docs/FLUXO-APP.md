@@ -46,6 +46,26 @@ A regra mora no domínio (`packages/domain/src/jornada.ts`) e o servidor a confe
 
 **Escopo**: SAC, gestor e administrador veem tudo. O responsável de setor vê só os setores do seu cadastro e, se o cadastro tiver marcas, só essas marcas (lista de marcas vazia = todas). O seletor de marca oferece só as marcas permitidas. O administrador define setores e marcas na tela de usuários.
 
+## 1.2 Modo treino
+
+Para ensaiar e apresentar o sistema sem sujar os dados reais, os indicadores nem o ClickUp. Só **administrador e gestor** usam; a escolha vale **por usuário**.
+
+- **Alternador "Modo treino"** no topo. Ligado, a faixa laranja "MODO TREINO: dados fictícios" aparece em todas as telas e a visão mostra **somente** dados de treino (lista, ficha, fila, alertas e relatórios). Desligado, o treino some de todas as telas e indicadores. Reclamação registrada com o modo ligado nasce como treino.
+- **Tela Treino** (`/admin/treino`): "Carregar dados de demonstração" (administrador; cerca de 18 reclamações fictícias nas três marcas e nos sete estados, com relógios, atrasos, uma perto do prazo do marketplace e uma reaberta; rodar de novo não duplica), "Apagar dados de treino" (administrador, com confirmação; apaga só treino) e os simuladores "Simular reclamação do Mercado Livre" e "Simular devolução da Shopee" (criam uma reclamação de treino em Triagem a partir de uma carga fictícia no formato da API do canal, com pedido, SKU, texto, prazo do marketplace e comprador; a Shopee com e-mail mascarado).
+- **ClickUp:** reclamação de treino não cria nem atualiza card. O administrador pode ligar "Criar cards para reclamações de treino" em Integrações (padrão desligado, com aviso de que o treino vai aparecer no ClickUp configurado).
+- **Roteiro** (`/admin/roteiro-treino`): passo a passo de 10 minutos para apresentar ao dono, cada passo com link direto para a tela certa.
+
+Os dados de treino só têm gente inventada: nome "Fictício", e-mail `.invalid` e telefone com DDD 00.
+
+## 1.3 Simulação de canais
+
+Tela `/admin/simulacao-canais` (administrador e gestor; só o administrador liga o marketplace simulado). Serve para mostrar ao dono como a reclamação do Mercado Livre e da Shopee entra sozinha e o que falta para funcionar de verdade.
+
+- **Marketplace simulado:** o sistema consome um Mercado Livre e uma Shopee de mentira, com o mesmo código de captura que vai consumir os de verdade (só mudam a URL base e as credenciais). 12 casos fictícios por canal, variados.
+- **Cenários por canal:** novo caso (ou nova devolução), atualização de status, aviso duplicado, aviso perdido recuperado pela busca, e "Rodar a busca agora". As reclamações criadas entram em **Triagem**, como treino, com pedido, SKU, texto, prazo do marketplace, comprador e fotos; cada campo que veio do canal só muda com motivo.
+- **Registro de chamadas:** linha do tempo de cada etapa (aviso recebido, buscou a reclamação, o detalhe, o pedido, mapeou, criou a reclamação), com o tempo de cada uma.
+- **O que falta para funcionar de verdade**, por canal: aplicativo criado, conta administradora autorizando, URL pública em HTTPS, aprovação da Shopee, credencial de produção, URL base real. O que o sistema consegue conferir aparece como feito ou faltando; o resto, "conferir no painel do canal".
+
 ## 2. Jornadas principais
 
 ### Jornada 1: Registro assistido pelo site

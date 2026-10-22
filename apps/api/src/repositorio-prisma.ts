@@ -22,6 +22,7 @@ export class RepositorioPrisma implements RepositorioAuth {
     perfil: UsuarioRegistro["perfil"];
     senhaHash: string;
     ativo: boolean;
+    modoTreino: boolean;
     setores: { setor: { nome: string } }[];
     marcas: { marca: { nome: string } }[];
     permissoes: { chave: string; permitido: boolean }[];
@@ -33,6 +34,7 @@ export class RepositorioPrisma implements RepositorioAuth {
       perfil: u.perfil,
       senhaHash: u.senhaHash,
       ativo: u.ativo,
+      modoTreino: u.modoTreino,
       setores: u.setores.map((s) => s.setor.nome),
       marcas: u.marcas.map((m) => m.marca.nome),
       permissoes: u.permissoes.map((p) => ({

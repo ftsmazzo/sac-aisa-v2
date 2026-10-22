@@ -288,6 +288,7 @@ export class ServicoRelatorios {
       perfil: usuario.perfil,
       setores: usuario.setores,
       marcas: usuario.marcas,
+      treino: usuario.modoTreino,
     };
     const linhas = await this.repo.linhas({
       where: filtroDoRelatorio(filtros, escopo),

@@ -10,7 +10,7 @@ import {
   temPermissao,
   validarTransicao,
 } from "@sac-aisa/domain";
-import { type Escopo, filtroDeEscopo } from "./reclamacoes";
+import { type Escopo, filtroPorId } from "./reclamacoes";
 
 // ---------- Estado e entrada ----------
 
@@ -90,6 +90,8 @@ export interface EntradaEscrita {
   custos?: Partial<Custos>;
   /** Só acompanha a troca de setor: vai para a auditoria, não para a reclamação. */
   motivoTroca?: string;
+  /** Obrigatório para alterar campo que veio do canal; vai para a auditoria. */
+  motivoCanal?: string;
 }
 
 export class ErroEscrita extends Error {
@@ -147,6 +149,7 @@ const CAMPOS_DO_SETOR = [
 const MOTIVO_MAX = 200;
 const CAMPOS_ACEITOS = new Set<string>([
   "motivoTroca",
+  "motivoCanal",
   ...CAMPOS_ID,
   ...CAMPOS_CURTOS,
   ...CAMPOS_LONGOS,
@@ -248,6 +251,14 @@ export function lerEntrada(
     if (v.trim() !== "") e.motivoTroca = v.trim();
   }
 
+  if ("motivoCanal" in corpo) {
+    const v = corpo.motivoCanal;
+    if (typeof v !== "string" || v.length > MOTIVO_MAX) {
+      return erro('Valor inválido em "motivoCanal".');
+    }
+    if (v.trim() !== "") e.motivoCanal = v.trim();
+  }
+
   if ("uf" in corpo) {
     const v = corpo.uf;
     if (typeof v !== "string" || !/^([A-Za-z]{2})?$/.test(v.trim())) {
@@ -338,13 +349,15 @@ export interface AuditoriaNova {
   alvo: string;
   detalhe: string;
   reclamacaoId: string;
-  extra: { mudancas: MudancaAuditada[]; motivo?: string };
+  extra: { mudancas: MudancaAuditada[]; motivo?: string; motivoCanal?: string };
 }
 
 export interface RegistroAtual {
   id: string;
   numero: number;
   estado: EstadoReclamacao;
+  /** Campos que vieram do canal; mudar um deles exige motivo. */
+  camposCanal?: string[];
 }
 
 /** A mudança de estado que acompanha a gravação. Vai para o histórico de estados na mesma transação. */
@@ -364,6 +377,8 @@ export interface RepositorioEscrita {
     situacao: Situacao;
     usuarioId: string;
     usuarioNome: string;
+    /** Registrada no modo treino: nasce como dado de treino. */
+    treino: boolean;
     auditar: (r: { id: string; numero: number }) => AuditoriaNova;
   }): Promise<{ id: string; numero: number }>;
   atualizar(args: {
@@ -470,14 +485,29 @@ function derivar(e: EstadoReclamacao, ref: Referencias): EstadoReclamacao {
   return r;
 }
 
+export const MOTIVO_CANAL_MIN = 5;
+
+/** Campos alterados que vieram do canal. Só com motivo (ao menos 5 letras) a edição passa. */
+export function camposDoCanalAlterados(
+  mudancas: MudancaAuditada[],
+  camposCanal: string[] | undefined,
+): string[] {
+  if (!camposCanal?.length) return [];
+  return mudancas.map((m) => m.campo).filter((c) => camposCanal.includes(c));
+}
+
 function extraAuditoria(
   mudancas: MudancaAuditada[],
   entrada: EntradaEscrita,
+  protegidos: string[] = [],
 ): AuditoriaNova["extra"] {
   const trocou = mudancas.some((m) => m.campo === "setorRespId");
-  return entrada.motivoTroca && trocou
-    ? { mudancas, motivo: entrada.motivoTroca }
-    : { mudancas };
+  const extra: AuditoriaNova["extra"] = { mudancas };
+  if (entrada.motivoTroca && trocou) extra.motivo = entrada.motivoTroca;
+  if (entrada.motivoCanal && protegidos.length) {
+    extra.motivoCanal = entrada.motivoCanal;
+  }
+  return extra;
 }
 
 function exigir(u: UsuarioLogado, chave: string) {
@@ -693,6 +723,7 @@ export class ServicoEscrita {
       situacao: situacaoDe(estado),
       usuarioId: usuario.id,
       usuarioNome: usuario.nome,
+      treino: usuario.modoTreino === true,
       auditar: (r) => ({
         usuarioId: usuario.id,
         usuarioNome: usuario.nome,
@@ -720,11 +751,9 @@ export class ServicoEscrita {
       perfil: usuario.perfil,
       setores: usuario.setores,
       marcas: usuario.marcas,
+      treino: usuario.modoTreino,
     };
-    const doEscopo = filtroDeEscopo(escopo);
-    const where: Prisma.ReclamacaoWhereInput = doEscopo
-      ? { AND: [{ id }, doEscopo] }
-      : { id };
+    const where = filtroPorId(id, escopo);
     // Fora do escopo é igual a não existir, como na leitura.
     const atual = await this.repo.obterAtual(where);
     if (!atual) throw new ErroEscrita(404, "Reclamação não encontrada.");
@@ -737,6 +766,16 @@ export class ServicoEscrita {
       ref,
     );
     const mudancas = compararEstados(atual.estado, estado);
+    const protegidos = camposDoCanalAlterados(mudancas, atual.camposCanal);
+    if (
+      protegidos.length > 0 &&
+      (entrada.motivoCanal ?? "").trim().length < MOTIVO_CANAL_MIN
+    ) {
+      throw new ErroEscrita(
+        400,
+        `Este dado veio do canal (${protegidos.join(", ")}). Informe o motivo da alteração.`,
+      );
+    }
     if (mudancas.length === 0) {
       return {
         id: atual.id,
@@ -766,7 +805,7 @@ export class ServicoEscrita {
         alvo: `Reclamação #${atual.numero}`,
         detalhe: `Campos alterados: ${mudancas.map((m) => m.campo).join(", ")}.`,
         reclamacaoId: atual.id,
-        extra: extraAuditoria(mudancas, entrada),
+        extra: extraAuditoria(mudancas, entrada, protegidos),
       },
     });
     return {

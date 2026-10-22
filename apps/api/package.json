@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "esbuild src/main.ts src/criar-admin.ts src/importar.ts src/redefinir-senha.ts --bundle --platform=node --format=cjs --outdir=dist --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express",
+    "build": "esbuild src/main.ts src/criar-admin.ts src/importar.ts src/redefinir-senha.ts src/treino-demo.ts --bundle --platform=node --format=cjs --outdir=dist --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
-    "admin:criar": "tsx src/criar-admin.ts"
+    "admin:criar": "tsx src/criar-admin.ts",
+    "treino:carregar": "tsx src/treino-demo.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.0",

@@ -8,6 +8,11 @@ import {
 } from "./analise-fila.controller";
 import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
+import {
+  ControladorSimulacao,
+  ControladorWebhooksCanais,
+  ServicoCanais,
+} from "./canais.controller";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
 import { ServicoAssistenteClickup } from "./clickup-assistente";
 import { ControladorIa, ControladorIaAdmin } from "./ia/ia.controller";
@@ -27,6 +32,7 @@ import { ControladorReclamacoes } from "./reclamacoes.controller";
 import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
 import { lerChave } from "./segredos";
+import { ControladorTreino } from "./treino.controller";
 import { ControladorUsuarios } from "./usuarios.controller";
 
 @Module({
@@ -45,6 +51,9 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorAnalise,
     ControladorFilaAlertas,
     ControladorRelatorios,
+    ControladorTreino,
+    ControladorWebhooksCanais,
+    ControladorSimulacao,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },
@@ -89,6 +98,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
       inject: [PrismaClient, ServicoIntegracoes],
     },
     FilaClickup,
+    ServicoCanais,
     {
       provide: ServicoAuth,
       useFactory: (prisma: PrismaClient) =>

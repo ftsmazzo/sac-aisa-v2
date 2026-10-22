@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import type { Devolucao } from "@sac-aisa/domain";
-import { type Escopo, filtroDeEscopo } from "./reclamacoes";
+import { type Escopo, filtroPorId } from "./reclamacoes";
 
 /**
  * Linha do tempo da reclamação: entrada, triagem, encaminhamento ao setor, análise, produto
@@ -380,10 +380,7 @@ export class ServicoLinhaDoTempo {
 
   /** Fora do escopo é igual a não existir, como na ficha. */
   async obter(id: string, escopo: Escopo): Promise<LinhaDoTempo | null> {
-    const doEscopo = filtroDeEscopo(escopo);
-    const where: Prisma.ReclamacaoWhereInput = doEscopo
-      ? { AND: [{ id }, doEscopo] }
-      : { id };
+    const where = filtroPorId(id, escopo);
     const dados = await this.repo.obter(where);
     return dados ? montarLinhaDoTempo(dados) : null;
   }

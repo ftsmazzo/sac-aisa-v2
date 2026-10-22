@@ -249,6 +249,9 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
     return {
       id: r.id,
       numero: r.numero,
+      camposCanal: Array.isArray(r.camposCanal)
+        ? r.camposCanal.filter((c): c is string => typeof c === "string")
+        : [],
       estado: {
         canalId: r.canalId,
         marcaId: r.marcaId,
@@ -295,6 +298,7 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
         data: {
           ...dadosEscalares(args.estado, args.situacao),
           origemRegistro: "web",
+          treino: args.treino,
           criadoPorId: args.usuarioId,
           alteradoPorId: args.usuarioId,
           custo: { create: args.estado.custos },
@@ -449,7 +453,12 @@ function usuarioDe(req: PedidoComUsuario) {
 
 function escopoDe(req: PedidoComUsuario): Escopo {
   const u = usuarioDe(req);
-  return { perfil: u.perfil, setores: u.setores, marcas: u.marcas };
+  return {
+    perfil: u.perfil,
+    setores: u.setores,
+    marcas: u.marcas,
+    treino: u.modoTreino,
+  };
 }
 
 /**

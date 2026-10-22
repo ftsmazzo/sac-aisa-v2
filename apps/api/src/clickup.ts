@@ -64,6 +64,8 @@ export interface DadosCard {
     estado: Estado;
     devolucao: Devolucao;
     custoTotal: number;
+    /** Reclamação de treino: só vira card se o administrador liberar. */
+    treino?: boolean;
   };
 }
 
@@ -138,7 +140,11 @@ export interface RepositorioClickup {
     contarTentativa: boolean;
   }): Promise<void>;
   /** Reclamações cujo card tem trabalho na fila (criar, atualizar ou comentar) e cuja hora chegou. */
-  pendentes(agora: Date, limite: number): Promise<string[]>;
+  pendentes(
+    agora: Date,
+    limite: number,
+    incluirTreino?: boolean,
+  ): Promise<string[]>;
   /** Marca o card para atualizar e, se vier texto, enfileira o comentário. Sem card, não faz nada. */
   marcarSync(args: {
     reclamacaoId: string;
@@ -257,11 +263,13 @@ export type ResultadoTentativa =
   | "criado"
   | "sem_token"
   | "sem_lista"
+  | "treino_bloqueado"
   | "falhou";
 
 export type ResultadoSync =
   | "nada"
   | "sincronizado"
+  | "treino_bloqueado"
   | "sem_token"
   | "sem_workspace"
   | "falhou";
@@ -280,6 +288,12 @@ export class ServicoClickup {
     private readonly urlWeb: string | undefined = process.env.WEB_BASE_URL,
   ) {}
 
+  /** Reclamação de treino só chega ao ClickUp com "Criar cards para reclamações de treino" ligado. */
+  private async treinoLiberado(): Promise<boolean> {
+    const cfg = await this.integr.config("clickup");
+    return cfg.criarCardsTreino === true;
+  }
+
   /**
    * Tenta criar o card. Nunca lança: sem token o card só fica pendente, e qualquer falha
    * do ClickUp vira erro registrado em `ClickupCard`, com nova tentativa mais tarde.
@@ -288,6 +302,9 @@ export class ServicoClickup {
     const dados = await this.repo.carregarCard(reclamacaoId);
     if (!dados) return "sem_card";
     if (dados.taskId) return "criado";
+    if (dados.reclamacao.treino && !(await this.treinoLiberado())) {
+      return "treino_bloqueado";
+    }
 
     const token = await this.integr.segredo("clickup", "token");
     if (!token) return "sem_token";
@@ -368,7 +385,11 @@ export class ServicoClickup {
 
   /** Passada da fila: tenta os cards cuja hora chegou. */
   async processarPendentes(limite = 20): Promise<number> {
-    const ids = await this.repo.pendentes(this.agora(), limite);
+    const ids = await this.repo.pendentes(
+      this.agora(),
+      limite,
+      await this.treinoLiberado(),
+    );
     for (const id of ids) await this.trabalhar(id).catch(() => undefined);
     return ids.length;
   }
@@ -466,6 +487,9 @@ export class ServicoClickup {
     const dados = await this.repo.carregarCard(reclamacaoId);
     if (!dados?.taskId) return "nada";
     if (!dados.precisaSync && dados.comentarios.length === 0) return "nada";
+    if (dados.reclamacao.treino && !(await this.treinoLiberado())) {
+      return "treino_bloqueado";
+    }
     const token = await this.integr.segredo("clickup", "token");
     if (!token) return "sem_token";
 
