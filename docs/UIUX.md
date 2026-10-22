@@ -36,7 +36,7 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
 
 ### Tipografia
 
-- Inter. Boa leitura de números em tabelas e gráficos, números tabulares nos indicadores.
+- Figtree (trocou o Inter no refino visual). Amigável, com números tabulares para tabelas, indicadores e gráficos.
 
 ### Componentes centrais
 
