@@ -4,9 +4,11 @@ import {
   CAUSA_POR_ID,
   classificar,
   type Devolucao,
+  type Estado,
   type Situacao,
   situacao,
   temPermissao,
+  validarTransicao,
 } from "@sac-aisa/domain";
 import { type Escopo, filtroDeEscopo } from "./reclamacoes";
 
@@ -32,9 +34,13 @@ export interface EstadoReclamacao {
   setorRespId: string | null;
   setorRespManual: boolean;
   devolucao: Devolucao;
+  /** Estado da jornada. Só muda por transição (ver `jornada.ts`) ou como efeito de data de ação e troca de setor. */
+  estado: Estado;
   dataAbertura: string;
   dataAcao: string | null;
   dataRecebimento: string | null;
+  /** Prazo do marketplace (AAAA-MM-DD). Corre à parte do relógio interno. */
+  prazoMarketplace: string | null;
   protocoloExterno: string | null;
   descricao: string;
   laudo: string;
@@ -67,6 +73,7 @@ export interface EntradaEscrita {
   dataAbertura?: string;
   dataAcao?: string | null;
   dataRecebimento?: string | null;
+  prazoMarketplace?: string | null;
   protocoloExterno?: string | null;
   descricao?: string;
   laudo?: string;
@@ -148,6 +155,7 @@ const CAMPOS_ACEITOS = new Set<string>([
   "dataAbertura",
   "dataAcao",
   "dataRecebimento",
+  "prazoMarketplace",
   "uf",
   "custos",
 ]);
@@ -245,7 +253,12 @@ export function lerEntrada(
     e.devolucao = corpo.devolucao;
   }
 
-  for (const campo of ["dataAbertura", "dataAcao", "dataRecebimento"]) {
+  for (const campo of [
+    "dataAbertura",
+    "dataAcao",
+    "dataRecebimento",
+    "prazoMarketplace",
+  ]) {
     if (!(campo in corpo)) continue;
     const v = corpo[campo];
     if (v === null || v === "") {
@@ -324,6 +337,14 @@ export interface RegistroAtual {
   estado: EstadoReclamacao;
 }
 
+/** A mudança de estado que acompanha a gravação. Vai para o histórico de estados na mesma transação. */
+export interface TransicaoGravada {
+  de: Estado;
+  para: Estado;
+  motivo: string;
+  reabertura: boolean;
+}
+
 export interface RepositorioEscrita {
   referencias(): Promise<Referencias>;
   produtoPorCodigo(codigo: string): Promise<string | null>;
@@ -332,6 +353,7 @@ export interface RepositorioEscrita {
     estado: EstadoReclamacao;
     situacao: Situacao;
     usuarioId: string;
+    usuarioNome: string;
     auditar: (r: { id: string; numero: number }) => AuditoriaNova;
   }): Promise<{ id: string; numero: number }>;
   atualizar(args: {
@@ -340,6 +362,8 @@ export interface RepositorioEscrita {
     situacao: Situacao;
     usuarioId: string;
     auditoria: AuditoriaNova;
+    /** Nulo quando o estado não mudou. */
+    transicao: TransicaoGravada | null;
   }): Promise<void>;
 }
 
@@ -356,9 +380,11 @@ export function estadoVazio(canalId: string, hoje: string): EstadoReclamacao {
     setorRespId: null,
     setorRespManual: false,
     devolucao: "NA",
+    estado: "triagem",
     dataAbertura: hoje,
     dataAcao: null,
     dataRecebimento: null,
+    prazoMarketplace: null,
     protocoloExterno: null,
     descricao: "",
     laudo: "",
@@ -456,6 +482,67 @@ function hojeEmSaoPaulo(agora: Date): string {
   }).format(agora);
 }
 
+/** Estados em que o setor já assumiu a reclamação: trocar o setor obriga o novo a receber. */
+const ESTADOS_EM_ANDAMENTO: readonly Estado[] = ["recebida", "em_tratativa"];
+
+/**
+ * Efeito da gravação sobre a jornada. Registrar a data de ação resolve no setor técnico;
+ * apagá-la volta a tratativa; trocar o setor de algo já assumido volta a "encaminhada".
+ * O estado só anda assim ou por transição explícita (`jornada.ts`).
+ */
+function acertarEstado(
+  base: EstadoReclamacao,
+  e: EstadoReclamacao,
+  entrada: EntradaEscrita,
+  usuario: UsuarioLogado,
+): { estado: EstadoReclamacao; motivo: string } {
+  let destino = base.estado;
+  let motivo = "";
+  const resolveu =
+    !base.dataAcao &&
+    !!e.dataAcao &&
+    base.estado !== "resolvida_setor" &&
+    base.estado !== "finalizada";
+  const limpou = !!base.dataAcao && !e.dataAcao;
+
+  if (resolveu) {
+    const r = validarTransicao({
+      perfil: usuario.perfil,
+      de: base.estado,
+      para: "resolvida_setor",
+      motivo: "Data de ação registrada na ficha.",
+      devolucao: e.devolucao,
+      temSetor: !!e.setorRespId,
+    });
+    if (!r.ok) {
+      throw new ErroEscrita(
+        r.codigo === "sem_permissao" ? 403 : 400,
+        r.mensagem,
+      );
+    }
+    destino = "resolvida_setor";
+    motivo = "Data de ação registrada na ficha.";
+  } else if (limpou) {
+    if (base.estado === "finalizada") {
+      throw new ErroEscrita(
+        400,
+        "Reabra a reclamação, com motivo, antes de apagar a data de ação.",
+      );
+    }
+    if (base.estado === "resolvida_setor") {
+      destino = "em_tratativa";
+      motivo = "Data de ação removida.";
+    }
+  } else if (
+    base.setorRespId !== e.setorRespId &&
+    ESTADOS_EM_ANDAMENTO.includes(base.estado)
+  ) {
+    destino = "encaminhada";
+    motivo = entrada.motivoTroca ?? "Setor responsável trocado.";
+  }
+  return { estado: { ...e, estado: destino }, motivo };
+}
+
 export class ServicoEscrita {
   constructor(
     private readonly repo: RepositorioEscrita,
@@ -468,7 +555,7 @@ export class ServicoEscrita {
     entrada: EntradaEscrita,
     usuario: UsuarioLogado,
     ref: Referencias,
-  ): Promise<EstadoReclamacao> {
+  ): Promise<{ estado: EstadoReclamacao; motivoEstado: string }> {
     const e: EstadoReclamacao = { ...base, custos: { ...base.custos } };
     const solto = e as unknown as Record<string, unknown>;
 
@@ -539,6 +626,7 @@ export class ServicoEscrita {
       "dataAbertura",
       "dataAcao",
       "dataRecebimento",
+      "prazoMarketplace",
     ] as const) {
       const v = entrada[campo];
       if (v !== undefined) solto[campo] = v;
@@ -568,7 +656,13 @@ export class ServicoEscrita {
       }
     }
 
-    return derivar(e, ref);
+    const { estado, motivo } = acertarEstado(
+      base,
+      derivar(e, ref),
+      entrada,
+      usuario,
+    );
+    return { estado, motivoEstado: motivo };
   }
 
   async criar(
@@ -579,7 +673,7 @@ export class ServicoEscrita {
     const ref = await this.repo.referencias();
     const hoje = hojeEmSaoPaulo(this.agora());
     const base = estadoVazio("", entrada.dataAbertura ?? hoje);
-    const estado = await this.aplicar(base, entrada, usuario, ref);
+    const { estado } = await this.aplicar(base, entrada, usuario, ref);
     if (estado.dataAbertura > hoje) {
       throw new ErroEscrita(400, "A data de abertura está no futuro.");
     }
@@ -588,6 +682,7 @@ export class ServicoEscrita {
       estado,
       situacao: situacaoDe(estado),
       usuarioId: usuario.id,
+      usuarioNome: usuario.nome,
       auditar: (r) => ({
         usuarioId: usuario.id,
         usuarioNome: usuario.nome,
@@ -606,7 +701,11 @@ export class ServicoEscrita {
     usuario: UsuarioLogado,
   ): Promise<{ id: string; numero: number; alterou: boolean }> {
     exigir(usuario, "reclamacoes.editar");
-    const escopo: Escopo = { perfil: usuario.perfil, setores: usuario.setores };
+    const escopo: Escopo = {
+      perfil: usuario.perfil,
+      setores: usuario.setores,
+      marcas: usuario.marcas,
+    };
     const doEscopo = filtroDeEscopo(escopo);
     const where: Prisma.ReclamacaoWhereInput = doEscopo
       ? { AND: [{ id }, doEscopo] }
@@ -616,7 +715,12 @@ export class ServicoEscrita {
     if (!atual) throw new ErroEscrita(404, "Reclamação não encontrada.");
 
     const ref = await this.repo.referencias();
-    const estado = await this.aplicar(atual.estado, entrada, usuario, ref);
+    const { estado, motivoEstado } = await this.aplicar(
+      atual.estado,
+      entrada,
+      usuario,
+      ref,
+    );
     const mudancas = compararEstados(atual.estado, estado);
     if (mudancas.length === 0) {
       return { id: atual.id, numero: atual.numero, alterou: false };
@@ -626,6 +730,15 @@ export class ServicoEscrita {
       estado,
       situacao: situacaoDe(estado),
       usuarioId: usuario.id,
+      transicao:
+        estado.estado === atual.estado.estado
+          ? null
+          : {
+              de: atual.estado.estado,
+              para: estado.estado,
+              motivo: motivoEstado,
+              reabertura: false,
+            },
       auditoria: {
         usuarioId: usuario.id,
         usuarioNome: usuario.nome,

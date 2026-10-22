@@ -2,6 +2,7 @@ import {
   CAUSAS,
   classificarTodas,
   type Devolucao,
+  estadoDaSituacaoLegada,
   ORIGEM_POR_CAUSA,
   type ReclamacaoLike,
   SETORES_RESP,
@@ -20,6 +21,7 @@ export interface Tabelas {
   produtos: Linha[];
   causas: Linha[];
   reclamacoes: Linha[];
+  estado_historico: Linha[];
   custos: Linha[];
   reclamacao_causas: Linha[];
   usuarios: Linha[];
@@ -216,6 +218,7 @@ export function converterBackup(
   const bancadas = new Map<string, Linha>();
   const produtos = new Map<string, Linha>();
   const reclamacoes: Linha[] = [];
+  const historico: Linha[] = [];
   const custos: Linha[] = [];
   const extras: Linha[] = [];
   const causasValidas = new Set(CAUSAS.map((c) => c.id));
@@ -352,6 +355,8 @@ export function converterBackup(
     const dataAcao = paraData(r.dataAcao);
     const dataRecebimento = paraData(r.dataRecebimento);
     const situ = situacao({ dataAcao, devolucao });
+    // O sistema antigo não tinha jornada: a situação de lá vira o estado de cá (mesma regra da migração).
+    const estado = estadoDaSituacaoLegada({ dataAcao, devolucao });
 
     const manual = limpar(r.setorRespManual);
     const manualValido = (SETORES_RESP as readonly string[]).includes(manual);
@@ -376,6 +381,8 @@ export function converterBackup(
       setorRespManual: manualValido,
       causaManual: definida,
       situacao: situ,
+      estado,
+      estadoDesde: instante(r.criadoEm, abertura),
       devolucao,
       dataAbertura: abertura,
       dataAcao,
@@ -395,6 +402,18 @@ export function converterBackup(
       origemRegistro: "importado",
       criadoEm: instante(r.criadoEm, abertura),
       alteradoEm: instante(r.alteradoEm, abertura),
+    });
+
+    historico.push({
+      id: `${id}-mig`,
+      reclamacaoId: id,
+      de: null,
+      para: estado,
+      quando: instante(r.criadoEm, abertura),
+      autorNome: "Importação",
+      motivo: "Estado inicial a partir da situação do sistema antigo.",
+      origem: "importacao",
+      reabertura: false,
     });
 
     custos.push({
@@ -488,6 +507,7 @@ export function converterBackup(
     produtos: [...produtos.values()],
     causas,
     reclamacoes,
+    estado_historico: historico,
     custos,
     reclamacao_causas: extras,
     usuarios,

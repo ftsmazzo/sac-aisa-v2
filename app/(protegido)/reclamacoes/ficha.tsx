@@ -7,10 +7,14 @@ import {
   data,
   moeda,
   ROTULO_DEVOLUCAO,
+  ROTULO_ESTADO,
   ROTULO_SITUACAO,
   tomDaSituacao,
+  tomDoEstado,
 } from "@/lib/reclamacoes-formato";
 import { JornadaDaFicha } from "./linha-do-tempo";
+import { ProximoPasso } from "./proximo-passo";
+import { HistoricoEstados, Tempos } from "./tempos";
 
 function Campo({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   return (
@@ -96,6 +100,9 @@ export function ConteudoFicha({
             {ficha.produto?.nome ?? "Produto não informado"}
           </h2>
           <div className="ficha__selos">
+            <Selo tom={tomDoEstado(ficha.estado)}>
+              {ROTULO_ESTADO[ficha.estado]}
+            </Selo>
             <Selo tom={tomDaSituacao(ficha.situacao)}>
               {ROTULO_SITUACAO[ficha.situacao]}
             </Selo>
@@ -138,7 +145,10 @@ export function ConteudoFicha({
       )}
 
       <div className="ficha__corpo">
+        <ProximoPasso id={ficha.id} transicoes={ficha.transicoes} />
+        <Tempos ficha={ficha} />
         <JornadaDaFicha id={ficha.id} />
+        <HistoricoEstados ficha={ficha} />
 
         <h3 className="ficha__subtitulo">Triagem</h3>
         <dl className="ficha__grade">

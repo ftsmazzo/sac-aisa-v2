@@ -491,6 +491,10 @@ function linha(sobrescrever: Partial<LinhaAberta> = {}): LinhaAberta {
     id: "r1",
     numero: 1,
     dataAbertura: "2026-10-21",
+    dataAcao: null,
+    estado: "recebida",
+    estadoDesde: "2026-10-21T12:00:00.000Z",
+    prazoMarketplace: null,
     devolucao: "NA",
     causaId: null,
     causaManual: false,
@@ -536,9 +540,16 @@ describe("ServicoFilaAlertas", () => {
       }),
     ]);
     const f = await new ServicoFilaAlertas(repo, AGORA).fila(usuario("gestor"));
-    expect(f.itens.map((i) => i.id)).toEqual(["velha", "cara", "nova"]);
-    expect(f.itens[0]?.alertas).toContain("TRATATIVA_META");
-    expect(f.total).toBe(3);
+    // Quem já foi analisado continua na fila até o setor devolver a solução.
+    expect(f.itens.map((i) => i.id)).toEqual([
+      "analisada",
+      "velha",
+      "cara",
+      "nova",
+    ]);
+    expect(f.itens[0]?.analisada).toBe(true);
+    expect(f.itens[1]?.alertas).toContain("TRATATIVA_META");
+    expect(f.total).toBe(4);
   });
 
   it("fila: análise de outro setor não tira a pendência do setor atual", async () => {
@@ -553,7 +564,10 @@ describe("ServicoFilaAlertas", () => {
       usuario("responsavel_setor", ["Logística"]),
     );
     const and = (buscas[0] as { AND: unknown[] }).AND;
-    expect(and).toContainEqual({ dataAcao: null });
+    expect(and).toContainEqual({ estado: { not: "finalizada" } });
+    expect(and).toContainEqual({
+      estado: { in: ["encaminhada", "recebida", "em_tratativa"] },
+    });
     expect(and).toContainEqual({ setorRespId: { not: null } });
     expect(and).toContainEqual({ setorResp: { nome: { in: ["Logística"] } } });
   });

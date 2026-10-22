@@ -85,6 +85,10 @@ export default async function LayoutProtegido({
               usuario.permissoes.includes("integracoes.gerir") && (
                 <NavLink href="/admin/integracoes">Integrações</NavLink>
               )}
+            {usuario.perfil === "administrador" &&
+              usuario.permissoes.includes("usuarios.gerir") && (
+                <NavLink href="/admin/usuarios">Usuários</NavLink>
+              )}
           </nav>
           <span className="casca__espaco" />
           <SeletorMarca oferecidas={marca.oferecidas} escolha={marca.escolha} />

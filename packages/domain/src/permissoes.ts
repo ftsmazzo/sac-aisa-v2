@@ -109,6 +109,23 @@ export function veTodosOsSetores(perfil: Perfil): boolean {
   return PERFIS_TODOS_OS_SETORES.includes(perfil);
 }
 
+/**
+ * Só o responsável de setor é limitado por marca. Com a lista de marcas vazia, vê todas;
+ * com marcas na lista, só as dela. SAC, gestor e administrador veem todas as marcas.
+ */
+export function veTodasAsMarcas(perfil: Perfil): boolean {
+  return perfil !== "responsavel_setor";
+}
+
+/** Marcas que o usuário pode ver. `null` = todas. */
+export function marcasVisiveis(
+  perfil: Perfil,
+  marcasDoUsuario: string[],
+): string[] | null {
+  if (veTodasAsMarcas(perfil) || marcasDoUsuario.length === 0) return null;
+  return marcasDoUsuario;
+}
+
 export function mesclarPermissoes(
   perfil: Perfil,
   overrides: { chave: string; permitido: boolean }[],

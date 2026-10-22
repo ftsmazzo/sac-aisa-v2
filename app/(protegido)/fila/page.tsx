@@ -5,10 +5,17 @@ import { type RespostaFila, ROTULO_ALERTA } from "@/lib/fila-alertas";
 import { consultaDeMarca } from "@/lib/marca-escolhida";
 import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi } from "@/lib/reclamacoes";
-import { data, moeda, ROTULO_DEVOLUCAO } from "@/lib/reclamacoes-formato";
+import {
+  data,
+  moeda,
+  ROTULO_DEVOLUCAO,
+  ROTULO_ESTADO,
+  tomDoEstado,
+} from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
+import { BotaoAssumir } from "./botao-assumir";
 
-/** Fila do setor: reclamações em aberto que ainda esperam a análise, as mais urgentes primeiro. */
+/** Fila do setor: o que está com o setor (encaminhada, recebida, em tratativa), as mais urgentes primeiro. */
 export default async function Fila() {
   const usuario = await obterUsuario();
   if (!usuario) redirect("/login");
@@ -37,7 +44,7 @@ export default async function Fila() {
         <h1 className="pagina__titulo">Fila do setor</h1>
         <p className="pagina__apoio">
           {fila.ok
-            ? `${fila.dados.total} ${fila.dados.total === 1 ? "reclamação aguarda" : "reclamações aguardam"} análise`
+            ? `${fila.dados.total} ${fila.dados.total === 1 ? "reclamação está" : "reclamações estão"} com o setor`
             : "Não foi possível carregar a fila."}
           {usuario.perfil === "responsavel_setor" &&
             usuario.setores.length > 0 &&
@@ -49,7 +56,7 @@ export default async function Fila() {
         <section className="vazio">
           <h2 className="vazio__titulo">Nada na fila</h2>
           <p className="vazio__texto">
-            Todas as reclamações em aberto já têm a análise do setor.
+            Nenhuma reclamação está com o setor agora.
           </p>
         </section>
       )}
@@ -58,11 +65,12 @@ export default async function Fila() {
         <div className="cartao tabela-caixa">
           <table className="tabela">
             <caption className="sr-only">
-              Reclamações pendentes de análise, por urgência
+              Reclamações com o setor, por urgência
             </caption>
             <thead>
               <tr>
                 <th scope="col">Nº</th>
+                <th scope="col">Estado</th>
                 <th scope="col">Em aberto</th>
                 <th scope="col">Produto</th>
                 <th scope="col" className="tabela__oculta">
@@ -74,6 +82,9 @@ export default async function Fila() {
                 <th scope="col">Alertas</th>
                 <th scope="col" className="tabela__num">
                   Custo
+                </th>
+                <th scope="col">
+                  <span className="sr-only">Ação</span>
                 </th>
               </tr>
             </thead>
@@ -88,6 +99,14 @@ export default async function Fila() {
                     >
                       #{i.numero}
                     </Link>
+                  </td>
+                  <td>
+                    <Selo tom={tomDoEstado(i.estado)}>
+                      {ROTULO_ESTADO[i.estado]}
+                    </Selo>
+                    {i.analisada && (
+                      <span className="tabela__apoio">Análise registrada</span>
+                    )}
                   </td>
                   <td>
                     {i.diasEmAberto} {i.diasEmAberto === 1 ? "dia" : "dias"}
@@ -117,6 +136,11 @@ export default async function Fila() {
                         ))}
                   </td>
                   <td className="tabela__num">{moeda(i.custoTotal)}</td>
+                  <td>
+                    {i.podeAssumir && (
+                      <BotaoAssumir id={i.id} numero={i.numero} />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

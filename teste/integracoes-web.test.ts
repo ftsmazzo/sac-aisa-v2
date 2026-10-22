@@ -43,7 +43,24 @@ const CLICKUP: Integracao = {
   ],
   clickup: {
     setores: [{ id: "s1", nome: "Solda", listaId: "111" }],
-    mapaStatus: { complete: "resolvida" },
+    mapaEstados: {
+      triagem: "triagem",
+      aguardando_cliente: "aguardando cliente",
+      encaminhada: "to do",
+      recebida: "recebida",
+      em_tratativa: "em andamento",
+      resolvida_setor: "complete",
+      finalizada: "finalizada",
+    },
+    padraoEstados: {
+      triagem: "triagem",
+      aguardando_cliente: "aguardando cliente",
+      encaminhada: "encaminhada",
+      recebida: "recebida",
+      em_tratativa: "em tratativa",
+      resolvida_setor: "resolvida no setor",
+      finalizada: "finalizada",
+    },
   },
 };
 
@@ -54,15 +71,22 @@ describe("formulário de integrações", () => {
     expect(JSON.stringify(r)).not.toContain("ABCD");
   });
 
-  it("monta o corpo com listas e mapa, descartando linha de status vazia", () => {
+  it("mostra só o que difere do padrão; o resto fica vazio (placeholder)", () => {
     const r = rascunhoInicial(CLICKUP);
-    r.mapa.push({ status: "  ", situacao: "tratativa" });
-    r.mapa.push({ status: " Em Andamento ", situacao: "tratativa" });
-    expect(montarEntrada(CLICKUP, r)).toEqual({
-      campos: { token: "", listaPadraoId: "900" },
-      listas: { s1: "111" },
-      mapaStatus: { complete: "resolvida", "em andamento": "tratativa" },
-    });
+    expect(r.estados.encaminhada).toBe("to do");
+    expect(r.estados.resolvida_setor).toBe("complete");
+    expect(r.estados.triagem).toBe("");
+  });
+
+  it("monta o corpo com listas e os 7 estados, aparando espaços", () => {
+    const r = rascunhoInicial(CLICKUP);
+    r.estados.recebida = " Aceita ";
+    const corpo = montarEntrada(CLICKUP, r);
+    expect(corpo.listas).toEqual({ s1: "111" });
+    expect(Object.keys(corpo.mapaEstados ?? {})).toHaveLength(7);
+    expect(corpo.mapaEstados?.recebida).toBe("Aceita");
+    expect(corpo.mapaEstados?.triagem).toBe("");
+    expect(corpo).not.toHaveProperty("mapaStatus");
   });
 
   it("canais não mandam listas nem mapa", () => {
@@ -73,7 +97,7 @@ describe("formulário de integrações", () => {
     };
     const corpo = montarEntrada(shopee, rascunhoInicial(shopee));
     expect(corpo).not.toHaveProperty("listas");
-    expect(corpo).not.toHaveProperty("mapaStatus");
+    expect(corpo).not.toHaveProperty("mapaEstados");
   });
 
   it("mensagens de erro em português, sem detalhe técnico", () => {

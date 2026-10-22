@@ -8,6 +8,37 @@ export const ROTULO_SITUACAO: Record<Situacao, string> = {
   resolvida: "Resolvida",
 };
 
+/** Jornada da reclamação: chaves da API e nomes de tela. */
+export const ESTADOS = [
+  "triagem",
+  "aguardando_cliente",
+  "encaminhada",
+  "recebida",
+  "em_tratativa",
+  "resolvida_setor",
+  "finalizada",
+] as const;
+export type Estado = (typeof ESTADOS)[number];
+
+export const ROTULO_ESTADO: Record<Estado, string> = {
+  triagem: "Triagem",
+  aguardando_cliente: "Aguardando cliente",
+  encaminhada: "Encaminhada ao setor",
+  recebida: "Recebida pelo setor",
+  em_tratativa: "Em tratativa",
+  resolvida_setor: "Resolvida no setor técnico",
+  finalizada: "Finalizada no SAC",
+};
+
+export function tomDoEstado(e: Estado): "ok" | "atencao" | "info" {
+  if (e === "finalizada" || e === "resolvida_setor") return "ok";
+  if (e === "aguardando_cliente") return "atencao";
+  return "info";
+}
+
+export const ehEstado = (v: unknown): v is Estado =>
+  typeof v === "string" && (ESTADOS as readonly string[]).includes(v);
+
 export const ROTULO_DEVOLUCAO: Record<string, string> = {
   NA: "Sem devolução",
   AGUARDANDO: "Aguardando chegada",
@@ -29,6 +60,7 @@ export const CAMPOS_FILTRO = [
   "setor",
   "causa",
   "situacao",
+  "estado",
   "busca",
 ] as const;
 export type CampoFiltro = (typeof CAMPOS_FILTRO)[number];

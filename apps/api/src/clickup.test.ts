@@ -1,18 +1,25 @@
 import { createHmac } from "node:crypto";
-import type { Devolucao, Situacao } from "@sac-aisa/domain";
+import type { Devolucao, Estado, Situacao } from "@sac-aisa/domain";
 import { describe, expect, it } from "vitest";
 import {
   type AuditoriaClickup,
   aplicarStatusExterno,
   assinaturaValida,
   type DadosCard,
+  decidirStatusExterno,
   ErroWebhook,
+  ESPERA_STATUS_MIN,
   ESPERAS_MIN,
   type EventoGravado,
+  estadoDoStatus,
+  MAPA_ESTADOS_PADRAO,
+  mapaEstadosEfetivo,
   montarCard,
   type RepositorioClickup,
   ServicoClickup,
   ServicoWebhookClickup,
+  type SincroniaCard,
+  statusDoEstado,
   statusNovo,
 } from "./clickup";
 
@@ -50,10 +57,36 @@ class RepoFalso implements RepositorioClickup {
   porTask = new Map<string, { cardId: string; reclamacaoId: string | null }>();
   rec = {
     numero: 77,
+    estado: "em_tratativa" as Estado,
+    dataAbertura: "2026-10-20",
     dataAcao: null as string | null,
     devolucao: "NA" as Devolucao,
+    temSetor: true,
   };
   aplicado: Parameters<RepositorioClickup["aplicarStatus"]>[0][] = [];
+  sincronia: SincroniaCard | null = null;
+  sincronizados: Parameters<
+    RepositorioClickup["registrarStatusSincronizado"]
+  >[0][] = [];
+  falhasStatus: Parameters<RepositorioClickup["registrarFalhaStatus"]>[0][] =
+    [];
+
+  async statusPendentes() {
+    return [];
+  }
+  async carregarSincronia() {
+    return this.sincronia;
+  }
+  async registrarStatusSincronizado(
+    a: Parameters<RepositorioClickup["registrarStatusSincronizado"]>[0],
+  ) {
+    this.sincronizados.push(a);
+  }
+  async registrarFalhaStatus(
+    a: Parameters<RepositorioClickup["registrarFalhaStatus"]>[0],
+  ) {
+    this.falhasStatus.push(a);
+  }
 
   async carregarCard() {
     return this.card;
@@ -296,46 +329,128 @@ describe("webhook do ClickUp", () => {
     expect(statusNovo({})).toBeNull();
   });
 
+  const eventoCom = (status: string) => ({
+    event: "taskStatusUpdated",
+    task_id: "t-abc",
+    history_items: [{ field: "status", after: { status } }],
+  });
+
   async function receberEProcessar(
     repo: RepoFalso,
-    mapa: Record<string, string>,
+    ev: unknown = evento,
+    config: Record<string, unknown> = {},
+    corrigir?: (id: string) => Promise<unknown>,
   ) {
     const w = new ServicoWebhookClickup(
       repo,
-      integr(TOKEN, {}, { mapaStatus: mapa }),
+      integr(TOKEN, {}, config),
       AGORA,
+      corrigir,
     );
-    const b = corpo(evento);
+    const b = corpo(ev);
     const { id } = await w.receber(b, assinar(b));
     await w.processar(id);
     return repo.aplicado[0];
   }
 
-  it("status mapeado para resolvida atualiza a situação e audita", async () => {
+  function comCard(estado: Estado, extra: Partial<RepoFalso["rec"]> = {}) {
     const repo = new RepoFalso();
     repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const a = await receberEProcessar(repo, { complete: "resolvida" });
+    repo.rec = { ...repo.rec, estado, ...extra };
+    return repo;
+  }
+
+  it('"Complete" no ClickUp é Resolvida no setor técnico, nunca Finalizada', async () => {
+    const repo = comCard("em_tratativa");
+    const a = await receberEProcessar(repo);
     expect(a.statusExterno).toBe("Complete");
     expect(a.reclamacao).toEqual({
       id: "r1",
+      de: "em_tratativa",
+      passos: ["resolvida_setor"],
       dataAcao: "2026-10-22",
       situacao: "resolvida" satisfies Situacao,
     });
+    expect(a.corrigirCard).toBe(false);
     expect((a.auditoria as AuditoriaClickup).acao).toBe("clickup.status");
     expect(repo.eventos.get("e1")?.processadoEm).not.toBeNull();
   });
 
-  it("status sem mapa só registra o status externo", async () => {
-    const repo = new RepoFalso();
-    repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const a = await receberEProcessar(repo, {});
-    expect(a.statusExterno).toBe("Complete");
+  it("o setor anda de Encaminhada até Resolvida passando pelos passos, cada um com as regras", async () => {
+    const repo = comCard("encaminhada");
+    const a = await receberEProcessar(repo);
+    expect(a.reclamacao?.passos).toEqual([
+      "recebida",
+      "em_tratativa",
+      "resolvida_setor",
+    ]);
+  });
+
+  it("mover o card para um estado do SAC é recusado e o card volta", async () => {
+    const repo = comCard("em_tratativa");
+    const corrigidos: string[] = [];
+    const a = await receberEProcessar(
+      repo,
+      eventoCom("Finalizada no SAC"),
+      {},
+      async (id) => {
+        corrigidos.push(id);
+      },
+    );
     expect(a.reclamacao).toBeNull();
+    expect(a.corrigirCard).toBe(true);
+    expect(corrigidos).toEqual(["r1"]);
+    const aud = a.auditoria as AuditoriaClickup;
+    expect(aud.detalhe).toContain("recusado");
+    expect(aud.extra).toMatchObject({ recusado: true, estado: "em_tratativa" });
+  });
+
+  it("card movido quando a reclamação ainda é do SAC volta ao status certo", async () => {
+    for (const estado of ["triagem", "aguardando_cliente"] as const) {
+      const repo = comCard(estado);
+      const a = await receberEProcessar(repo, eventoCom("Em tratativa"));
+      expect(a.reclamacao).toBeNull();
+      expect(a.corrigirCard).toBe(true);
+    }
+  });
+
+  it("produto ainda não recebido: Em tratativa pelo ClickUp é recusado", async () => {
+    const repo = comCard("recebida", { devolucao: "AGUARDANDO" });
+    const a = await receberEProcessar(repo, eventoCom("Em tratativa"));
+    expect(a.reclamacao).toBeNull();
+    expect(a.corrigirCard).toBe(true);
+    expect((a.auditoria as AuditoriaClickup).detalhe).toContain(
+      "produto ainda não foi recebido",
+    );
+  });
+
+  it("o eco do status que o próprio sistema pôs não muda nada nem gera aviso", async () => {
+    const repo = comCard("recebida");
+    const a = await receberEProcessar(repo, eventoCom("recebida pelo setor"));
+    expect(a.reclamacao).toBeNull();
+    expect(a.auditoria).toBeNull();
+    expect(a.corrigirCard).toBe(false);
+  });
+
+  it("status que o sistema não conhece só registra o status externo", async () => {
+    const repo = comCard("em_tratativa");
+    const a = await receberEProcessar(repo, eventoCom("Revisão do chefe"));
+    expect(a.statusExterno).toBe("Revisão do chefe");
+    expect(a.reclamacao).toBeNull();
+    expect(a.corrigirCard).toBe(false);
+  });
+
+  it("o mapa configurado vale: um status próprio leva ao estado escolhido", async () => {
+    const repo = comCard("recebida");
+    const a = await receberEProcessar(repo, eventoCom("Mão na massa"), {
+      mapaEstados: { em_tratativa: "Mão na massa" },
+    });
+    expect(a.reclamacao?.passos).toEqual(["em_tratativa"]);
   });
 
   it("evento de card desconhecido é marcado como processado sem mexer em nada", async () => {
     const repo = new RepoFalso();
-    const a = await receberEProcessar(repo, { complete: "resolvida" });
+    const a = await receberEProcessar(repo);
     expect(a).toMatchObject({
       cardId: null,
       reclamacao: null,
@@ -344,18 +459,231 @@ describe("webhook do ClickUp", () => {
   });
 
   it("processar duas vezes o mesmo evento não repete", async () => {
-    const repo = new RepoFalso();
-    repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const w = new ServicoWebhookClickup(
-      repo,
-      integr(TOKEN, {}, { mapaStatus: { complete: "resolvida" } }),
-      AGORA,
-    );
+    const repo = comCard("em_tratativa");
+    const w = new ServicoWebhookClickup(repo, integr(), AGORA);
     const b = corpo(evento);
     const { id } = await w.receber(b, assinar(b));
     await w.processar(id);
     await w.processar(id);
     expect(repo.aplicado).toHaveLength(1);
+  });
+});
+
+describe("mapa de estados do ClickUp, nos dois sentidos", () => {
+  it("o padrão cobre os sete estados com nomes diferentes", () => {
+    const nomes = Object.values(MAPA_ESTADOS_PADRAO);
+    expect(nomes).toHaveLength(7);
+    expect(new Set(nomes.map((n) => n.toLowerCase())).size).toBe(7);
+  });
+
+  it("estado → status e status → estado se desfazem, sem ligar para caixa", () => {
+    const mapa = mapaEstadosEfetivo({});
+    for (const [estado, status] of Object.entries(mapa)) {
+      expect(statusDoEstado(estado as Estado, mapa)).toBe(status);
+      expect(estadoDoStatus(status.toUpperCase(), mapa)).toBe(estado);
+      expect(estadoDoStatus(`  ${status} `, mapa)).toBe(estado);
+    }
+  });
+
+  it("a troca do administrador vale por cima do padrão, e vazio volta ao padrão", () => {
+    const mapa = mapaEstadosEfetivo({
+      mapaEstados: { recebida: "Em análise", triagem: "  " },
+    });
+    expect(mapa.recebida).toBe("Em análise");
+    expect(mapa.triagem).toBe(MAPA_ESTADOS_PADRAO.triagem);
+    expect(estadoDoStatus("em análise", mapa)).toBe("recebida");
+  });
+
+  it("nomes que o ClickUp já traz: Complete e Closed são do setor técnico", () => {
+    const mapa = mapaEstadosEfetivo({});
+    expect(estadoDoStatus("Complete", mapa)).toBe("resolvida_setor");
+    expect(estadoDoStatus("closed", mapa)).toBe("resolvida_setor");
+    expect(estadoDoStatus("coisa nenhuma", mapa)).toBeNull();
+  });
+
+  it("o mapa configurado ganha do apelido", () => {
+    const mapa = mapaEstadosEfetivo({
+      mapaEstados: { finalizada: "Complete" },
+    });
+    expect(estadoDoStatus("complete", mapa)).toBe("finalizada");
+  });
+
+  it("config torta (não objeto) cai no padrão", () => {
+    expect(mapaEstadosEfetivo({ mapaEstados: "x" })).toEqual(
+      MAPA_ESTADOS_PADRAO,
+    );
+  });
+});
+
+describe("decidirStatusExterno", () => {
+  const base = { devolucao: "NA" as Devolucao, temSetor: true };
+
+  it("só vale para os estados do setor, para a frente", () => {
+    expect(
+      decidirStatusExterno({ ...base, estado: "encaminhada" }, "recebida"),
+    ).toEqual({ tipo: "aplicar", passos: ["recebida"] });
+    expect(
+      decidirStatusExterno({ ...base, estado: "recebida" }, "em_tratativa"),
+    ).toEqual({ tipo: "aplicar", passos: ["em_tratativa"] });
+    expect(
+      decidirStatusExterno(
+        { ...base, estado: "em_tratativa" },
+        "resolvida_setor",
+      ),
+    ).toEqual({ tipo: "aplicar", passos: ["resolvida_setor"] });
+  });
+
+  it("estado do SAC, ou voltar atrás, é recusado", () => {
+    for (const alvo of [
+      "triagem",
+      "aguardando_cliente",
+      "encaminhada",
+      "finalizada",
+    ] as const) {
+      expect(
+        decidirStatusExterno({ ...base, estado: "em_tratativa" }, alvo).tipo,
+      ).toBe("reverter");
+    }
+    expect(
+      decidirStatusExterno({ ...base, estado: "em_tratativa" }, "recebida")
+        .tipo,
+    ).toBe("reverter");
+    expect(
+      decidirStatusExterno(
+        { ...base, estado: "resolvida_setor" },
+        "em_tratativa",
+      ).tipo,
+    ).toBe("reverter");
+  });
+
+  it("antes de encaminhar ou depois de finalizar, o setor não mexe", () => {
+    for (const estado of [
+      "triagem",
+      "aguardando_cliente",
+      "finalizada",
+    ] as const) {
+      expect(
+        decidirStatusExterno({ ...base, estado }, "em_tratativa").tipo,
+      ).toBe("reverter");
+    }
+  });
+
+  it("o mesmo estado, ou status desconhecido, não faz nada", () => {
+    expect(
+      decidirStatusExterno({ ...base, estado: "recebida" }, "recebida"),
+    ).toEqual({ tipo: "ignorar" });
+    expect(decidirStatusExterno({ ...base, estado: "recebida" }, null)).toEqual(
+      { tipo: "ignorar" },
+    );
+  });
+});
+
+describe("status do card acompanha o estado", () => {
+  const sinc = (extra: Partial<SincroniaCard> = {}): SincroniaCard => ({
+    cardId: "card1",
+    taskId: "t-abc",
+    estado: "recebida",
+    statusExterno: "encaminhada ao setor",
+    statusPendente: true,
+    ...extra,
+  });
+
+  it("manda o status do estado atual para a task e marca em dia", async () => {
+    const repo = new RepoFalso();
+    repo.sincronia = sinc();
+    const h = http(200);
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.sincronizarEstado("r1")).toBe("atualizado");
+    expect(h.chamadas[0].url).toBe("https://api.clickup.com/api/v2/task/t-abc");
+    expect(h.chamadas[0].init?.method).toBe("PUT");
+    expect(JSON.parse(String(h.chamadas[0].init?.body))).toEqual({
+      status: "recebida pelo setor",
+    });
+    expect(repo.sincronizados[0]).toMatchObject({
+      cardId: "card1",
+      statusExterno: "recebida pelo setor",
+    });
+  });
+
+  it("usa o mapa que o administrador configurou", async () => {
+    const repo = new RepoFalso();
+    repo.sincronia = sinc({ estado: "finalizada" });
+    const h = http(200);
+    const s = new ServicoClickup(
+      repo,
+      integr(TOKEN, {}, { mapaEstados: { finalizada: "Fechada pelo SAC" } }),
+      h.f,
+      AGORA,
+    );
+    await s.sincronizarEstado("r1");
+    expect(JSON.parse(String(h.chamadas[0].init?.body))).toEqual({
+      status: "Fechada pelo SAC",
+    });
+  });
+
+  it("card que já mostra o status certo não gasta chamada", async () => {
+    const repo = new RepoFalso();
+    repo.sincronia = sinc({ statusExterno: "Recebida pelo Setor" });
+    const h = http(200);
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.sincronizarEstado("r1")).toBe("em_dia");
+    expect(h.chamadas).toHaveLength(0);
+    expect(repo.sincronizados).toHaveLength(1);
+  });
+
+  it("sem pendência, sem task ou sem token, não chama o ClickUp", async () => {
+    const h = http(200);
+    const repo = new RepoFalso();
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.sincronizarEstado("r1")).toBe("sem_card");
+    repo.sincronia = sinc({ statusPendente: false });
+    expect(await s.sincronizarEstado("r1")).toBe("sem_pendencia");
+    repo.sincronia = sinc({ taskId: null });
+    expect(await s.sincronizarEstado("r1")).toBe("sem_task");
+    repo.sincronia = sinc();
+    const semToken = new ServicoClickup(repo, integr(null), h.f, AGORA);
+    expect(await semToken.sincronizarEstado("r1")).toBe("sem_token");
+    expect(h.chamadas).toHaveLength(0);
+  });
+
+  it("o ClickUp recusar o nome do status vira erro no card, sem lançar e sem vazar o token", async () => {
+    const repo = new RepoFalso();
+    repo.sincronia = sinc();
+    const h = http(400, { err: `Status not found ${TOKEN}` });
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.sincronizarEstado("r1")).toBe("falhou");
+    const f = repo.falhasStatus[0];
+    expect(f.erro).toContain("recebida pelo setor");
+    expect(f.erro).not.toContain(TOKEN);
+    expect(f.proxima.getTime()).toBe(
+      AGORA().getTime() + ESPERA_STATUS_MIN * 60_000,
+    );
+    expect(repo.sincronizados).toHaveLength(0);
+  });
+
+  it("falha de rede também vira erro e nova tentativa", async () => {
+    const repo = new RepoFalso();
+    repo.sincronia = sinc();
+    const f = (async () => {
+      throw new Error("ECONNRESET");
+    }) as typeof fetch;
+    const s = new ServicoClickup(repo, integr(), f, AGORA);
+    expect(await s.sincronizarEstado("r1")).toBe("falhou");
+    expect(repo.falhasStatus[0].erro).toContain("Sem resposta");
+  });
+
+  it("recém-criado, o card recebe logo o status do estado atual", async () => {
+    const repo = new RepoFalso();
+    repo.sincronia = sinc({ estado: "triagem", statusExterno: "to do" });
+    const h = http(200, { id: "t-abc", status: { status: "to do" } });
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.tentarCard("r1")).toBe("criado");
+    expect(h.chamadas).toHaveLength(2);
+    expect(h.chamadas[0].init?.method).toBe("POST");
+    expect(h.chamadas[1].init?.method).toBe("PUT");
+    expect(JSON.parse(String(h.chamadas[1].init?.body))).toEqual({
+      status: "triagem",
+    });
   });
 });
 

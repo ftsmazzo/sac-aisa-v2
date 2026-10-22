@@ -7,6 +7,7 @@ import type {
 
 const INCLUIR = {
   setores: { include: { setor: true } },
+  marcas: { include: { marca: true } },
   permissoes: true,
 } as const;
 
@@ -22,6 +23,7 @@ export class RepositorioPrisma implements RepositorioAuth {
     senhaHash: string;
     ativo: boolean;
     setores: { setor: { nome: string } }[];
+    marcas: { marca: { nome: string } }[];
     permissoes: { chave: string; permitido: boolean }[];
   }): UsuarioRegistro {
     return {
@@ -32,6 +34,7 @@ export class RepositorioPrisma implements RepositorioAuth {
       senhaHash: u.senhaHash,
       ativo: u.ativo,
       setores: u.setores.map((s) => s.setor.nome),
+      marcas: u.marcas.map((m) => m.marca.nome),
       permissoes: u.permissoes.map((p) => ({
         chave: p.chave,
         permitido: p.permitido,

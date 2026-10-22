@@ -6,7 +6,10 @@ export type AlertTipo =
   | "TRATATIVA_META"
   | "CUSTO_ALTO"
   | "CAUSA_OUTROS"
-  | "RASCUNHO_PENDENTE";
+  | "RASCUNHO_PENDENTE"
+  | "SEM_RECEBIMENTO_SETOR"
+  | "SOLUCAO_SEM_FINALIZACAO"
+  | "PRAZO_MARKETPLACE";
 
 export interface AlertConfig {
   aguardandoDias: number;
@@ -14,6 +17,12 @@ export interface AlertConfig {
   custoAlto: number;
   outrosDias: number;
   rascunhoHoras: number;
+  /** Encaminhada e o setor ainda não recebeu. */
+  recebimentoHoras: number;
+  /** O setor devolveu a solução e o SAC ainda não finalizou. */
+  finalizacaoHoras: number;
+  /** Avisa quando faltam até estes dias para o prazo do marketplace (ou já passou). */
+  prazoMarketplaceDias: number;
 }
 
 /** Valores sugeridos pelo sistema atual; o dono ainda não validou. */
@@ -23,16 +32,31 @@ export const ALERT_CONFIG_PADRAO: AlertConfig = {
   custoAlto: 500,
   outrosDias: 3,
   rascunhoHoras: 24,
+  recebimentoHoras: 24,
+  finalizacaoHoras: 24,
+  prazoMarketplaceDias: 1,
 };
+
+const HORA_MS = 3600e3;
+
+/** Em aberto para o SAC: sem estado, vale a data de ação; com estado, só a finalização fecha. */
+function emAberto(r: ReclamacaoLike): boolean {
+  return r.estado ? r.estado !== "finalizada" : situacao(r) !== "resolvida";
+}
 
 export function avaliarAlertasReclamacao(
   r: ReclamacaoLike,
   cfg: AlertConfig = ALERT_CONFIG_PADRAO,
   hoje = new Date().toISOString().slice(0, 10),
+  agora: Date = new Date(),
 ): AlertTipo[] {
   const out: AlertTipo[] = [];
   const sit = situacao(r);
   const diasAberto = r.data ? diasEntre(r.data, hoje) : null;
+  const aberta = emAberto(r);
+  const horasNoEstado = r.estadoDesde
+    ? (agora.getTime() - new Date(r.estadoDesde).getTime()) / HORA_MS
+    : null;
 
   if (
     sit === "aguardando" &&
@@ -41,19 +65,46 @@ export function avaliarAlertasReclamacao(
   ) {
     out.push("AGUARDANDO_DIAS");
   }
-  if (sit === "tratativa" && diasAberto !== null && diasAberto > cfg.metaDias) {
+  // Esperar o cliente pausa o relógio interno: não conta como tratativa parada.
+  if (
+    sit === "tratativa" &&
+    r.estado !== "aguardando_cliente" &&
+    diasAberto !== null &&
+    diasAberto > cfg.metaDias
+  ) {
     out.push("TRATATIVA_META");
   }
-  if (sit !== "resolvida" && custoTotal(r) >= cfg.custoAlto) {
+  if (aberta && custoTotal(r) >= cfg.custoAlto) {
     out.push("CUSTO_ALTO");
   }
   if (
-    sit !== "resolvida" &&
+    aberta &&
     causaDe(r).id === "outros" &&
     diasAberto !== null &&
     diasAberto > cfg.outrosDias
   ) {
     out.push("CAUSA_OUTROS");
+  }
+  if (
+    r.estado === "encaminhada" &&
+    horasNoEstado !== null &&
+    horasNoEstado > cfg.recebimentoHoras
+  ) {
+    out.push("SEM_RECEBIMENTO_SETOR");
+  }
+  if (
+    r.estado === "resolvida_setor" &&
+    horasNoEstado !== null &&
+    horasNoEstado > cfg.finalizacaoHoras
+  ) {
+    out.push("SOLUCAO_SEM_FINALIZACAO");
+  }
+  // O prazo do marketplace corre mesmo com o cliente em espera.
+  if (aberta && r.prazoMarketplace) {
+    const restam = diasEntre(hoje, r.prazoMarketplace);
+    if (restam !== null && restam <= cfg.prazoMarketplaceDias) {
+      out.push("PRAZO_MARKETPLACE");
+    }
   }
   return out;
 }
@@ -64,6 +115,9 @@ export const ROTULO_ALERTA: Record<AlertTipo, string> = {
   CUSTO_ALTO: "Custo alto",
   CAUSA_OUTROS: "Causa sem classificação",
   RASCUNHO_PENDENTE: "Rascunho parado",
+  SEM_RECEBIMENTO_SETOR: "Setor ainda não recebeu",
+  SOLUCAO_SEM_FINALIZACAO: "Solução devolvida sem finalização",
+  PRAZO_MARKETPLACE: "Prazo do marketplace",
 };
 
 export interface Urgencia {
@@ -77,9 +131,10 @@ export function urgenciaDe(
   r: ReclamacaoLike,
   cfg: AlertConfig = ALERT_CONFIG_PADRAO,
   hoje = new Date().toISOString().slice(0, 10),
+  agora: Date = new Date(),
 ): Urgencia {
   return {
-    alertas: avaliarAlertasReclamacao(r, cfg, hoje),
+    alertas: avaliarAlertasReclamacao(r, cfg, hoje, agora),
     dias: (r.data ? diasEntre(r.data, hoje) : null) ?? 0,
     custo: custoTotal(r),
   };

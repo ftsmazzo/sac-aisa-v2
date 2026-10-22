@@ -216,7 +216,72 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
         tentativas: { increment: 1 },
         ultimoErro: null,
         proximaTentativaEm: null,
+        // O card nasce no status padrão da lista: falta pôr o do estado atual.
+        statusPendente: true,
       },
+    });
+  }
+
+  async statusPendentes(agora: Date, limite: number) {
+    const l = await this.prisma.clickupCard.findMany({
+      where: {
+        taskId: { not: null },
+        reclamacaoId: { not: null },
+        statusPendente: true,
+        OR: [
+          { proximaTentativaEm: null },
+          { proximaTentativaEm: { lte: agora } },
+        ],
+      },
+      orderBy: { criadoEm: "asc" },
+      take: limite,
+      select: { reclamacaoId: true },
+    });
+    return l.flatMap((x) => (x.reclamacaoId ? [x.reclamacaoId] : []));
+  }
+
+  async carregarSincronia(reclamacaoId: string) {
+    const c = await this.prisma.clickupCard.findUnique({
+      where: { reclamacaoId },
+      select: {
+        id: true,
+        taskId: true,
+        statusExterno: true,
+        statusPendente: true,
+        reclamacao: { select: { estado: true } },
+      },
+    });
+    if (!c?.reclamacao) return null;
+    return {
+      cardId: c.id,
+      taskId: c.taskId,
+      estado: c.reclamacao.estado,
+      statusExterno: c.statusExterno,
+      statusPendente: c.statusPendente,
+    };
+  }
+
+  async registrarStatusSincronizado(
+    args: Parameters<RepositorioClickup["registrarStatusSincronizado"]>[0],
+  ) {
+    await this.prisma.clickupCard.update({
+      where: { id: args.cardId },
+      data: {
+        statusExterno: args.statusExterno,
+        sincronizadoEm: args.agora,
+        statusPendente: false,
+        ultimoErro: null,
+        proximaTentativaEm: null,
+      },
+    });
+  }
+
+  async registrarFalhaStatus(
+    args: Parameters<RepositorioClickup["registrarFalhaStatus"]>[0],
+  ) {
+    await this.prisma.clickupCard.update({
+      where: { id: args.cardId },
+      data: { ultimoErro: args.erro, proximaTentativaEm: args.proxima },
     });
   }
 
@@ -283,9 +348,25 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
   async reclamacaoParaStatus(id: string) {
     const r = await this.prisma.reclamacao.findUnique({
       where: { id },
-      select: { numero: true, dataAcao: true, devolucao: true },
+      select: {
+        numero: true,
+        estado: true,
+        dataAbertura: true,
+        dataAcao: true,
+        devolucao: true,
+        setorRespId: true,
+      },
     });
-    return r ? { ...r, dataAcao: ISO(r.dataAcao) } : null;
+    return r
+      ? {
+          numero: r.numero,
+          estado: r.estado,
+          dataAbertura: ISO(r.dataAbertura) as string,
+          dataAcao: ISO(r.dataAcao),
+          devolucao: r.devolucao,
+          temSetor: r.setorRespId !== null,
+        }
+      : null;
   }
 
   async aplicarStatus(
@@ -298,17 +379,44 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
           data: {
             statusExterno: args.statusExterno ?? undefined,
             sincronizadoEm: args.agora,
+            // Aplicado: o card já mostra o estado novo. Recusado: o card precisa voltar.
+            statusPendente: args.corrigirCard
+              ? true
+              : args.reclamacao
+                ? false
+                : undefined,
           },
         });
       }
       if (args.reclamacao) {
-        await tx.reclamacao.update({
-          where: { id: args.reclamacao.id },
+        const passos = args.reclamacao.passos;
+        // Só grava se o estado ainda é o de onde partimos: o SAC pode ter mexido no meio do caminho.
+        const r = await tx.reclamacao.updateMany({
+          where: { id: args.reclamacao.id, estado: args.reclamacao.de },
           data: {
+            estado: passos[passos.length - 1],
+            estadoDesde: args.agora,
             dataAcao: DIA(args.reclamacao.dataAcao),
             situacao: args.reclamacao.situacao,
           },
         });
+        if (r.count > 0) {
+          let de = args.reclamacao.de;
+          for (const [i, para] of passos.entries()) {
+            await tx.estadoHistorico.create({
+              data: {
+                reclamacaoId: args.reclamacao.id,
+                de,
+                para,
+                // Um milissegundo a mais por passo mantém a ordem do histórico.
+                quando: new Date(args.agora.getTime() + i),
+                autorNome: "ClickUp",
+                origem: "clickup",
+              },
+            });
+            de = para;
+          }
+        }
       }
       if (args.auditoria) {
         await tx.auditoria.create({

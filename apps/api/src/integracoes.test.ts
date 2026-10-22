@@ -212,20 +212,39 @@ describe("lerEntradaIntegracao", () => {
     expect(
       lerEntradaIntegracao("clickup", { mapaStatus: { pronto: "feito" } }).ok,
     ).toBe(false);
+    expect(
+      lerEntradaIntegracao("clickup", { mapaEstados: { voando: "x" } }).ok,
+    ).toBe(false);
+    expect(
+      lerEntradaIntegracao("shopee", { mapaEstados: { recebida: "x" } }).ok,
+    ).toBe(false);
     expect(lerEntradaIntegracao("shopee", { listas: { s1: "1" } }).ok).toBe(
       false,
     );
     expect(lerEntradaIntegracao("clickup", {}).ok).toBe(false);
   });
 
-  it("normaliza o status do mapa para minúsculas", () => {
+  it("lê o mapa de estados: corta espaços e descarta vazio (volta ao padrão)", () => {
     const r = lerEntradaIntegracao("clickup", {
-      mapaStatus: { " Complete ": "resolvida" },
+      mapaEstados: { recebida: "  Em análise ", triagem: "" },
     });
     expect(r).toMatchObject({
       ok: true,
-      entrada: { mapaStatus: { complete: "resolvida" } },
+      entrada: { mapaEstados: { recebida: "Em análise" } },
     });
+  });
+
+  it("recusa o mesmo status em dois estados, mesmo com caixa diferente", () => {
+    const r = lerEntradaIntegracao("clickup", {
+      mapaEstados: { recebida: "Pronto", em_tratativa: "pronto" },
+    });
+    expect(r.ok).toBe(false);
+    // Repetir o padrão de outro estado também confunde o sentido inverso.
+    expect(
+      lerEntradaIntegracao("clickup", {
+        mapaEstados: { recebida: "em tratativa" },
+      }).ok,
+    ).toBe(false);
   });
 });
 

@@ -170,7 +170,11 @@ export class ServicoAnalise {
     if (!temPermissao(usuario.permissoes, "reclamacoes.analisar")) {
       throw new ErroEscrita(403, "Sem permissão para esta ação.");
     }
-    const escopo: Escopo = { perfil: usuario.perfil, setores: usuario.setores };
+    const escopo: Escopo = {
+      perfil: usuario.perfil,
+      setores: usuario.setores,
+      marcas: usuario.marcas,
+    };
     const doEscopo = filtroDeEscopo(escopo);
     const where: Prisma.ReclamacaoWhereInput = doEscopo
       ? { AND: [{ id }, doEscopo] }

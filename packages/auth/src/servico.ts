@@ -16,6 +16,8 @@ export interface UsuarioRegistro {
   senhaHash: string;
   ativo: boolean;
   setores: string[];
+  /** Marcas que o responsável de setor enxerga (nomes). Vazia = todas. */
+  marcas?: string[];
   permissoes: { chave: string; permitido: boolean }[];
 }
 
@@ -40,6 +42,7 @@ export interface UsuarioLogado {
   nome: string;
   perfil: Perfil;
   setores: string[];
+  marcas?: string[];
   permissoes: string[];
 }
 
@@ -69,6 +72,7 @@ function paraLogado(u: UsuarioRegistro): UsuarioLogado {
     nome: u.nome,
     perfil: u.perfil,
     setores: u.setores,
+    marcas: u.marcas ?? [],
     permissoes: mesclarPermissoes(u.perfil, u.permissoes),
   };
 }
