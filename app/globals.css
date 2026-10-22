@@ -1,0 +1,391 @@
+/*
+  Sistema de design do SAC AISA.
+  Cores e medidas são tokens. A marca troca só o destaque (data-marca no <html>);
+  a base neutra e as cores de estado são as mesmas para todas.
+*/
+
+:root {
+  --cor-fundo: #f3f5f9;
+  --cor-cartao: #ffffff;
+  --cor-borda: #e3e8f0;
+  --cor-borda-forte: #c9d2e3;
+  --cor-texto: #162033;
+  --cor-suave: #5b6678;
+  --cor-ok: #14663d;
+  --cor-ok-fundo: #e3f4ea;
+  --cor-atencao: #8f4300;
+  --cor-atencao-fundo: #fff0e0;
+  --cor-perigo: #b3261e;
+  --cor-perigo-fundo: #fdecea;
+  --cor-info: #1f3f9e;
+  --cor-info-fundo: #e8eefc;
+
+  /* Marca padrão (provisória até as logos chegarem) */
+  --marca: #004fea;
+  --marca-suave: #e7efff;
+  --marca-sobre: #ffffff;
+
+  --raio-p: 8px;
+  --raio-m: 12px;
+  --raio-g: 18px;
+  --sombra: 0 1px 2px rgba(22, 32, 51, 0.06), 0 8px 24px rgba(22, 32, 51, 0.06);
+  --foco: 0 0 0 3px rgba(0, 79, 234, 0.35);
+  --fonte: var(--fonte-inter), "Segoe UI", system-ui, sans-serif;
+}
+
+:root[data-marca="aisa"] {
+  --marca: #004fea;
+  --marca-suave: #e7efff;
+}
+:root[data-marca="artmaq"] {
+  --marca: #c2255c;
+  --marca-suave: #fde8ef;
+  --foco: 0 0 0 3px rgba(194, 37, 92, 0.35);
+}
+:root[data-marca="arauca"] {
+  --marca: #3f4d63;
+  --marca-suave: #e8ecf2;
+  --foco: 0 0 0 3px rgba(63, 77, 99, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cor-fundo: #0e131d;
+    --cor-cartao: #151c2a;
+    --cor-borda: #26304a;
+    --cor-borda-forte: #3a4766;
+    --cor-texto: #e8ecf4;
+    --cor-suave: #9aa6bb;
+    --cor-ok: #6fd39b;
+    --cor-ok-fundo: #12301f;
+    --cor-atencao: #ffb877;
+    --cor-atencao-fundo: #3a2410;
+    --cor-perigo: #ff8f86;
+    --cor-perigo-fundo: #3a1714;
+    --cor-info: #9db9ff;
+    --cor-info-fundo: #14234a;
+    --marca-suave: #14234a;
+    --sombra: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  :root[data-marca="artmaq"] {
+    --marca-suave: #3a1424;
+  }
+  :root[data-marca="arauca"] {
+    --marca-suave: #1d2431;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: var(--fonte);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--marca);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--foco);
+}
+
+/* ---------- Botão ---------- */
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--raio-m);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    filter 0.15s,
+    background 0.15s;
+}
+.botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.botao--primario {
+  background: var(--marca);
+  color: var(--marca-sobre);
+}
+.botao--primario:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+.botao--secundario {
+  background: var(--cor-cartao);
+  color: var(--cor-texto);
+  border-color: var(--cor-borda-forte);
+}
+.botao--secundario:not(:disabled):hover {
+  background: var(--marca-suave);
+}
+.botao--cheio {
+  width: 100%;
+}
+
+/* ---------- Campo ---------- */
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.campo__rotulo {
+  font-size: 13px;
+  font-weight: 600;
+}
+.campo__entrada {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio-m);
+  background: var(--cor-cartao);
+}
+.campo__entrada:focus-within {
+  border-color: var(--marca);
+  box-shadow: var(--foco);
+}
+.campo__entrada input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--raio-m);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.campo__entrada input:focus-visible {
+  box-shadow: none;
+}
+.campo__acao {
+  border: 0;
+  background: transparent;
+  color: var(--cor-suave);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 14px;
+  cursor: pointer;
+  border-radius: var(--raio-m);
+}
+.campo__ajuda {
+  font-size: 12px;
+  color: var(--cor-suave);
+}
+
+/* ---------- Cartão e selo ---------- */
+.cartao {
+  background: var(--cor-cartao);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra);
+}
+.selo {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.selo--ok {
+  background: var(--cor-ok-fundo);
+  color: var(--cor-ok);
+}
+.selo--atencao {
+  background: var(--cor-atencao-fundo);
+  color: var(--cor-atencao);
+}
+.selo--perigo {
+  background: var(--cor-perigo-fundo);
+  color: var(--cor-perigo);
+}
+.selo--info {
+  background: var(--cor-info-fundo);
+  color: var(--cor-info);
+}
+
+.aviso {
+  padding: 10px 12px;
+  border-radius: var(--raio-m);
+  font-size: 14px;
+}
+.aviso--erro {
+  background: var(--cor-perigo-fundo);
+  color: var(--cor-perigo);
+}
+
+/* ---------- Marca ---------- */
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.marca__simbolo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--marca);
+  color: var(--marca-sobre);
+  font-weight: 700;
+  font-size: 17px;
+}
+.marca__texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.marca__nome {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.marca__legenda {
+  font-size: 12px;
+  color: var(--cor-suave);
+}
+
+/* ---------- Login ---------- */
+.login {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.login__painel {
+  display: none;
+  padding: 56px;
+  color: var(--marca-sobre);
+  background: linear-gradient(
+    160deg,
+    var(--marca),
+    color-mix(in srgb, var(--marca) 55%, #000)
+  );
+  flex-direction: column;
+  justify-content: space-between;
+}
+.login__painel .marca__simbolo {
+  background: rgba(255, 255, 255, 0.18);
+}
+.login__painel .marca__legenda {
+  color: rgba(255, 255, 255, 0.82);
+}
+.login__chamada {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  max-width: 460px;
+}
+.login__apoio {
+  margin-top: 14px;
+  max-width: 420px;
+  color: rgba(255, 255, 255, 0.86);
+}
+.login__lado {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.login__cartao {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.login__rodape {
+  font-size: 12px;
+  color: var(--cor-suave);
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .login {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+  .login__painel {
+    display: flex;
+  }
+}
+
+/* ---------- Casca da área logada ---------- */
+.casca__topo {
+  background: var(--cor-cartao);
+  border-bottom: 1px solid var(--cor-borda);
+}
+.casca__topo-interno {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 14px 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+.casca__espaco {
+  flex-grow: 1;
+}
+.casca__usuario {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.casca__conteudo {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 32px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 600px) {
+  .casca__topo-interno,
+  .casca__conteudo {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
