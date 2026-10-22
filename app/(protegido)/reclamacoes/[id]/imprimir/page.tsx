@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BotaoImprimir } from "@/components/botao-imprimir";
 import { LogoMarca } from "@/components/ui";
-import { MARCAS } from "@/lib/marcas";
+import { marcaVisual } from "@/lib/marca-escolhida";
 import { buscarNaApi, type Ficha } from "@/lib/reclamacoes";
 import {
   data,
@@ -83,7 +83,7 @@ export default async function ImprimirReclamacao({
   }
 
   const f = resp.dados;
-  const logo = MARCAS.find((m) => m.nome === f.marca?.nome.toUpperCase());
+  const logo = marcaVisual(f.marca?.nome);
   const agora = new Date();
   const impresso = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
@@ -114,7 +114,7 @@ export default async function ImprimirReclamacao({
       <article className="folha" aria-label={`Reclamação ${f.numero}`}>
         <header className="folha__cab">
           {logo ? (
-            <LogoMarca marca={logo.id} altura={40} />
+            <LogoMarca marca={logo} altura={40} />
           ) : (
             <strong className="folha__marca">{f.marca?.nome ?? "SAC"}</strong>
           )}

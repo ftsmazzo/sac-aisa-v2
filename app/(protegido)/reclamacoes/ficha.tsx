@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { MarcaDoCadastro } from "@/components/marca-do-cadastro";
 import { Selo } from "@/components/ui";
 import type { Ficha } from "@/lib/reclamacoes";
 import {
@@ -139,7 +140,11 @@ export function ConteudoFicha({
         <dl className="ficha__grade">
           <Campo rotulo="Abertura">{data(ficha.dataAbertura)}</Campo>
           <Campo rotulo="Data de ação">{data(ficha.dataAcao)}</Campo>
-          <Campo rotulo="Marca">{ficha.marca?.nome}</Campo>
+          <Campo rotulo="Marca">
+            {ficha.marca && (
+              <MarcaDoCadastro nome={ficha.marca.nome} altura={24} />
+            )}
+          </Campo>
           <Campo rotulo="Canal">{ficha.canal.nome}</Campo>
           <Campo rotulo="Produto">
             {ficha.produto

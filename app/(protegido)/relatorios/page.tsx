@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BotaoImprimir } from "@/components/botao-imprimir";
 import { LogoMarca } from "@/components/ui";
-import { MARCAS } from "@/lib/marcas";
+import { comMarcaPadrao, marcaVisual, TODAS } from "@/lib/marca-escolhida";
+import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi, type OpcoesFiltro } from "@/lib/reclamacoes";
 import { data, moeda, type ParamsUrl } from "@/lib/reclamacoes-formato";
 import {
@@ -18,17 +19,24 @@ function Seletor({
   rotulo,
   valor,
   opcoes,
+  semFiltro = "",
 }: {
   nome: string;
   rotulo: string;
   valor?: string;
   opcoes: { id: string; nome: string }[];
+  /** Valor de "Todos". Na marca é `todas`, para não voltar à marca do cabeçalho. */
+  semFiltro?: string;
 }) {
   return (
     <label className="filtro">
       <span className="filtro__rotulo">{rotulo}</span>
-      <select name={nome} defaultValue={valor ?? ""} className="filtro__campo">
-        <option value="">Todos</option>
+      <select
+        name={nome}
+        defaultValue={valor ?? semFiltro}
+        className="filtro__campo"
+      >
+        <option value={semFiltro}>Todos</option>
         {opcoes.map((o) => (
           <option key={o.id} value={o.id}>
             {o.nome}
@@ -63,7 +71,11 @@ export default async function Relatorios({
     );
   }
 
-  const filtros = lerFiltrosUrl(await searchParams);
+  const marcaEscolhida = await marcaAtiva();
+  const filtros = comMarcaPadrao(
+    lerFiltrosUrl(await searchParams),
+    marcaEscolhida.idNoCadastro,
+  ) as ReturnType<typeof lerFiltrosUrl>;
   const consulta = consultaRelatorio(filtros);
   const [rel, opcoesResp] = await Promise.all([
     buscarNaApi<RelatorioApi>(`/relatorios?${consulta}`),
@@ -76,7 +88,7 @@ export default async function Relatorios({
   const marcaNome = filtros.marca
     ? opcoes?.marcas.find((m) => m.id === filtros.marca)?.nome
     : undefined;
-  const logo = MARCAS.find((m) => m.nome === marcaNome?.toUpperCase());
+  const logo = marcaVisual(marcaNome);
   const periodo =
     filtros.de || filtros.ate
       ? `${filtros.de ? data(filtros.de) : "início"} a ${filtros.ate ? data(filtros.ate) : "hoje"}`
@@ -138,6 +150,7 @@ export default async function Relatorios({
             rotulo="Marca"
             valor={filtros.marca}
             opcoes={opcoes?.marcas ?? []}
+            semFiltro={TODAS}
           />
           <Seletor
             nome="setor"
@@ -182,7 +195,7 @@ export default async function Relatorios({
       {r && (
         <article className="relatorio" aria-label="Relatório de reclamações">
           <header className="relatorio__cab">
-            {logo && <LogoMarca marca={logo.id} altura={36} />}
+            {logo && <LogoMarca marca={logo} altura={36} />}
             <div>
               <h2 className="relatorio__titulo">Relatório de reclamações</h2>
               <p className="relatorio__sub">

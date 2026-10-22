@@ -70,6 +70,11 @@ function hojeEmSaoPaulo(agora: Date): string {
   }).format(agora);
 }
 
+/** Marca opcional da fila e dos alertas: vai como valor parametrizado do Prisma. */
+function filtroDeMarca(marcaId?: string): Prisma.ReclamacaoWhereInput[] {
+  return marcaId ? [{ marcaId }] : [];
+}
+
 const arredondar = (v: number) => Math.round(v * 100) / 100;
 
 export class ServicoFilaAlertas {
@@ -91,11 +96,12 @@ export class ServicoFilaAlertas {
   }
 
   /** Pendentes de análise: com setor responsável que ainda não analisou. Mais urgentes primeiro. */
-  async fila(usuario: UsuarioLogado) {
+  async fila(usuario: UsuarioLogado, marcaId?: string) {
     exigir(usuario, "reclamacoes.analisar");
     const hoje = hojeEmSaoPaulo(this.agora());
     const linhas = await this.abertas(usuario, [
       { setorRespId: { not: null } },
+      ...filtroDeMarca(marcaId),
     ]);
     const itens = linhas
       .filter(
@@ -119,10 +125,10 @@ export class ServicoFilaAlertas {
   }
 
   /** Alertas gerados na hora pelas regras do domínio, sobre o que está em aberto. */
-  async alertas(usuario: UsuarioLogado) {
+  async alertas(usuario: UsuarioLogado, marcaId?: string) {
     exigir(usuario, "alertas.ver");
     const hoje = hojeEmSaoPaulo(this.agora());
-    const linhas = await this.abertas(usuario);
+    const linhas = await this.abertas(usuario, filtroDeMarca(marcaId));
     const itens = linhas.flatMap((l) => {
       const u = urgenciaDe(paraDominio(l), this.cfg, hoje);
       return u.alertas.map((tipo: AlertTipo) => ({

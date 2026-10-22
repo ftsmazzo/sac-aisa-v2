@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   ControladorAnalise,
   ControladorFilaAlertas,
+  lerMarca,
 } from "./analise-fila.controller";
 import {
   type AuditoriaAnalise,
@@ -555,6 +556,29 @@ describe("ServicoFilaAlertas", () => {
     expect(and).toContainEqual({ dataAcao: null });
     expect(and).toContainEqual({ setorRespId: { not: null } });
     expect(and).toContainEqual({ setorResp: { nome: { in: ["Logística"] } } });
+  });
+
+  it("fila e alertas: a marca entra como filtro e some quando não vem", async () => {
+    const { repo, buscas } = repoFila([]);
+    const s = new ServicoFilaAlertas(repo, AGORA);
+    await s.fila(usuario("gestor"), "m-aisa");
+    await s.alertas(usuario("gestor"), "m-aisa");
+    await s.fila(usuario("gestor"));
+    const [fila, alertas, semMarca] = buscas.map(
+      (b) => (b as { AND: unknown[] }).AND,
+    );
+    expect(fila).toContainEqual({ marcaId: "m-aisa" });
+    expect(alertas).toContainEqual({ marcaId: "m-aisa" });
+    expect(semMarca).not.toContainEqual({ marcaId: "m-aisa" });
+  });
+
+  it("lerMarca: aceita id, trata vazio como todas e recusa formato estranho", () => {
+    expect(lerMarca(undefined)).toBeUndefined();
+    expect(lerMarca("")).toBeUndefined();
+    expect(lerMarca("abc-123")).toBe("abc-123");
+    expect(() => lerMarca("a b")).toThrow();
+    expect(() => lerMarca(["x"])).toThrow();
+    expect(() => lerMarca({ not: "x" })).toThrow();
   });
 
   it("fila e alertas negam sem a permissão, sem consultar o banco", async () => {

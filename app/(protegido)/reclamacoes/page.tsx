@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { MarcaDoCadastro } from "@/components/marca-do-cadastro";
 import { Selo } from "@/components/ui";
+import { comMarcaPadrao, TODAS } from "@/lib/marca-escolhida";
+import { marcaAtiva } from "@/lib/marca-servidor";
 import {
   buscarNaApi,
   type Ficha,
@@ -102,12 +105,15 @@ function Seletor({
 
 function Filtros({
   estado,
+  efetivos,
   opcoes,
 }: {
   estado: EstadoLista;
+  /** Filtros que valem de fato: os da URL mais a marca escolhida no cabeçalho. */
+  efetivos: EstadoLista["filtros"];
   opcoes: OpcoesFiltro | null;
 }) {
-  const f = estado.filtros;
+  const f = efetivos;
   const ativos = CAMPOS_FILTRO.filter((c) => f[c]);
   return (
     <section className="cartao filtros" aria-label="Filtros">
@@ -138,7 +144,7 @@ function Filtros({
           <Link
             key={m.id}
             href={montarHref(estado, {
-              marca: f.marca === m.id ? null : m.id,
+              marca: f.marca === m.id ? TODAS : m.id,
               ficha: null,
             })}
             scroll={false}
@@ -212,7 +218,10 @@ function Filtros({
           {ativos.map((c) => (
             <Link
               key={c}
-              href={montarHref(estado, { [c]: null, ficha: null })}
+              href={montarHref(estado, {
+                [c]: c === "marca" ? TODAS : null,
+                ficha: null,
+              })}
               scroll={false}
               className="chip chip--ativo"
               aria-label={`Remover filtro ${ROTULO_CAMPO[c]}: ${textoDoFiltro(c, f[c] as string, opcoes)}`}
@@ -293,8 +302,12 @@ export default async function Reclamacoes({
   }
 
   const estado = lerEstado(await searchParams);
+  const marca = await marcaAtiva();
+  const efetivos = comMarcaPadrao(estado.filtros, marca.idNoCadastro);
   const [lista, opcoes, ficha] = await Promise.all([
-    buscarNaApi<Pagina>(`/reclamacoes?${consultaParaApi(estado)}`),
+    buscarNaApi<Pagina>(
+      `/reclamacoes?${consultaParaApi({ ...estado, filtros: efetivos })}`,
+    ),
     buscarNaApi<OpcoesFiltro>("/reclamacoes/filtros"),
     estado.ficha
       ? buscarNaApi<Ficha>(`/reclamacoes/${encodeURIComponent(estado.ficha)}`)
@@ -342,7 +355,7 @@ export default async function Reclamacoes({
         )}
       </div>
 
-      <Filtros estado={estado} opcoes={opcoesOk} />
+      <Filtros estado={estado} efetivos={efetivos} opcoes={opcoesOk} />
 
       {!lista.ok ? (
         <div className="aviso aviso--erro" role="alert">
@@ -418,7 +431,9 @@ export default async function Reclamacoes({
                         {r.produto?.nome ?? "—"}
                       </span>
                       {r.marca && (
-                        <span className="tabela__apoio">{r.marca.nome}</span>
+                        <span className="tabela__apoio tabela__marca">
+                          <MarcaDoCadastro nome={r.marca.nome} />
+                        </span>
                       )}
                     </td>
                     <td className="tabela__oculta">{r.causa?.nome ?? "—"}</td>

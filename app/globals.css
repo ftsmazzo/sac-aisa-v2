@@ -1567,6 +1567,57 @@ a.chip:hover {
   text-align: center;
 }
 
+/* Identidade por marca no sistema logado: seletor do cabeçalho e logos pequenas. */
+.seletor-marca {
+  margin: 0;
+  min-width: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+}
+.seletor-marca__item {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.16s var(--suave);
+}
+.seletor-marca__item:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.seletor-marca__item[aria-pressed="true"] {
+  background: #fff;
+  color: var(--marca-casca);
+}
+.casca__topo .marca > .logo-marca {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.tabela__marca .logo-marca {
+  display: inline-block;
+  vertical-align: middle;
+  margin-top: 2px;
+  border-radius: 4px;
+}
+@media (max-width: 640px) {
+  .seletor-marca__item {
+    padding: 0 9px;
+    font-size: 0.75rem;
+  }
+}
+
 /* ---------- Relatório e folha de impressão ---------- */
 .so-impressao {
   display: none;
