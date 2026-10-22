@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
 } from "@nestjs/common";
 import { type Prisma, PrismaClient } from "@prisma/client";
@@ -218,6 +219,15 @@ export class ControladorAnalise {
   }
 }
 
+/** `marca` é o id do cadastro. Vazio vale como "todas"; formato fora do padrão é recusado. */
+export function lerMarca(v: unknown): string | undefined {
+  if (v === undefined || v === "") return undefined;
+  if (typeof v !== "string" || !ID.test(v)) {
+    throw new BadRequestException('Filtro "marca" inválido.');
+  }
+  return v;
+}
+
 @Controller()
 export class ControladorFilaAlertas {
   private readonly servico: ServicoFilaAlertas;
@@ -228,13 +238,15 @@ export class ControladorFilaAlertas {
 
   @Requer("reclamacoes.analisar")
   @Get("fila")
-  fila(@Req() req: PedidoComUsuario) {
-    return comErros(() => this.servico.fila(usuarioDe(req)));
+  fila(@Req() req: PedidoComUsuario, @Query("marca") marca?: unknown) {
+    const m = lerMarca(marca);
+    return comErros(() => this.servico.fila(usuarioDe(req), m));
   }
 
   @Requer("alertas.ver")
   @Get("alertas")
-  alertas(@Req() req: PedidoComUsuario) {
-    return comErros(() => this.servico.alertas(usuarioDe(req)));
+  alertas(@Req() req: PedidoComUsuario, @Query("marca") marca?: unknown) {
+    const m = lerMarca(marca);
+    return comErros(() => this.servico.alertas(usuarioDe(req), m));
   }
 }

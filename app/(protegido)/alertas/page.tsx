@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Selo } from "@/components/ui";
 import { type RespostaAlertas, ROTULO_ALERTA } from "@/lib/fila-alertas";
+import { consultaDeMarca } from "@/lib/marca-escolhida";
+import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { moeda } from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
@@ -23,7 +25,10 @@ export default async function Alertas() {
     );
   }
 
-  const r = await buscarNaApi<RespostaAlertas>("/alertas");
+  const marca = await marcaAtiva();
+  const r = await buscarNaApi<RespostaAlertas>(
+    `/alertas${consultaDeMarca(marca.idNoCadastro)}`,
+  );
   if (!r.ok && r.status === 401) redirect("/login");
 
   return (
