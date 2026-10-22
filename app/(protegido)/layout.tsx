@@ -60,6 +60,10 @@ export default async function LayoutProtegido({
             {usuario.permissoes.includes("dados.importar") && (
               <NavLink href="/admin/importacao">Importação</NavLink>
             )}
+            {usuario.perfil === "administrador" &&
+              usuario.permissoes.includes("integracoes.gerir") && (
+                <NavLink href="/admin/integracoes">Integrações</NavLink>
+              )}
           </nav>
           <span className="casca__espaco" />
           <div className="casca__usuario">

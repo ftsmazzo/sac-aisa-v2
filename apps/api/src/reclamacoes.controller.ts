@@ -15,6 +15,7 @@ import {
 import { type Prisma, PrismaClient } from "@prisma/client";
 import type { Situacao } from "@sac-aisa/domain";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
+import { ServicoClickup } from "./clickup";
 import {
   type Escopo,
   lerConsulta,
@@ -342,7 +343,10 @@ export class ControladorReclamacoes {
   private readonly servico: ServicoReclamacoes;
   private readonly escrita: ServicoEscrita;
 
-  constructor(@Inject(PrismaClient) prisma: PrismaClient) {
+  constructor(
+    @Inject(PrismaClient) prisma: PrismaClient,
+    @Inject(ServicoClickup) private readonly clickup: ServicoClickup,
+  ) {
     this.servico = new ServicoReclamacoes(
       new RepositorioReclamacoesPrisma(prisma),
     );
@@ -383,7 +387,12 @@ export class ControladorReclamacoes {
   async criar(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
     const r = lerEntrada(corpo, "criar");
     if (!r.ok) throw new BadRequestException(r.mensagem);
-    return this.comErros(() => this.escrita.criar(r.entrada, usuarioDe(req)));
+    const criada = await this.comErros(() =>
+      this.escrita.criar(r.entrada, usuarioDe(req)),
+    );
+    // Primeira tentativa já; se falhar ou faltar token, a fila tenta de novo.
+    void this.clickup.tentarCard(criada.id).catch(() => undefined);
+    return criada;
   }
 
   @Requer("reclamacoes.editar")
