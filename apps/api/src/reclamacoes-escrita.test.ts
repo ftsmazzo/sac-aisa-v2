@@ -172,7 +172,6 @@ describe("criar", () => {
         canalId: "c1",
         descricao: "A solda do suporte soltou.",
         produtoCodigo: "P1",
-        custos: { freteEnvio: 30 },
       },
       usuario("operacao"),
     );
@@ -250,7 +249,7 @@ describe("criar", () => {
     const { repo, gravado } = repoFalso();
     await new ServicoEscrita(repo, AGORA).criar(
       { canalId: "c1", descricao: "Amassado.", causaId: "solda" },
-      usuario("operacao"),
+      usuario("gestor"),
     );
     const e = gravado.criados[0].estado;
     expect(e.causaId).toBe("solda");
@@ -261,7 +260,7 @@ describe("criar", () => {
   it("recusa referência que não existe", async () => {
     const { repo } = repoFalso();
     const s = new ServicoEscrita(repo, AGORA);
-    const op = usuario("operacao");
+    const op = usuario("gestor");
     for (const entrada of [
       { canalId: "x", descricao: "a" },
       { canalId: "c1", descricao: "a", marcaId: "x" },
@@ -276,7 +275,7 @@ describe("criar", () => {
   it("regra de tratativa: ação só depois do recebimento, e não no futuro", async () => {
     const { repo } = repoFalso();
     const s = new ServicoEscrita(repo, AGORA);
-    const op = usuario("operacao");
+    const op = usuario("gestor");
     const base = { canalId: "c1", descricao: "a" };
     const aguardando = s.criar(
       { ...base, devolucao: "AGUARDANDO", dataAcao: "2026-10-22" },
@@ -301,13 +300,13 @@ describe("criar", () => {
         clienteNome: "Maria",
         custos: { guia: 12 },
       },
-      usuario("operacao"),
+      usuario("gestor"),
     );
     expect(gravado.auditorias).toHaveLength(1);
     const a = gravado.auditorias[0];
     expect(a).toMatchObject({
-      usuarioId: "u-operacao",
-      usuarioNome: "Pessoa operacao",
+      usuarioId: "u-gestor",
+      usuarioNome: "Pessoa gestor",
       acao: "reclamacao.criar",
       alvo: "Reclamação #99",
       reclamacaoId: "novo",
@@ -330,7 +329,7 @@ describe("editar", () => {
     const r = await new ServicoEscrita(repo, AGORA).editar(
       "r1",
       { devolucao: "RECEBIDO", custos: { guia: 8 } },
-      usuario("operacao"),
+      usuario("gestor"),
     );
     expect(r).toEqual({
       id: "r1",
@@ -340,7 +339,7 @@ describe("editar", () => {
     });
     const a = gravado.auditorias[0];
     expect(a).toMatchObject({
-      usuarioId: "u-operacao",
+      usuarioId: "u-gestor",
       acao: "reclamacao.editar",
       alvo: "Reclamação #7",
       reclamacaoId: "r1",
@@ -482,7 +481,7 @@ describe("editar", () => {
       });
       await new ServicoEscrita(repo, AGORA).editar(
         "r1",
-        { peca: "Fusível" },
+        { observacao: "Conferido com o cliente." },
         usuario(perfil),
       );
       expect(gravado.buscas[0]).toEqual({ id: "r1" });
@@ -532,6 +531,167 @@ describe("editar", () => {
   });
 });
 
+describe("triagem enxuta: o que é do setor", () => {
+  const DO_SETOR = [
+    { causaId: "solda" },
+    { devolucao: "AGUARDANDO" as const },
+    { dataRecebimento: "2026-10-10" },
+    { dataAcao: "2026-10-15" },
+    { laudo: "Solda trincada." },
+    { solucao: "Peça reenviada." },
+    { peca: "Suporte" },
+    { garantia: "Sim" },
+    { procedencia: "Procedente" },
+    { custos: { guia: 5 } },
+  ];
+
+  it("a operação registra a triagem, mas não grava campo do setor", async () => {
+    for (const campo of DO_SETOR) {
+      const c = repoFalso();
+      const criar = new ServicoEscrita(c.repo, AGORA).criar(
+        { canalId: "c1", descricao: "x", ...campo },
+        usuario("operacao"),
+      );
+      expect((await recusa(criar)).status).toBe(403);
+      expect(c.gravado.criados).toHaveLength(0);
+
+      const e = repoFalso({ setorNome: "Logística", estado: existente() });
+      const editar = new ServicoEscrita(e.repo, AGORA).editar(
+        "r1",
+        campo,
+        usuario("operacao"),
+      );
+      expect((await recusa(editar)).status).toBe(403);
+      expect(e.gravado.atualizados).toHaveLength(0);
+      expect(e.gravado.auditorias).toHaveLength(0);
+    }
+  });
+
+  it("quem tem a permissão de analisar grava os campos do setor", async () => {
+    const { repo, gravado } = repoFalso({
+      setorNome: "Logística",
+      estado: existente({ devolucao: "RECEBIDO" }),
+    });
+    await new ServicoEscrita(repo, AGORA).editar(
+      "r1",
+      {
+        laudo: "Caixa amassada.",
+        solucao: "Reenvio.",
+        procedencia: "Procedente",
+        custos: { freteEnvio: 40 },
+        dataAcao: "2026-10-15",
+      },
+      usuario("responsavel_setor", ["Logística"]),
+    );
+    const e = gravado.atualizados[0].estado;
+    expect(e.laudo).toBe("Caixa amassada.");
+    expect(e.custos.freteEnvio).toBe(40);
+    expect(gravado.atualizados[0].situacao).toBe("resolvida");
+  });
+
+  it("a permissão vale por pessoa: sem analisar, nem o gestor grava campo do setor", async () => {
+    const { repo, gravado } = repoFalso({
+      setorNome: "Logística",
+      estado: existente(),
+    });
+    const sem = usuario("gestor", [], {
+      permissoes: ["reclamacoes.ver", "reclamacoes.editar"],
+    });
+    const e = await recusa(
+      new ServicoEscrita(repo, AGORA).editar("r1", { solucao: "x" }, sem),
+    );
+    expect(e.status).toBe(403);
+    expect(gravado.atualizados).toHaveLength(0);
+  });
+});
+
+describe("encaminhamento dinâmico", () => {
+  it("a causa automática sugere o setor e a reclassificação reencaminha", async () => {
+    const { repo, gravado } = repoFalso({
+      setorNome: "Logística",
+      estado: existente(),
+    });
+    await new ServicoEscrita(repo, AGORA).editar(
+      "r1",
+      { descricao: "A solda do suporte soltou." },
+      usuario("operacao"),
+    );
+    expect(gravado.atualizados[0].estado.setorRespId).toBe("s-solda");
+  });
+
+  it("a causa final escolhida pelo setor não tira a reclamação dele sozinha", async () => {
+    const { repo, gravado } = repoFalso({
+      setorNome: "Logística",
+      estado: existente(),
+    });
+    await new ServicoEscrita(repo, AGORA).editar(
+      "r1",
+      { causaId: "solda" },
+      usuario("responsavel_setor", ["Logística"]),
+    );
+    const e = gravado.atualizados[0].estado;
+    expect(e.causaId).toBe("solda");
+    expect(e.causaManual).toBe(true);
+    expect(e.setorRespId).toBe("s-log");
+    expect(e.setorRespManual).toBe(false);
+  });
+
+  it("a troca de setor guarda quem trocou, de → para e o motivo na auditoria", async () => {
+    const { repo, gravado } = repoFalso({
+      setorNome: "Logística",
+      estado: existente(),
+    });
+    await new ServicoEscrita(repo, AGORA).editar(
+      "r1",
+      { setorRespId: "s-solda", motivoTroca: "Era defeito de solda." },
+      usuario("gestor"),
+    );
+    const a = gravado.auditorias[0];
+    expect(a.usuarioNome).toBe("Pessoa gestor");
+    expect(a.extra.motivo).toBe("Era defeito de solda.");
+    expect(a.extra.mudancas).toContainEqual({
+      campo: "setorRespId",
+      de: "s-log",
+      para: "s-solda",
+    });
+    expect(a.extra.mudancas).toContainEqual({
+      campo: "setorRespManual",
+      de: false,
+      para: true,
+    });
+  });
+
+  it("motivo sem troca é recusado e motivo longo também", () => {
+    expect(lerEntrada({ motivoTroca: "x" }, "editar").ok).toBe(false);
+    expect(
+      lerEntrada({ setorRespId: null, motivoTroca: "x" }, "editar").ok,
+    ).toBe(false);
+    expect(
+      lerEntrada({ setorRespId: "s1", motivoTroca: "a".repeat(201) }, "editar")
+        .ok,
+    ).toBe(false);
+    expect(
+      lerEntrada({ setorRespId: "s1", motivoTroca: " ok " }, "editar"),
+    ).toEqual({
+      ok: true,
+      entrada: { setorRespId: "s1", motivoTroca: "ok" },
+    });
+  });
+
+  it("sem troca real de setor o motivo não entra na auditoria", async () => {
+    const { repo, gravado } = repoFalso({
+      setorNome: "Logística",
+      estado: existente({ setorRespId: "s-solda", setorRespManual: true }),
+    });
+    await new ServicoEscrita(repo, AGORA).editar(
+      "r1",
+      { setorRespId: "s-solda", motivoTroca: "igual", observacao: "ok" },
+      usuario("gestor"),
+    );
+    expect(gravado.auditorias[0].extra.motivo).toBeUndefined();
+  });
+});
+
 describe("compararEstados", () => {
   it("texto livre só marca alterado", () => {
     const antes = existente();
@@ -545,9 +705,10 @@ describe("compararEstados", () => {
 
 describe("rotas", () => {
   it("cada rota de escrita exige a permissão própria no guarda", () => {
-    const exigida = (m: "criar" | "editar") =>
+    const exigida = (m: "criar" | "editar" | "linhaDoTempo") =>
       Reflect.getMetadata(CHAVE_REQUER, ControladorReclamacoes.prototype[m]);
     expect(exigida("criar")).toEqual(["reclamacoes.criar"]);
     expect(exigida("editar")).toEqual(["reclamacoes.editar"]);
+    expect(exigida("linhaDoTempo")).toEqual(["reclamacoes.ver"]);
   });
 });

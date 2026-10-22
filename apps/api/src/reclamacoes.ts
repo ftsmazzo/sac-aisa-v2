@@ -271,7 +271,17 @@ export function paraItemLista(l: LinhaBanco) {
   };
 }
 
-export interface FichaBanco extends LinhaBanco {
+/** A causa da ficha leva o setor que ela direciona, com a troca manual da regra por cima. */
+interface CausaDaFicha {
+  id: string;
+  nome: string;
+  categoria: string;
+  setor?: { id: string; nome: string };
+  regra?: { setor: { id: string; nome: string } | null } | null;
+}
+
+export interface FichaBanco extends Omit<LinhaBanco, "causa"> {
+  causa: CausaDaFicha | null;
   protocoloExterno: string | null;
   dataRecebimento: Date | null;
   laudo: string;
@@ -308,8 +318,15 @@ export interface FichaBanco extends LinhaBanco {
 
 export function paraFicha(f: FichaBanco) {
   const c = calculados(f);
+  const causa = f.causa
+    ? { id: f.causa.id, nome: f.causa.nome, categoria: f.causa.categoria }
+    : null;
   return {
-    ...paraItemLista(f),
+    ...paraItemLista({ ...f, causa }),
+    /** Setor que a causa atual indica; pode diferir do responsável se alguém o trocou. */
+    setorSugerido: f.causa
+      ? (f.causa.regra?.setor ?? f.causa.setor ?? null)
+      : null,
     descricao: f.descricao,
     protocoloExterno: f.protocoloExterno,
     dataRecebimento: DIA_ISO(f.dataRecebimento),

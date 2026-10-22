@@ -137,3 +137,14 @@ Confirmado com o cliente: a reclamação tem dois estágios, com urgência e pra
 2. **Estudar e melhorar o produto ou o processo.** Leva mais tempo e é acompanhado até se saber se a melhoria funcionou. Corresponde ao plano de ação do sistema atual (`PlanoAcao`), que na v2 ganha acompanhamento do efeito: a ocorrência cai depois da ação?
 
 O sistema define o setor responsável e cria o card no ClickUp. O retorno do produto é decisão da análise do setor, não do registro.
+
+### Triagem e setor: quem preenche o quê
+
+Pedido do cliente (22/10/2026): o cadastro estava longo; a solução vem do setor que vai resolver; a triagem só coleta, comunica com o consumidor e finaliza; falta entender a história da reclamação da entrada à resolução; o encaminhamento deve ser dinâmico.
+
+- **Triagem (operação)** preenche só o que se coleta e se combina com o consumidor: canal, marca, data de abertura, pedido, protocolo do canal, cliente, cidade, UF, transportadora, produto, bancada de origem, o que aconteceu e a observação da triagem. São 13 campos, contra cerca de 28 antes.
+- **Setor responsável** preenche, na aba "Análise e solução" da ficha: se o produto volta e quando chegou, a causa final, laudo, solução, procedência, garantia, peça, custo e a data de ação, que resolve a reclamação. Esses campos exigem a permissão de registrar análise do setor.
+- **Encaminhamento dinâmico**: a causa, sugerida pelo texto da triagem, aponta o setor pela regra do cadastro (setor da causa, com a troca manual da regra por cima). Nada de setor fixo no código. Quem tem a permissão de trocar setor pode escolher outro; a troca guarda quem fez, de qual para qual setor e o motivo. A causa final escolhida pelo setor não tira a reclamação dele sozinha.
+- **Linha do tempo** na ficha: entrada, triagem, encaminhamento ao setor, análise, produto recebido e resolução, com quem fez e quando, mais o passo seguinte. Sai da auditoria; reclamação importada sem auditoria mostra entrada, recebimento e resolução pelas datas.
+
+Escolhas de produto feitas sem o cliente, para ele confirmar: bancada de origem fica na triagem (dado de coleta); garantia, procedência e peça vão para o setor; a observação da triagem é de uso livre da operação.

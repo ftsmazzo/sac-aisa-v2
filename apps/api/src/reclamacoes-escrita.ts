@@ -81,6 +81,8 @@ export interface EntradaEscrita {
   transportadora?: string;
   peca?: string;
   custos?: Partial<Custos>;
+  /** Só acompanha a troca de setor: vai para a auditoria, não para a reclamação. */
+  motivoTroca?: string;
 }
 
 export class ErroEscrita extends Error {
@@ -119,7 +121,25 @@ const CAMPOS_CUSTO: (keyof Custos)[] = [
   "desconto",
   "guia",
 ];
+/**
+ * O que é do setor responsável, não da triagem: causa final, devolução do produto, laudo,
+ * solução, ação (resolve), peça, garantia, procedência e custo. Exige "reclamacoes.analisar".
+ */
+const CAMPOS_DO_SETOR = [
+  "causaId",
+  "devolucao",
+  "dataRecebimento",
+  "dataAcao",
+  "laudo",
+  "solucao",
+  "peca",
+  "garantia",
+  "procedencia",
+  "custos",
+] as const;
+const MOTIVO_MAX = 200;
 const CAMPOS_ACEITOS = new Set<string>([
+  "motivoTroca",
   ...CAMPOS_ID,
   ...CAMPOS_CURTOS,
   ...CAMPOS_LONGOS,
@@ -197,6 +217,17 @@ export function lerEntrada(
       return erro(`Valor inválido em "${campo}".`);
     }
     e[campo] = v.trim();
+  }
+
+  if ("motivoTroca" in corpo) {
+    const v = corpo.motivoTroca;
+    if (typeof v !== "string" || v.length > MOTIVO_MAX) {
+      return erro('Valor inválido em "motivoTroca".');
+    }
+    if (!("setorRespId" in corpo) || corpo.setorRespId === null) {
+      return erro("O motivo só vale junto com a troca de setor.");
+    }
+    if (v.trim() !== "") e.motivoTroca = v.trim();
   }
 
   if ("uf" in corpo) {
@@ -284,7 +315,7 @@ export interface AuditoriaNova {
   alvo: string;
   detalhe: string;
   reclamacaoId: string;
-  extra: { mudancas: MudancaAuditada[] };
+  extra: { mudancas: MudancaAuditada[]; motivo?: string };
 }
 
 export interface RegistroAtual {
@@ -395,10 +426,22 @@ function derivar(e: EstadoReclamacao, ref: Referencias): EstadoReclamacao {
     });
     r.causaId = CAUSA_POR_ID[id] && ref.causaSetor.has(id) ? id : null;
   }
-  if (!r.setorRespManual) {
+  // O setor é sugestão da causa enquanto a causa é automática. A causa final escolhida pelo
+  // setor não tira a reclamação dele sozinha: mudar de setor é troca explícita.
+  if (!r.setorRespManual && (!r.causaManual || !r.setorRespId)) {
     r.setorRespId = r.causaId ? (ref.causaSetor.get(r.causaId) ?? null) : null;
   }
   return r;
+}
+
+function extraAuditoria(
+  mudancas: MudancaAuditada[],
+  entrada: EntradaEscrita,
+): AuditoriaNova["extra"] {
+  const trocou = mudancas.some((m) => m.campo === "setorRespId");
+  return entrada.motivoTroca && trocou
+    ? { mudancas, motivo: entrada.motivoTroca }
+    : { mudancas };
 }
 
 function exigir(u: UsuarioLogado, chave: string) {
@@ -428,6 +471,10 @@ export class ServicoEscrita {
   ): Promise<EstadoReclamacao> {
     const e: EstadoReclamacao = { ...base, custos: { ...base.custos } };
     const solto = e as unknown as Record<string, unknown>;
+
+    if (CAMPOS_DO_SETOR.some((k) => entrada[k] !== undefined)) {
+      exigir(usuario, "reclamacoes.analisar");
+    }
 
     if (entrada.canalId !== undefined) {
       if (!ref.canais.has(entrada.canalId)) {
@@ -548,7 +595,7 @@ export class ServicoEscrita {
         alvo: `Reclamação #${r.numero}`,
         detalhe: "Reclamação registrada.",
         reclamacaoId: r.id,
-        extra: { mudancas },
+        extra: extraAuditoria(mudancas, entrada),
       }),
     });
   }
@@ -596,7 +643,7 @@ export class ServicoEscrita {
         alvo: `Reclamação #${atual.numero}`,
         detalhe: `Campos alterados: ${mudancas.map((m) => m.campo).join(", ")}.`,
         reclamacaoId: atual.id,
-        extra: { mudancas },
+        extra: extraAuditoria(mudancas, entrada),
       },
     });
     return {

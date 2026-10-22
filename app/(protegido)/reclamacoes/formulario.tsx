@@ -11,12 +11,7 @@ import {
 } from "react";
 import { Botao } from "@/components/ui";
 import type { OpcoesFiltro } from "@/lib/reclamacoes";
-import {
-  CAMPOS_CUSTO,
-  montarCorpo,
-  type ValoresForm,
-} from "@/lib/reclamacoes-form";
-import { ROTULO_DEVOLUCAO } from "@/lib/reclamacoes-formato";
+import { montarCorpo, type ValoresForm } from "@/lib/reclamacoes-form";
 import { salvarReclamacao } from "./acoes";
 
 function Campo({
@@ -49,8 +44,9 @@ function Campo({
 type Entrada = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
 /**
- * Cadastro e edição na ficha lateral. A tela só leva o que a pessoa mexeu; quem calcula a
- * situação, a causa e o setor, e quem confere permissão e escopo, é a API.
+ * Triagem na ficha lateral: cadastro e edição só do que se coleta e se combina com o
+ * consumidor. A tela só leva o que a pessoa mexeu; quem calcula a situação, a causa e o
+ * setor sugerido, e quem confere permissão e escopo, é a API.
  * `depois` é o destino após salvar; `__ID__` vira o id da reclamação gravada.
  */
 export function FormularioReclamacao({
@@ -148,14 +144,19 @@ export function FormularioReclamacao({
             {criando ? "Registro pela equipe" : `Reclamação #${numero}`}
           </p>
           <h2 className="ficha__titulo">
-            {criando ? "Nova reclamação" : "Editar reclamação"}
+            {criando ? "Nova reclamação" : "Editar triagem"}
           </h2>
         </div>
       </header>
 
       <div className="ficha__corpo">
+        <p className="pagina__apoio">
+          A triagem coleta o caso e fala com o consumidor. Causa final, laudo e
+          solução são do setor responsável.
+        </p>
+
         <fieldset className="ficha-form__grupo">
-          <legend className="ficha__subtitulo">Registro</legend>
+          <legend className="ficha__subtitulo">Entrada</legend>
           <div className="ficha-form__grade">
             <Campo rotulo="Canal" id={`${base}-canalId`} obrigatorio>
               <select {...campo("canalId")} required>
@@ -184,24 +185,6 @@ export function FormularioReclamacao({
             >
               <input type="date" {...campo("dataAbertura")} required />
             </Campo>
-            <Campo
-              rotulo="Código do produto"
-              id={`${base}-produtoCodigo`}
-              ajuda="O código (SKU) do cadastro de produtos."
-            >
-              <input type="text" maxLength={200} {...campo("produtoCodigo")} />
-            </Campo>
-            <Campo rotulo="Bancada de origem" id={`${base}-bancadaId`}>
-              <select {...campo("bancadaId")}>
-                <option value="">Não informada</option>
-                {opcoes.bancadas.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.codigo}
-                    {o.nome ? ` · ${o.nome}` : ""}
-                  </option>
-                ))}
-              </select>
-            </Campo>
             <Campo rotulo="Pedido" id={`${base}-pedido`}>
               <input type="text" maxLength={200} {...campo("pedido")} />
             </Campo>
@@ -216,48 +199,7 @@ export function FormularioReclamacao({
         </fieldset>
 
         <fieldset className="ficha-form__grupo">
-          <legend className="ficha__subtitulo">O que aconteceu</legend>
-          <Campo
-            rotulo="Descrição do caso"
-            id={`${base}-descricao`}
-            obrigatorio
-            largo
-            ajuda="A causa e o setor responsável saem do texto, pelas regras do sistema. Você pode corrigir abaixo."
-          >
-            <textarea rows={5} maxLength={5000} {...campo("descricao")} />
-          </Campo>
-          <div className="ficha-form__grade">
-            <Campo rotulo="Causa" id={`${base}-causaId`}>
-              <select {...campo("causaId")}>
-                <option value="">Automática, pelo texto</option>
-                {opcoes.causas.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.categoria} · {o.nome}
-                  </option>
-                ))}
-              </select>
-            </Campo>
-            {podeTrocarSetor && (
-              <Campo
-                rotulo="Setor responsável"
-                id={`${base}-setorRespId`}
-                ajuda="Trocar à mão vale até voltar para automático."
-              >
-                <select {...campo("setorRespId")}>
-                  <option value="">Automático, pela causa</option>
-                  {opcoes.setores.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.nome}
-                    </option>
-                  ))}
-                </select>
-              </Campo>
-            )}
-          </div>
-        </fieldset>
-
-        <fieldset className="ficha-form__grupo">
-          <legend className="ficha__subtitulo">Cliente e envio</legend>
+          <legend className="ficha__subtitulo">Consumidor</legend>
           <div className="ficha-form__grade">
             <Campo rotulo="Cliente" id={`${base}-clienteNome`}>
               <input type="text" maxLength={200} {...campo("clienteNome")} />
@@ -280,71 +222,81 @@ export function FormularioReclamacao({
         </fieldset>
 
         <fieldset className="ficha-form__grupo">
-          <legend className="ficha__subtitulo">Tratativa</legend>
+          <legend className="ficha__subtitulo">O caso</legend>
           <div className="ficha-form__grade">
-            <Campo rotulo="Devolução do produto" id={`${base}-devolucao`}>
-              <select {...campo("devolucao")}>
-                {Object.entries(ROTULO_DEVOLUCAO).map(([valor, rotulo]) => (
-                  <option key={valor} value={valor}>
-                    {rotulo}
+            <Campo
+              rotulo="Código do produto"
+              id={`${base}-produtoCodigo`}
+              ajuda="O código (SKU) do cadastro de produtos."
+            >
+              <input type="text" maxLength={200} {...campo("produtoCodigo")} />
+            </Campo>
+            <Campo rotulo="Bancada de origem" id={`${base}-bancadaId`}>
+              <select {...campo("bancadaId")}>
+                <option value="">Não informada</option>
+                {opcoes.bancadas.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.codigo}
+                    {o.nome ? ` · ${o.nome}` : ""}
                   </option>
                 ))}
               </select>
             </Campo>
-            <Campo rotulo="Produto recebido em" id={`${base}-dataRecebimento`}>
-              <input type="date" {...campo("dataRecebimento")} />
-            </Campo>
-            <Campo
-              rotulo="Data de ação"
-              id={`${base}-dataAcao`}
-              ajuda="Com data de ação a reclamação fica resolvida. Com devolução a caminho, registre antes o recebimento."
-            >
-              <input type="date" {...campo("dataAcao")} />
-            </Campo>
-            <Campo rotulo="Peça" id={`${base}-peca`}>
-              <input type="text" maxLength={200} {...campo("peca")} />
-            </Campo>
-            <Campo rotulo="Garantia" id={`${base}-garantia`}>
-              <input type="text" maxLength={200} {...campo("garantia")} />
-            </Campo>
-            <Campo rotulo="Procedência" id={`${base}-procedencia`}>
-              <input type="text" maxLength={200} {...campo("procedencia")} />
-            </Campo>
           </div>
-          <Campo rotulo="Laudo" id={`${base}-laudo`} largo>
-            <textarea rows={3} maxLength={5000} {...campo("laudo")} />
+          <Campo
+            rotulo="O que aconteceu"
+            id={`${base}-descricao`}
+            obrigatorio
+            largo
+            ajuda="O setor responsável é sugerido a partir deste texto. A ficha mostra a jornada depois de salvar."
+          >
+            <textarea rows={5} maxLength={5000} {...campo("descricao")} />
           </Campo>
-          <Campo rotulo="Solução" id={`${base}-solucao`} largo>
-            <textarea rows={3} maxLength={5000} {...campo("solucao")} />
-          </Campo>
-          <Campo rotulo="Observação" id={`${base}-observacao`} largo>
+          <Campo
+            rotulo="Observação da triagem"
+            id={`${base}-observacao`}
+            largo
+            ajuda="Combinados com o consumidor e avisos para o setor."
+          >
             <textarea rows={3} maxLength={5000} {...campo("observacao")} />
           </Campo>
         </fieldset>
 
-        <fieldset className="ficha-form__grupo">
-          <legend className="ficha__subtitulo">Custo (R$)</legend>
-          <div className="ficha-form__grade">
-            {CAMPOS_CUSTO.map(([k, rotulo]) => (
-              <Campo key={k} rotulo={rotulo} id={`${base}-custo-${k}`}>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  name={k}
-                  id={`${base}-custo-${k}`}
-                  value={v.custos[k]}
-                  onChange={(e) =>
-                    setV((a) => ({
-                      ...a,
-                      custos: { ...a.custos, [k]: e.target.value },
-                    }))
-                  }
-                />
+        {podeTrocarSetor && (
+          <fieldset className="ficha-form__grupo">
+            <legend className="ficha__subtitulo">Encaminhamento</legend>
+            <div className="ficha-form__grade">
+              <Campo
+                rotulo="Setor responsável"
+                id={`${base}-setorRespId`}
+                ajuda="Automático: a regra da causa sugere o setor. A troca fica registrada com o seu nome."
+              >
+                <select {...campo("setorRespId")}>
+                  <option value="">Automático, pela causa</option>
+                  {opcoes.setores.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nome}
+                    </option>
+                  ))}
+                </select>
               </Campo>
-            ))}
-          </div>
-        </fieldset>
+              {v.setorRespId !== inicial.setorRespId &&
+                v.setorRespId !== "" && (
+                  <Campo
+                    rotulo="Motivo da troca"
+                    id={`${base}-motivoTroca`}
+                    ajuda="Opcional. Não escreva dados do cliente."
+                  >
+                    <input
+                      type="text"
+                      maxLength={200}
+                      {...campo("motivoTroca")}
+                    />
+                  </Campo>
+                )}
+            </div>
+          </fieldset>
+        )}
       </div>
 
       <footer className="ficha-form__rodape">

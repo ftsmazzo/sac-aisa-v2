@@ -59,6 +59,13 @@ O que cada API de marketplace realmente entrega não foi verificado. Ler a docum
 - Sistemas legados a integrar: o sac-renato. Dados migrados por importação (reclamações, causas, regras, de-para de SKU, usuários), não por commit. O backup JSON e o `.env` do sistema atual não entram no repositório.
 - Decisões já tomadas: nomes `sac-aisa-v2`; uso de ClickUp; Mercado Livre e Shopee no MVP; setor de fabricação e setor responsável como entidades separadas (PRD, seção 9).
 
+## 5.1 Triagem, setor e linha do tempo
+
+- **Permissão por campo**: na escrita da reclamação (`PATCH /reclamacoes/:id` e `POST /reclamacoes`), os campos do setor (causa final, devolução, data de recebimento, data de ação, laudo, solução, peça, garantia, procedência e custo) exigem `reclamacoes.analisar`; a triagem usa `reclamacoes.criar` e `reclamacoes.editar`. Conferido no servidor, por pessoa, e testado.
+- **Encaminhamento**: o setor sai da causa (setor da causa, com a regra de direcionamento por cima), lido do banco. Enquanto a causa é automática, uma nova classificação reencaminha. Com a causa definida por pessoa e o setor já definido, o setor não muda sozinho. A troca manual exige `reclamacoes.trocar_setor`, aceita `motivoTroca` (até 200 caracteres, sem dado de cliente) e grava na auditoria o autor, o setor de e para e o motivo.
+- **Linha do tempo**: `GET /reclamacoes/:id/linha-do-tempo` (`reclamacoes.ver`, mesmo escopo da ficha). Monta os eventos pela tabela `auditoria` (`reclamacao.criar`, `reclamacao.editar`, `analise.criar`, `analise.editar`) e pelo estado atual, mais as etapas e o passo seguinte. Texto livre nunca entra: só rótulos, nomes de setor e causa, datas e o motivo da troca. Sem tabela nova.
+- `GET /reclamacoes/:id` passa a devolver `setorSugerido`, o setor que a causa atual indica.
+
 ## 6. Manutenção
 
 - Quem mantém o código após o lançamento: a definir (não informado).

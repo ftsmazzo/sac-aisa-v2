@@ -25,12 +25,12 @@ O sistema atual tem `master`, `gestor` e `operador`. O dono entra como gestor (l
 
 Perfil: Operação
 
-1. A pessoa abre "Nova reclamação" e descreve o caso ao cliente em texto livre ou conversa guiada.
+1. A pessoa abre "Nova reclamação" e descreve o caso ao cliente em texto livre ou conversa guiada. A triagem só coleta e combina com o consumidor (13 campos); solução, laudo e causa final são do setor.
 2. A IA faz perguntas curtas para completar o que falta (pedido, produto, canal, o que aconteceu, fotos).
 3. A IA propõe o rascunho: produto, **bancada de origem**, causa e tipo de ocorrência.
 4. Decisão: se a IA tem confiança alta, o rascunho vem preenchido; se não, fica marcado "revisar causa" e não direciona sozinho.
 5. A pessoa confere, corrige e registra.
-6. O sistema define o **setor responsável** pela causa, cria o card no ClickUp e marca a reclamação como em tratativa.
+6. O sistema sugere o **setor responsável** pela causa, cria o card no ClickUp e marca a reclamação como em tratativa. O gestor pode trocar o setor, e a troca fica registrada com autor e motivo. A ficha mostra a jornada: entrada, triagem, encaminhamento, análise, produto, resolução.
 
 Telas: nova reclamação, conferência do rascunho, detalhe da reclamação.
 Exceção: se a IA estiver fora do ar, o formulário funciona sem sugestão, com as regras de causa e setor do sistema.
@@ -54,7 +54,7 @@ Perfil: Responsável de setor, Operação, Gestor
 1. O responsável recebe o card no ClickUp e a reclamação na sua fila.
 2. Ele analisa o caso. **Se o produto precisa voltar, isso é decidido nesta análise**, antes de finalizar. Sem essa análise, o produto físico volta e não é avaliado.
 3. Decisão: com devolução, a situação vira "aguardando produto" e depois "recebido", e a análise do produto é feita antes da conclusão. Sem devolução, segue direto.
-4. O setor registra a solução e a **data de ação**.
+4. O setor registra a causa final, o laudo, a solução, o custo e a **data de ação**, na aba "Análise e solução" da ficha.
 5. A reclamação passa a resolvida. O cliente recebe a resposta, e o card no ClickUp é concluído.
 
 Prazos: meta de 2 dias até a ação; alerta aos 7 dias em "aguardando produto" e aos 3 dias nos demais casos. Custo acima de R$ 500 notifica o gestor na hora. Valores são sugestão do sistema atual.
