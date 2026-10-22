@@ -29,8 +29,27 @@ export interface Integracao {
     padraoEstados: Record<Estado, string>;
     /** Reclamações de treino viram cards no ClickUp configurado. */
     criarCardsTreino?: boolean;
+    assistente: {
+      workspaceId: string;
+      spaceId: string;
+      webhookAtivo: boolean;
+    };
   };
 }
+
+export interface PassoAssistente {
+  id: string;
+  rotulo: string;
+  estado: "ok" | "erro" | "aviso" | "pulado";
+  mensagem: string;
+}
+
+export const ROTULO_PASSO: Record<PassoAssistente["estado"], string> = {
+  ok: "ok",
+  erro: "erro",
+  aviso: "atenção",
+  pulado: "não rodou",
+};
 
 export interface PainelIntegracoes {
   gravacaoLiberada: boolean;

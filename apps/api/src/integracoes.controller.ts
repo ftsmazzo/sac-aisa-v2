@@ -34,6 +34,10 @@ import {
   ServicoWebhookClickup,
 } from "./clickup";
 import {
+  type RepositorioAssistente,
+  ServicoAssistenteClickup,
+} from "./clickup-assistente";
+import {
   type AuditoriaIntegracao,
   type ChaveIntegracao,
   chaveValida,
@@ -560,6 +564,15 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
   }
 }
 
+/** Eventos recebidos, para o teste do assistente conferir se o webhook entrega. */
+export class RepositorioAssistentePrisma implements RepositorioAssistente {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  eventosDaTask(taskId: string, tipo: string) {
+    return this.prisma.clickupEvento.count({ where: { taskId, tipo } });
+  }
+}
+
 /** Liga a fila de nova tentativa do ClickUp quando a API sobe. */
 @Injectable()
 export class FilaClickup implements OnModuleInit, OnModuleDestroy {
@@ -701,6 +714,86 @@ export class ControladorWebhooks {
         throw new HttpException(e.message, e.status);
       }
       throw e;
+    }
+  }
+}
+
+/** Base pública da web: a variável de ambiente, ou o host que a requisição trouxe. */
+function urlPublica(req: PedidoComUsuario): string | undefined {
+  const env = process.env.URL_PUBLICA_WEB?.trim();
+  if (env) return env;
+  const um = (v: string | string[] | undefined) =>
+    (Array.isArray(v) ? v[0] : v)?.split(",")[0]?.trim();
+  const host = um(req.headers["x-forwarded-host"]) ?? um(req.headers.host);
+  if (!host) return undefined;
+  const proto = um(req.headers["x-forwarded-proto"]) ?? "http";
+  return `${proto}://${host}`;
+}
+
+/** Assistente do ClickUp. Só o administrador; o serviço confere o perfil de novo. */
+@Controller("admin/integracoes/clickup/assistente")
+export class ControladorAssistenteClickup {
+  constructor(
+    @Inject(ServicoAssistenteClickup)
+    private readonly servico: ServicoAssistenteClickup,
+  ) {}
+
+  @Requer("integracoes.gerir")
+  @Get("workspaces")
+  async workspaces(@Req() req: PedidoComUsuario) {
+    return {
+      workspaces: await this.comErros(() =>
+        this.servico.workspaces(usuarioDe(req)),
+      ),
+    };
+  }
+
+  @Requer("integracoes.gerir")
+  @Post("configurar")
+  @HttpCode(200)
+  configurar(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    const c = objeto(corpo);
+    const ws = typeof c.workspaceId === "string" ? c.workspaceId.trim() : "";
+    if (!/^\d{1,20}$/.test(ws)) {
+      throw new BadRequestException("Escolha um workspace.");
+    }
+    return this.comErros(() =>
+      this.servico.configurar(usuarioDe(req), {
+        workspaceId: ws,
+        recriarWebhook: c.recriarWebhook === true,
+        urlBase: urlPublica(req),
+      }),
+    );
+  }
+
+  @Requer("integracoes.gerir")
+  @Post("webhook/remover")
+  @HttpCode(200)
+  async removerWebhook(@Req() req: PedidoComUsuario) {
+    return {
+      passos: [
+        await this.comErros(() => this.servico.removerWebhook(usuarioDe(req))),
+      ],
+    };
+  }
+
+  @Requer("integracoes.gerir")
+  @Post("testar")
+  @HttpCode(200)
+  async testar(@Req() req: PedidoComUsuario) {
+    return {
+      passos: await this.comErros(() => this.servico.testar(usuarioDe(req))),
+    };
+  }
+
+  private async comErros<T>(f: () => Promise<T>): Promise<T> {
+    try {
+      return await f();
+    } catch (e) {
+      if (!(e instanceof ErroIntegracao)) throw e;
+      if (e.status === 403) throw new ForbiddenException(e.message);
+      if (e.status === 503) throw new ServiceUnavailableException(e.message);
+      throw new BadRequestException(e.message);
     }
   }
 }

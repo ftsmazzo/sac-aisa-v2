@@ -1506,6 +1506,69 @@ a.chip:hover {
   gap: 10px;
   align-items: stretch;
 }
+.assistente {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-m);
+  background: var(--cor-fundo);
+}
+.assistente__linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.assistente__select {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio-m);
+  background: var(--cor-superficie);
+  color: inherit;
+  font: inherit;
+}
+.assistente__passos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.assistente__passo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  padding: 10px 12px;
+  border-radius: var(--raio-p);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+}
+.assistente__passo.is-ok .assistente__estado {
+  color: var(--cor-ok);
+}
+.assistente__passo.is-erro {
+  border-color: var(--cor-perigo);
+}
+.assistente__passo.is-erro .assistente__estado {
+  color: var(--cor-perigo);
+}
+.assistente__passo.is-aviso .assistente__estado {
+  color: var(--cor-atencao);
+}
+.assistente__estado {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--cor-suave);
+}
+.assistente__msg {
+  grid-column: 1 / -1;
+  font-size: 0.9375rem;
+  color: var(--cor-suave);
+}
 .integracao__acoes {
   display: flex;
   flex-wrap: wrap;

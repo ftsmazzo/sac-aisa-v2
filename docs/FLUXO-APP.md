@@ -42,6 +42,8 @@ A regra mora no domínio (`packages/domain/src/jornada.ts`) e o servidor a confe
 
 **ClickUp acompanha**: cada estado tem um status do card (mapa configurável em Integrações, com padrão). Mudar o estado no sistema atualiza o card. Mudar o card no ClickUp só vale para Recebida, Em tratativa e Resolvida no setor técnico, andando para a frente; mover para um estado do SAC, voltar atrás ou mexer antes de encaminhar é recusado e o card volta ao status certo. "Complete" no ClickUp vale como Resolvida no setor técnico, nunca como Finalizada.
 
+**Assistente do ClickUp** (Integrações, só administrador): com o token já gravado, o botão "Configurar ClickUp automaticamente" lista os workspaces, deixa a pessoa escolher um e monta o Space "SAC AISA" com os sete status, uma lista por setor ativo, o mapa setor → lista, o mapa estado → status e o webhook (HTTPS, evento de mudança de status). Cada passo aparece numa lista de progresso (ok, erro, atenção, não rodou); se um falha, o que já foi criado fica e "Continuar configuração" retoma sem duplicar. A tela mostra só "Webhook ativo" e os 4 últimos caracteres do segredo, com "Recriar webhook", "Remover webhook" e "Testar fluxo" (cria um card de teste, move o status e confere se o aviso chegou). No ClickUp real, use o token de um usuário de serviço: o webhook fica atrelado a quem o criou e para se essa pessoa for desativada.
+
 **Escopo**: SAC, gestor e administrador veem tudo. O responsável de setor vê só os setores do seu cadastro e, se o cadastro tiver marcas, só essas marcas (lista de marcas vazia = todas). O seletor de marca oferece só as marcas permitidas. O administrador define setores e marcas na tela de usuários.
 
 ## 1.2 Modo treino
