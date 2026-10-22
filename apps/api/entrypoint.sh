@@ -11,4 +11,11 @@ if [ -n "$ADMIN_LOGIN" ] && [ -n "$ADMIN_SENHA" ]; then
   node apps/api/dist/criar-admin.js || true
 fi
 
+# Importação do sac-renato: com IMPORT_BACKUP apontando para o arquivo JSON montado
+# no serviço, importa as reclamações. Rodar de novo não duplica nada. O log mostra só
+# contagens. Depois de conferir, desmonte o arquivo e remova a variável.
+if [ -n "$IMPORT_BACKUP" ] && [ -f "$IMPORT_BACKUP" ]; then
+  node apps/api/dist/importar.js "$IMPORT_BACKUP" --produtos /app/dados/catalogo-produtos.txt || true
+fi
+
 exec node apps/api/dist/main.js
