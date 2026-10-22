@@ -54,7 +54,7 @@ async function executar() {
           tabelas,
         );
       },
-      { timeout: 120_000 },
+      { timeout: 600_000, maxWait: 30_000 },
     );
     console.log("Importação concluída.");
   } finally {

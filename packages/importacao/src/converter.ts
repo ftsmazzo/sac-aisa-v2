@@ -22,6 +22,8 @@ export interface Tabelas {
   reclamacoes: Linha[];
   custos: Linha[];
   reclamacao_causas: Linha[];
+  usuarios: Linha[];
+  vendas_dia: Linha[];
 }
 
 export interface Relatorio {
@@ -34,14 +36,46 @@ export interface Relatorio {
   semSku: number;
   produtosCriadosDasReclamacoes: number;
   contagens: Record<string, number>;
-  ignorados: { usuarios: number; fotos: number; auditoria: number };
+  usuariosInativos: number;
+  vendasLidas: number;
+  ignorados: { fotos: number; auditoria: number };
   avisos: string[];
 }
 
-/** Formato do backup JSON exportado pelo sac-renato. */
+/** Causa gravada para uma reclamação (tabela reclamacao_causas do sac-renato). */
+export interface CausaExtraLegada {
+  reclamacaoId: string;
+  causaId: string;
+  primaria: boolean;
+  ordem: number;
+}
+
+export interface VendaLegada {
+  sku: string;
+  descricao?: string;
+  data: string;
+  quantidade: number;
+}
+
+export interface UsuarioLegado {
+  login: string;
+  nome: string;
+  perfil: string;
+  ativo?: boolean;
+  telefone?: string | null;
+}
+
+/**
+ * Backup do sac-renato. Vem do JSON exportado pelo sistema ou da extração do dump
+ * (`scripts/extrair-dump.py`), que acrescenta causas gravadas, vendas e usuários.
+ */
 export interface BackupLegado {
   regs: RegistroLegado[];
-  usuarios?: unknown[];
+  causasExtras?: CausaExtraLegada[];
+  vendas?: VendaLegada[];
+  usuarios?: UsuarioLegado[];
+  /** Contagem de fotos, quando a extração só informa o total. */
+  fotos?: number;
   auditoria?: unknown[];
 }
 
@@ -66,6 +100,16 @@ const CANAIS: Record<
   MAGALU: { nome: "Magalu", tipo: "marketplace" },
 };
 const CANAL_NAO_INFORMADO = { nome: "Não informado", tipo: "interno" } as const;
+/** Erros de digitação vistos no sistema antigo. */
+const CANAL_ALIAS: Record<string, string> = { SHOPPE: "SHOPEE" };
+
+const PERFIL_NOVO: Record<string, string> = {
+  master: "administrador",
+  gestor: "gestor",
+  operador: "operacao",
+};
+/** Hash que nunca confere com senha nenhuma: o usuário só entra depois de ter senha nova. */
+const SENHA_NAO_DEFINIDA = "!sem-senha-importado";
 
 const MARCAS_ALIAS: Record<string, string> = { ARTAMQ: "ARTMAQ" };
 
@@ -156,9 +200,12 @@ export function converterBackup(
     semSku: 0,
     produtosCriadosDasReclamacoes: 0,
     contagens: {},
+    usuariosInativos: 0,
+    vendasLidas: backup.vendas?.length ?? 0,
     ignorados: {
-      usuarios: backup.usuarios?.length ?? 0,
-      fotos: backup.regs.reduce((n, r) => n + (r.fotos?.length ?? 0), 0),
+      fotos:
+        backup.fotos ??
+        backup.regs.reduce((n, r) => n + (r.fotos?.length ?? 0), 0),
       auditoria: backup.auditoria?.length ?? 0,
     },
     avisos: [],
@@ -171,6 +218,13 @@ export function converterBackup(
   const reclamacoes: Linha[] = [];
   const custos: Linha[] = [];
   const extras: Linha[] = [];
+  const causasValidas = new Set(CAUSAS.map((c) => c.id));
+  const gravadasPorReclamacao = new Map<string, CausaExtraLegada[]>();
+  for (const e of backup.causasExtras ?? []) {
+    const lista = gravadasPorReclamacao.get(e.reclamacaoId) ?? [];
+    lista.push(e);
+    gravadasPorReclamacao.set(e.reclamacaoId, lista);
+  }
 
   const setores: Linha[] = SETORES_RESP.map((nome) => ({
     id: `setor-${slug(nome)}`,
@@ -240,7 +294,8 @@ export function converterBackup(
     const marcaNome = MARCAS_ALIAS[empresa] ?? empresa;
     const marcaId = marcaNome ? garantirMarca(marcaNome) : null;
 
-    const canalDef = CANAIS[maiuscula(r.canal)];
+    const canalBruto = maiuscula(r.canal);
+    const canalDef = CANAIS[CANAL_ALIAS[canalBruto] ?? canalBruto];
     if (!canalDef) relatorio.semCanal++;
     const canalId = garantirCanal(canalDef ?? CANAL_NAO_INFORMADO);
 
@@ -266,10 +321,25 @@ export function converterBackup(
       relatorio.semSku++;
     }
 
-    const definida = !!(r.causaManual && r.causaId);
-    const ids = definida
-      ? [String(r.causaId)]
-      : classificarTodas(r as ReclamacaoLike);
+    // Causas gravadas no sistema antigo valem mais que a regra: primeiro a primária.
+    const gravadas = [
+      ...new Set(
+        (gravadasPorReclamacao.get(String(r.id)) ?? [])
+          .filter((e) => causasValidas.has(e.causaId))
+          .sort(
+            (a, b) =>
+              Number(b.primaria) - Number(a.primaria) || a.ordem - b.ordem,
+          )
+          .map((e) => e.causaId),
+      ),
+    ];
+    const manualNoBackup = !!(r.causaManual && r.causaId);
+    const definida = gravadas.length > 0 || manualNoBackup;
+    const ids = gravadas.length
+      ? gravadas
+      : manualNoBackup
+        ? [String(r.causaId)]
+        : classificarTodas(r as ReclamacaoLike);
     if (definida) relatorio.causaDefinidaNoBackup++;
     else relatorio.causaInferida++;
     const causaId = ids[0];
@@ -364,9 +434,49 @@ export function converterBackup(
       `${relatorio.semSku} registro(s) sem SKU ficaram sem produto.`,
     );
   }
-  if (relatorio.ignorados.usuarios || relatorio.ignorados.fotos) {
+  const vendas: Linha[] = [];
+  for (const v of backup.vendas ?? []) {
+    const sku = maiuscula(v.sku);
+    const data = paraData(v.data);
+    if (!sku || !data) continue;
+    vendas.push({
+      id: `venda-${slug(sku)}-${data}`,
+      sku,
+      descricao: limpar(v.descricao),
+      data,
+      quantidade: Math.max(0, Math.trunc(Number(v.quantidade) || 0)),
+    });
+  }
+
+  // Usuários entram inativos e sem senha utilizável: o hash antigo é incompatível.
+  // Quem deve voltar a usar o sistema ganha senha nova e é ativado depois.
+  const usuarios: Linha[] = [];
+  const agora = new Date().toISOString();
+  for (const u of backup.usuarios ?? []) {
+    const login = limpar(u.login).toLowerCase();
+    if (!login) continue;
+    usuarios.push({
+      id: `usuario-${slug(login)}`,
+      login,
+      nome: limpar(u.nome) || login,
+      perfil: PERFIL_NOVO[limpar(u.perfil).toLowerCase()] ?? "operacao",
+      senhaHash: SENHA_NAO_DEFINIDA,
+      ativo: false,
+      telefone: limpar(u.telefone) || null,
+      criadoEm: agora,
+      alteradoEm: agora,
+    });
+  }
+  relatorio.usuariosInativos = usuarios.length;
+
+  if (usuarios.length) {
     relatorio.avisos.push(
-      `Não importados: ${relatorio.ignorados.usuarios} usuário(s) (recriar na v2, o hash de senha é incompatível), ${relatorio.ignorados.fotos} foto(s) (só metadados, sem arquivo) e ${relatorio.ignorados.auditoria} registro(s) de auditoria.`,
+      `${usuarios.length} usuário(s) entram inativos e sem senha utilizável (o hash antigo é incompatível); quem for usar a v2 recebe senha nova e é ativado depois. Usuário com login já existente na v2 não é alterado.`,
+    );
+  }
+  if (relatorio.ignorados.fotos || relatorio.ignorados.auditoria) {
+    relatorio.avisos.push(
+      `Não importados: ${relatorio.ignorados.fotos} foto(s) (só metadados, os arquivos estão no servidor antigo) e ${relatorio.ignorados.auditoria} registro(s) de auditoria.`,
     );
   }
 
@@ -380,6 +490,8 @@ export function converterBackup(
     reclamacoes,
     custos,
     reclamacao_causas: extras,
+    usuarios,
+    vendas_dia: vendas,
   };
   for (const [nome, linhas] of Object.entries(tabelas)) {
     relatorio.contagens[nome] = linhas.length;

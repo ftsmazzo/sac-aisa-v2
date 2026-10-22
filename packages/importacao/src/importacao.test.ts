@@ -73,7 +73,6 @@ const backup: BackupLegado = {
       setor: "ADMIN",
     }),
   ],
-  usuarios: [{}, {}],
   auditoria: [{}, {}, {}],
 };
 
@@ -158,7 +157,6 @@ describe("conversão do backup", () => {
 
   it("relatório avisa o que ficou de fora, sem dado de cliente", () => {
     expect(relatorio.ignorados).toEqual({
-      usuarios: 2,
       fotos: 0,
       auditoria: 3,
     });

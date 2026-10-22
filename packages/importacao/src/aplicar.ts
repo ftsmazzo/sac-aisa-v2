@@ -115,6 +115,30 @@ const ORDEM: Especificacao[] = [
       t("ordem", "int"),
     ],
   },
+  {
+    tabela: "usuarios",
+    colunas: [
+      t("id"),
+      t("login"),
+      t("nome"),
+      t("perfil", { enum: "Perfil" }),
+      t("senhaHash"),
+      t("ativo", "bool"),
+      t("telefone"),
+      t("criadoEm", "ts"),
+      t("alteradoEm", "ts"),
+    ],
+  },
+  {
+    tabela: "vendas_dia",
+    colunas: [
+      t("id"),
+      t("sku"),
+      t("descricao"),
+      t("data", "date"),
+      t("quantidade", "int"),
+    ],
+  },
 ];
 
 function marcador(c: Coluna, n: number): string {
@@ -136,11 +160,20 @@ function marcador(c: Coluna, n: number): string {
 }
 
 /** Nomes de tabela e coluna vêm só das constantes acima; os valores vão por parâmetro. */
-export function sqlInserir(spec: Especificacao): string {
+export function sqlInserir(spec: Especificacao, linhas = 1): string {
   const cols = spec.colunas.map((c) => `"${c.nome}"`).join(", ");
-  const vals = spec.colunas.map((c, i) => marcador(c, i + 1)).join(", ");
-  return `INSERT INTO "${spec.tabela}" (${cols}) VALUES (${vals}) ON CONFLICT DO NOTHING`;
+  const grupos: string[] = [];
+  for (let l = 0; l < linhas; l++) {
+    const base = l * spec.colunas.length;
+    grupos.push(
+      `(${spec.colunas.map((c, i) => marcador(c, base + i + 1)).join(", ")})`,
+    );
+  }
+  return `INSERT INTO "${spec.tabela}" (${cols}) VALUES ${grupos.join(", ")} ON CONFLICT DO NOTHING`;
 }
+
+/** O Postgres aceita até 65535 parâmetros por comando; ficamos bem abaixo. */
+const PARAMETROS_POR_COMANDO = 20000;
 
 /** Grava todas as tabelas. Rodar de novo não duplica: conflito é ignorado. */
 export async function aplicarTabelas(
@@ -149,12 +182,16 @@ export async function aplicarTabelas(
 ): Promise<Record<string, number>> {
   const lidas: Record<string, number> = {};
   for (const spec of ORDEM) {
-    const sql = sqlInserir(spec);
     const linhas: Linha[] = tabelas[spec.tabela];
-    for (const linha of linhas) {
+    const porLote = Math.max(
+      1,
+      Math.floor(PARAMETROS_POR_COMANDO / spec.colunas.length),
+    );
+    for (let i = 0; i < linhas.length; i += porLote) {
+      const lote = linhas.slice(i, i + porLote);
       await exec(
-        sql,
-        spec.colunas.map((c) => linha[c.nome] ?? null),
+        sqlInserir(spec, lote.length),
+        lote.flatMap((linha) => spec.colunas.map((c) => linha[c.nome] ?? null)),
       );
     }
     lidas[spec.tabela] = linhas.length;
