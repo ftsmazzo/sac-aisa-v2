@@ -350,7 +350,103 @@ a {
   }
 }
 
+/* ---------- Passos, resumo e tabelas ---------- */
+.passo {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.passo__titulo {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.passo input[type="file"] {
+  font: inherit;
+  max-width: 100%;
+}
+.resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.resumo__item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border-radius: var(--raio-m);
+  background: var(--cor-fundo);
+}
+.resumo__valor {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.resumo__rotulo {
+  font-size: 12px;
+  color: var(--cor-suave);
+}
+.tabela-simples {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.tabela-simples th,
+.tabela-simples td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.tabela-simples th:last-child,
+.tabela-simples td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lista-avisos {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.aviso--ok {
+  background: var(--cor-ok-fundo);
+  color: var(--cor-ok);
+}
+.aviso--info {
+  background: var(--cor-info-fundo);
+  color: var(--cor-info);
+}
+.confirmar {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+}
+.confirmar input {
+  margin-top: 3px;
+}
+
 /* ---------- Casca da área logada ---------- */
+.casca__nav {
+  display: flex;
+  gap: 4px;
+}
+.casca__nav a {
+  padding: 8px 12px;
+  border-radius: var(--raio-m);
+  color: var(--cor-texto);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.casca__nav a:hover {
+  background: var(--marca-suave);
+}
 .casca__topo {
   background: var(--cor-cartao);
   border-bottom: 1px solid var(--cor-borda);

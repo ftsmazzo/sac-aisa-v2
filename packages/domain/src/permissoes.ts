@@ -41,6 +41,11 @@ export const PERMISSOES_CATALOGO = [
     acao: "Criar, editar e permissões",
   },
   { chave: "integracoes.gerir", tela: "Integrações", acao: "ClickUp e canais" },
+  {
+    chave: "dados.importar",
+    tela: "Dados",
+    acao: "Importar backup do sistema antigo",
+  },
 ] as const;
 
 export type PermissaoChave = (typeof PERMISSOES_CATALOGO)[number]["chave"];

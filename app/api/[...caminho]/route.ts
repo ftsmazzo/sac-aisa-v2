@@ -5,7 +5,7 @@ import { urlDaApi } from "@/lib/sessao";
  * Só rotas listadas passam, e o IP real da pessoa segue no cabeçalho para o
  * limite de tentativas contar por pessoa, e não pelo IP deste servidor.
  */
-const PREFIXOS_PERMITIDOS = ["auth"];
+const PREFIXOS_PERMITIDOS = ["auth", "admin"];
 const CABECALHOS_DE_ENTRADA = [
   "cookie",
   "content-type",
