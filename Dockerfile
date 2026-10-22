@@ -1,7 +1,12 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Todo workspace precisa estar aqui: o `next build` confere os tipos do repositório
+# inteiro, inclusive a API, e as dependências dela só entram se o package.json existir.
 COPY packages/domain/package.json ./packages/domain/package.json
+COPY packages/auth/package.json ./packages/auth/package.json
+COPY packages/importacao/package.json ./packages/importacao/package.json
+COPY apps/api/package.json ./apps/api/package.json
 RUN npm ci
 
 FROM node:22-alpine AS builder
