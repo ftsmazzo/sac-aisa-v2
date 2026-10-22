@@ -1615,6 +1615,8 @@ a.chip:hover {
   .seletor-marca__item {
     padding: 0 9px;
     font-size: 0.75rem;
+  }
+}
 
 /* ---------- Relatório e folha de impressão ---------- */
 .so-impressao {

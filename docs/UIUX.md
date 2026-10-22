@@ -41,7 +41,7 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
 - **Filtro padrão**: a marca escolhida filtra por padrão `/reclamacoes`, a fila, os alertas (e o número do menu). A API de fila e alertas aceita `?marca=<id>` (parametrizado no Prisma, id inválido é recusado). Na lista, a marca na URL manda sobre o padrão e `marca=todas` tira o padrão só naquela consulta. Trocar a marca no seletor limpa o `marca` da URL.
 - **Logo no lugar do texto**: cada linha da lista e a ficha lateral mostram a logo pequena (altura 20 na linha, 24 na ficha) com `alt` igual ao nome. Marca sem logo (ex.: WORK) continua em texto.
 - **Contraste**: no cabeçalho, texto claro sobre `--marca-casca` e item ativo em branco com texto na cor da casca (acima de 12:1 nas três marcas, claro e escuro). Os tokens de cor não mudaram.
-- **TODO**: a folha impressa da reclamação e os relatórios (PR de impressão, ainda fora da `main`) devem usar a logo da marca da reclamação (`MarcaDoCadastro`) e o parâmetro `marca` da marca escolhida (`marcaAtiva()` em `lib/marca-servidor.ts`).
+- **Folha impressa e relatórios**: a folha A4 da reclamação usa a logo da marca da reclamação (`marcaVisual`, por nome sem acento). `/relatorios` e o CSV usam a marca escolhida como padrão quando a URL não traz `marca`; "Todos" no filtro envia `marca=todas`.
 
 ### Tipografia
 
