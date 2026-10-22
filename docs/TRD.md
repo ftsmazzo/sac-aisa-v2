@@ -41,7 +41,7 @@ O que cada API de marketplace realmente entrega não foi verificado. Ler a docum
 
 - Performance: a definir. Sugestão: telas principais em menos de 2 s; captura de marketplace em lote, de minutos em minutos, sem tempo real.
 - Escalabilidade: a definir. O sistema atual tem 402 reclamações; volume pequeno. Uma instância de API e um banco bastam; revisar se a captura automática elevar muito o volume.
-- Segurança: login por usuário com perfis (operação, gestor, responsável de setor), sessão em cookie httpOnly, hash de senha forte, perfil conferido no servidor em toda ação, consulta ao banco parametrizada, upload com tipo e tamanho conferidos, limite de requisições. Tokens de ClickUp, marketplaces e OpenRouter só em variável de ambiente.
+- Segurança: login por usuário com perfis (operação, gestor, responsável de setor), sessão em cookie httpOnly, hash de senha forte, perfil conferido no servidor em toda ação, consulta ao banco parametrizada, upload com tipo e tamanho conferidos, limite de requisições. Tokens de ClickUp, marketplaces e OpenRouter são configurados pelo administrador em `/admin/integracoes` e guardados cifrados (AES-256-GCM) no banco; a única variável de ambiente é a chave de cifra, `INTEGRACOES_CHAVE`.
 - Compliance: LGPD. Há nome, cidade, protocolo e contato de cliente. Definir base legal, retenção e acesso. A IA não deve receber dado pessoal além do necessário.
 - Disponibilidade: a definir. Sugestão: monitor de saúde a cada 60 s e backup diário do Postgres com retenção, como no sistema atual.
 - Internacionalização/idiomas: português do Brasil.

@@ -14,6 +14,7 @@ A ordem das fases é **sugestão**, não decisão. Prazo e orçamento ficaram pa
 - PRD, TRD, Fluxo, UI/UX, Esquema e protótipo visual do painel e da ficha.
 - Fase 2, fatia 1 (leitura): lista de reclamações com filtros, busca e paginação e ficha lateral somente leitura, sobre os dados importados.
 - Fase 2, fatia 2 (escrita): cadastro e edição de reclamação na ficha lateral (`POST` e `PATCH /reclamacoes`), com causa, setor e situação calculados pelo servidor e auditoria de quem mudou o quê. Faltam a análise do setor, a fila, as fotos e os alertas.
+- Fase 3, fatia A (ClickUp e conexões): página `/admin/integracoes` (só administrador) para guardar e testar ClickUp, Mercado Livre, Shopee e OpenRouter, com segredos cifrados (`INTEGRACOES_CHAVE`); card automático no ClickUp ao registrar, com fila de nova tentativa e erro visível; webhook `/webhooks/clickup` com assinatura validada que atualiza a situação. Mercado Livre e Shopee só têm configuração e teste de credenciais; autorização da conta e captura ficam para a fase 6. Falta: card dos planos de ação, trocar a lista do card quando o setor muda e botão "tentar de novo agora".
 - Pendente da base: GlitchTip (erros) e Uptime Kuma (monitor em `/health`, 60 s).
 
 ## 1. MVP
