@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --platform=node --format=cjs --outfile=dist/main.js --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express",
+    "build": "esbuild src/main.ts src/criar-admin.ts --bundle --platform=node --format=cjs --outdir=dist --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
     "admin:criar": "tsx src/criar-admin.ts"
