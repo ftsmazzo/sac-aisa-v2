@@ -18,10 +18,12 @@ import {
   RepositorioClickupPrisma,
   RepositorioIntegracoesPrisma,
 } from "./integracoes.controller";
+import { ControladorJornada } from "./jornada.controller";
 import { ControladorReclamacoes } from "./reclamacoes.controller";
 import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
 import { lerChave } from "./segredos";
+import { ControladorUsuarios } from "./usuarios.controller";
 
 @Module({
   controllers: [
@@ -29,7 +31,9 @@ import { lerChave } from "./segredos";
     ControladorAuth,
     ControladorImportacao,
     ControladorReclamacoes,
+    ControladorJornada,
     ControladorIntegracoes,
+    ControladorUsuarios,
     ControladorWebhooks,
     ControladorAnalise,
     ControladorFilaAlertas,
@@ -54,9 +58,18 @@ import { lerChave } from "./segredos";
     },
     {
       provide: ServicoWebhookClickup,
-      useFactory: (prisma: PrismaClient, integr: ServicoIntegracoes) =>
-        new ServicoWebhookClickup(new RepositorioClickupPrisma(prisma), integr),
-      inject: [PrismaClient, ServicoIntegracoes],
+      useFactory: (
+        prisma: PrismaClient,
+        integr: ServicoIntegracoes,
+        clickup: ServicoClickup,
+      ) =>
+        new ServicoWebhookClickup(
+          new RepositorioClickupPrisma(prisma),
+          integr,
+          () => new Date(),
+          (reclamacaoId) => clickup.reclamacaoMudou(reclamacaoId),
+        ),
+      inject: [PrismaClient, ServicoIntegracoes, ServicoClickup],
     },
     FilaClickup,
     {

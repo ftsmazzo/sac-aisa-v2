@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import type { Devolucao, Situacao } from "@sac-aisa/domain";
+import type { Devolucao, Estado, Situacao } from "@sac-aisa/domain";
 import { describe, expect, it } from "vitest";
 import {
   type AuditoriaClickup,
@@ -8,13 +8,18 @@ import {
   chaveDoEvento,
   type DadosAnalise,
   type DadosCard,
+  decidirStatusExterno,
   ErroWebhook,
   ESPERAS_MIN,
   type EventoGravado,
+  estadoDoStatus,
+  MAPA_ESTADOS_PADRAO,
+  mapaEstadosEfetivo,
   montarCard,
   type RepositorioClickup,
   ServicoClickup,
   ServicoWebhookClickup,
+  statusDoEstado,
   statusNovo,
 } from "./clickup";
 
@@ -44,6 +49,7 @@ function dadosCard(extra: Partial<DadosCard> = {}): DadosCard {
       pedido: "123",
       dataAbertura: "2026-10-20",
       situacao: "tratativa",
+      estado: "em_tratativa",
       devolucao: "NA",
       custoTotal: 0,
     },
@@ -69,8 +75,11 @@ class RepoFalso implements RepositorioClickup {
   repeticoes = 0;
   rec = {
     numero: 77,
+    estado: "em_tratativa" as Estado,
+    dataAbertura: "2026-10-20",
     dataAcao: null as string | null,
     devolucao: "NA" as Devolucao,
+    temSetor: true,
   };
   aplicado: Parameters<RepositorioClickup["aplicarStatus"]>[0][] = [];
 
@@ -351,46 +360,128 @@ describe("webhook do ClickUp", () => {
     expect(statusNovo({})).toBeNull();
   });
 
+  const eventoCom = (status: string) => ({
+    event: "taskStatusUpdated",
+    task_id: "t-abc",
+    history_items: [{ field: "status", after: { status } }],
+  });
+
   async function receberEProcessar(
     repo: RepoFalso,
-    mapa: Record<string, string>,
+    ev: unknown = evento,
+    config: Record<string, unknown> = {},
+    corrigir?: (id: string) => Promise<unknown>,
   ) {
     const w = new ServicoWebhookClickup(
       repo,
-      integr(TOKEN, {}, { mapaStatus: mapa }),
+      integr(TOKEN, {}, config),
       AGORA,
+      corrigir,
     );
-    const b = corpo(evento);
+    const b = corpo(ev);
     const { id } = await w.receber(b, assinar(b));
     await w.processar(id);
     return repo.aplicado[0];
   }
 
-  it("status mapeado para resolvida atualiza a situação e audita", async () => {
+  function comCard(estado: Estado, extra: Partial<RepoFalso["rec"]> = {}) {
     const repo = new RepoFalso();
     repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const a = await receberEProcessar(repo, { complete: "resolvida" });
+    repo.rec = { ...repo.rec, estado, ...extra };
+    return repo;
+  }
+
+  it('"Complete" no ClickUp é Resolvida no setor técnico, nunca Finalizada', async () => {
+    const repo = comCard("em_tratativa");
+    const a = await receberEProcessar(repo);
     expect(a.statusExterno).toBe("Complete");
     expect(a.reclamacao).toEqual({
       id: "r1",
+      de: "em_tratativa",
+      passos: ["resolvida_setor"],
       dataAcao: "2026-10-22",
       situacao: "resolvida" satisfies Situacao,
     });
+    expect(a.corrigirCard).toBe(false);
     expect((a.auditoria as AuditoriaClickup).acao).toBe("clickup.status");
     expect(repo.eventos.get("e1")?.processadoEm).not.toBeNull();
   });
 
-  it("status sem mapa só registra o status externo", async () => {
-    const repo = new RepoFalso();
-    repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const a = await receberEProcessar(repo, {});
-    expect(a.statusExterno).toBe("Complete");
+  it("o setor anda de Encaminhada até Resolvida passando pelos passos, cada um com as regras", async () => {
+    const repo = comCard("encaminhada");
+    const a = await receberEProcessar(repo);
+    expect(a.reclamacao?.passos).toEqual([
+      "recebida",
+      "em_tratativa",
+      "resolvida_setor",
+    ]);
+  });
+
+  it("mover o card para um estado do SAC é recusado e o card volta", async () => {
+    const repo = comCard("em_tratativa");
+    const corrigidos: string[] = [];
+    const a = await receberEProcessar(
+      repo,
+      eventoCom("Finalizada no SAC"),
+      {},
+      async (id) => {
+        corrigidos.push(id);
+      },
+    );
     expect(a.reclamacao).toBeNull();
+    expect(a.corrigirCard).toBe(true);
+    expect(corrigidos).toEqual(["r1"]);
+    const aud = a.auditoria as AuditoriaClickup;
+    expect(aud.detalhe).toContain("recusado");
+    expect(aud.extra).toMatchObject({ recusado: true, estado: "em_tratativa" });
+  });
+
+  it("card movido quando a reclamação ainda é do SAC volta ao status certo", async () => {
+    for (const estado of ["triagem", "aguardando_cliente"] as const) {
+      const repo = comCard(estado);
+      const a = await receberEProcessar(repo, eventoCom("Em tratativa"));
+      expect(a.reclamacao).toBeNull();
+      expect(a.corrigirCard).toBe(true);
+    }
+  });
+
+  it("produto ainda não recebido: Em tratativa pelo ClickUp é recusado", async () => {
+    const repo = comCard("recebida", { devolucao: "AGUARDANDO" });
+    const a = await receberEProcessar(repo, eventoCom("Em tratativa"));
+    expect(a.reclamacao).toBeNull();
+    expect(a.corrigirCard).toBe(true);
+    expect((a.auditoria as AuditoriaClickup).detalhe).toContain(
+      "produto ainda não foi recebido",
+    );
+  });
+
+  it("o eco do status que o próprio sistema pôs não muda nada nem gera aviso", async () => {
+    const repo = comCard("recebida");
+    const a = await receberEProcessar(repo, eventoCom("recebida pelo setor"));
+    expect(a.reclamacao).toBeNull();
+    expect(a.auditoria).toBeNull();
+    expect(a.corrigirCard).toBe(false);
+  });
+
+  it("status que o sistema não conhece só registra o status externo", async () => {
+    const repo = comCard("em_tratativa");
+    const a = await receberEProcessar(repo, eventoCom("Revisão do chefe"));
+    expect(a.statusExterno).toBe("Revisão do chefe");
+    expect(a.reclamacao).toBeNull();
+    expect(a.corrigirCard).toBe(false);
+  });
+
+  it("o mapa configurado vale: um status próprio leva ao estado escolhido", async () => {
+    const repo = comCard("recebida");
+    const a = await receberEProcessar(repo, eventoCom("Mão na massa"), {
+      mapaEstados: { em_tratativa: "Mão na massa" },
+    });
+    expect(a.reclamacao?.passos).toEqual(["em_tratativa"]);
   });
 
   it("evento de card desconhecido é marcado como processado sem mexer em nada", async () => {
     const repo = new RepoFalso();
-    const a = await receberEProcessar(repo, { complete: "resolvida" });
+    const a = await receberEProcessar(repo);
     expect(a).toMatchObject({
       cardId: null,
       reclamacao: null,
@@ -399,18 +490,122 @@ describe("webhook do ClickUp", () => {
   });
 
   it("processar duas vezes o mesmo evento não repete", async () => {
-    const repo = new RepoFalso();
-    repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const w = new ServicoWebhookClickup(
-      repo,
-      integr(TOKEN, {}, { mapaStatus: { complete: "resolvida" } }),
-      AGORA,
-    );
+    const repo = comCard("em_tratativa");
+    const w = new ServicoWebhookClickup(repo, integr(), AGORA);
     const b = corpo(evento);
     const { id } = await w.receber(b, assinar(b));
     await w.processar(id);
     await w.processar(id);
     expect(repo.aplicado).toHaveLength(1);
+  });
+});
+
+describe("mapa de estados do ClickUp, nos dois sentidos", () => {
+  it("o padrão cobre os sete estados com nomes diferentes", () => {
+    const nomes = Object.values(MAPA_ESTADOS_PADRAO);
+    expect(nomes).toHaveLength(7);
+    expect(new Set(nomes.map((n) => n.toLowerCase())).size).toBe(7);
+  });
+
+  it("estado → status e status → estado se desfazem, sem ligar para caixa", () => {
+    const mapa = mapaEstadosEfetivo({});
+    for (const [estado, status] of Object.entries(mapa)) {
+      expect(statusDoEstado(estado as Estado, mapa)).toBe(status);
+      expect(estadoDoStatus(status.toUpperCase(), mapa)).toBe(estado);
+      expect(estadoDoStatus(`  ${status} `, mapa)).toBe(estado);
+    }
+  });
+
+  it("a troca do administrador vale por cima do padrão, e vazio volta ao padrão", () => {
+    const mapa = mapaEstadosEfetivo({
+      mapaEstados: { recebida: "Em análise", triagem: "  " },
+    });
+    expect(mapa.recebida).toBe("Em análise");
+    expect(mapa.triagem).toBe(MAPA_ESTADOS_PADRAO.triagem);
+    expect(estadoDoStatus("em análise", mapa)).toBe("recebida");
+  });
+
+  it("nomes que o ClickUp já traz: Complete e Closed são do setor técnico", () => {
+    const mapa = mapaEstadosEfetivo({});
+    expect(estadoDoStatus("Complete", mapa)).toBe("resolvida_setor");
+    expect(estadoDoStatus("closed", mapa)).toBe("resolvida_setor");
+    expect(estadoDoStatus("coisa nenhuma", mapa)).toBeNull();
+  });
+
+  it("o mapa configurado ganha do apelido", () => {
+    const mapa = mapaEstadosEfetivo({
+      mapaEstados: { finalizada: "Complete" },
+    });
+    expect(estadoDoStatus("complete", mapa)).toBe("finalizada");
+  });
+
+  it("config torta (não objeto) cai no padrão", () => {
+    expect(mapaEstadosEfetivo({ mapaEstados: "x" })).toEqual(
+      MAPA_ESTADOS_PADRAO,
+    );
+  });
+});
+
+describe("decidirStatusExterno", () => {
+  const base = { devolucao: "NA" as Devolucao, temSetor: true };
+
+  it("só vale para os estados do setor, para a frente", () => {
+    expect(
+      decidirStatusExterno({ ...base, estado: "encaminhada" }, "recebida"),
+    ).toEqual({ tipo: "aplicar", passos: ["recebida"] });
+    expect(
+      decidirStatusExterno({ ...base, estado: "recebida" }, "em_tratativa"),
+    ).toEqual({ tipo: "aplicar", passos: ["em_tratativa"] });
+    expect(
+      decidirStatusExterno(
+        { ...base, estado: "em_tratativa" },
+        "resolvida_setor",
+      ),
+    ).toEqual({ tipo: "aplicar", passos: ["resolvida_setor"] });
+  });
+
+  it("estado do SAC, ou voltar atrás, é recusado", () => {
+    for (const alvo of [
+      "triagem",
+      "aguardando_cliente",
+      "encaminhada",
+      "finalizada",
+    ] as const) {
+      expect(
+        decidirStatusExterno({ ...base, estado: "em_tratativa" }, alvo).tipo,
+      ).toBe("reverter");
+    }
+    expect(
+      decidirStatusExterno({ ...base, estado: "em_tratativa" }, "recebida")
+        .tipo,
+    ).toBe("reverter");
+    expect(
+      decidirStatusExterno(
+        { ...base, estado: "resolvida_setor" },
+        "em_tratativa",
+      ).tipo,
+    ).toBe("reverter");
+  });
+
+  it("antes de encaminhar ou depois de finalizar, o setor não mexe", () => {
+    for (const estado of [
+      "triagem",
+      "aguardando_cliente",
+      "finalizada",
+    ] as const) {
+      expect(
+        decidirStatusExterno({ ...base, estado }, "em_tratativa").tipo,
+      ).toBe("reverter");
+    }
+  });
+
+  it("o mesmo estado, ou status desconhecido, não faz nada", () => {
+    expect(
+      decidirStatusExterno({ ...base, estado: "recebida" }, "recebida"),
+    ).toEqual({ tipo: "ignorar" });
+    expect(decidirStatusExterno({ ...base, estado: "recebida" }, null)).toEqual(
+      { tipo: "ignorar" },
+    );
   });
 });
 
@@ -459,11 +654,6 @@ describe("aplicarStatusExterno", () => {
 });
 
 describe("atualização do card quando o SAC muda", () => {
-  const MAPA = {
-    "to do": "tratativa",
-    "em espera": "aguardando",
-    complete: "resolvida",
-  };
   const comTask = (
     extra: Partial<DadosCard> = {},
     rec: Partial<DadosCard["reclamacao"]> = {},
@@ -479,7 +669,7 @@ describe("atualização do card quando o SAC muda", () => {
   const montar = (
     repo: RepoFalso,
     h: ReturnType<typeof http>,
-    config: Record<string, unknown> = { mapaStatus: MAPA },
+    config: Record<string, unknown> = {},
     token: string | null = TOKEN,
   ) =>
     new ServicoClickup(
@@ -492,16 +682,22 @@ describe("atualização do card quando o SAC muda", () => {
   const corpoEnviado = (h: ReturnType<typeof http>, i = 0) =>
     JSON.parse(String(h.chamadas[i].init?.body));
 
-  it("situação nova vira o status do card pelo mapa invertido", async () => {
+  it("o estado vira o status do card pelo mapa de estados", async () => {
     const repo = new RepoFalso();
-    repo.card = comTask({}, { situacao: "resolvida" });
-    const h = http(200, { id: "t-1", status: { status: "complete" } });
+    repo.card = comTask(
+      {},
+      { situacao: "resolvida", estado: "resolvida_setor" },
+    );
+    const h = http(200, {
+      id: "t-1",
+      status: { status: "resolvida no setor técnico" },
+    });
     expect(await montar(repo, h).sincronizar("r1")).toBe("sincronizado");
     expect(h.chamadas).toHaveLength(1);
     expect(h.chamadas[0].url).toBe("https://api.clickup.com/api/v2/task/t-1");
     expect(h.chamadas[0].init?.method).toBe("PUT");
     expect(corpoEnviado(h)).toMatchObject({
-      status: "complete",
+      status: "resolvida no setor técnico",
       name: "Reclamação #77 · Site · AISA",
       priority: 4,
     });
@@ -509,18 +705,37 @@ describe("atualização do card quando o SAC muda", () => {
     expect(repo.sincronizado[0]).toMatchObject({
       cardId: "card1",
       listaId: "L-SOLDA",
-      statusExterno: "complete",
+      statusExterno: "resolvida no setor técnico",
     });
   });
 
-  it("não troca o status se o card já está num status da mesma situação", async () => {
+  it("não troca o status se o card já está no status do estado", async () => {
     const repo = new RepoFalso();
-    repo.card = comTask({ statusExterno: "Em Andamento" });
+    repo.card = comTask({ statusExterno: "Em Tratativa" });
+    const h = http(200, { id: "t-1" });
+    await montar(repo, h).sincronizar("r1");
+    expect(corpoEnviado(h)).not.toHaveProperty("status");
+  });
+
+  it("usa o mapa que o administrador configurou", async () => {
+    const repo = new RepoFalso();
+    repo.card = comTask({}, { estado: "finalizada", situacao: "resolvida" });
     const h = http(200, { id: "t-1" });
     await montar(repo, h, {
-      mapaStatus: { ...MAPA, "em andamento": "tratativa" },
+      mapaEstados: { finalizada: "Fechada pelo SAC" },
     }).sincronizar("r1");
-    expect(corpoEnviado(h)).not.toHaveProperty("status");
+    expect(corpoEnviado(h).status).toBe("Fechada pelo SAC");
+  });
+
+  it("o card leva o estado no texto", async () => {
+    const repo = new RepoFalso();
+    repo.card = comTask({}, { estado: "recebida" });
+    const h = http(200, { id: "t-1" });
+    await montar(repo, h).sincronizar("r1");
+    expect(corpoEnviado(h).markdown_content).toContain(
+      "Estado: Recebida pelo setor",
+    );
+    expect(corpoEnviado(h).status).toBe("recebida pelo setor");
   });
 
   it("título, descrição, prazo e prioridade seguem a reclamação", async () => {
@@ -545,7 +760,6 @@ describe("atualização do card quando o SAC muda", () => {
     repo.card = comTask({ listaId: "L-ANTIGA" });
     const h = http(200, { id: "t-1" });
     const r = await montar(repo, h, {
-      mapaStatus: MAPA,
       workspaceId: "9001",
     }).sincronizar("r1");
     expect(r).toBe("sincronizado");
@@ -699,7 +913,7 @@ describe("atualização do card quando o SAC muda", () => {
     const repo = new RepoFalso();
     repo.card = comTask();
     const h = http(200);
-    const s = montar(repo, h, { mapaStatus: MAPA }, null);
+    const s = montar(repo, h, {}, null);
     expect(await s.sincronizar("r1")).toBe("sem_token");
     expect(h.chamadas).toHaveLength(0);
     expect(repo.falhas).toHaveLength(0);
@@ -727,11 +941,7 @@ describe("atualização do card quando o SAC muda", () => {
   it("o webhook que altera a reclamação não marca o card para enviar de volta", async () => {
     const repo = new RepoFalso();
     repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const w = new ServicoWebhookClickup(
-      repo,
-      integr(TOKEN, {}, { mapaStatus: MAPA }),
-      AGORA,
-    );
+    const w = new ServicoWebhookClickup(repo, integr(), AGORA);
     const b = Buffer.from(
       JSON.stringify({
         event: "taskStatusUpdated",
@@ -758,11 +968,7 @@ describe("atualização do card quando o SAC muda", () => {
       reclamacaoId: "r1",
       statusExterno: "complete",
     });
-    const w = new ServicoWebhookClickup(
-      repo,
-      integr(TOKEN, {}, { mapaStatus: MAPA }),
-      AGORA,
-    );
+    const w = new ServicoWebhookClickup(repo, integr(), AGORA);
     const b = Buffer.from(
       JSON.stringify({
         event: "taskStatusUpdated",
@@ -803,11 +1009,7 @@ describe("idempotência do webhook", () => {
   it("entrega repetida é marcada como duplicada e não é reprocessada", async () => {
     const repo = new RepoFalso();
     repo.porTask.set("t-abc", { cardId: "card1", reclamacaoId: "r1" });
-    const w = new ServicoWebhookClickup(
-      repo,
-      integr(TOKEN, {}, { mapaStatus: { complete: "resolvida" } }),
-      AGORA,
-    );
+    const w = new ServicoWebhookClickup(repo, integr(), AGORA);
     const b = evento("h1");
     const a = await w.receber(b, assinar(b));
     expect(a.duplicado).toBe(false);

@@ -183,6 +183,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
             produto: { select: { codigo: true, nome: true } },
             causa: { select: { nome: true } },
             situacao: true,
+            estado: true,
             devolucao: true,
             custo: true,
           },
@@ -207,6 +208,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
       comentarios: c.comentarios,
       reclamacao: {
         situacao: r.situacao,
+        estado: r.estado,
         devolucao: r.devolucao,
         custoTotal: r.custo
           ? n(r.custo.freteEnvio) +
@@ -469,9 +471,25 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
   async reclamacaoParaStatus(id: string) {
     const r = await this.prisma.reclamacao.findUnique({
       where: { id },
-      select: { numero: true, dataAcao: true, devolucao: true },
+      select: {
+        numero: true,
+        estado: true,
+        dataAbertura: true,
+        dataAcao: true,
+        devolucao: true,
+        setorRespId: true,
+      },
     });
-    return r ? { ...r, dataAcao: ISO(r.dataAcao) } : null;
+    return r
+      ? {
+          numero: r.numero,
+          estado: r.estado,
+          dataAbertura: ISO(r.dataAbertura) as string,
+          dataAcao: ISO(r.dataAcao),
+          devolucao: r.devolucao,
+          temSetor: r.setorRespId !== null,
+        }
+      : null;
   }
 
   async aplicarStatus(
@@ -484,17 +502,40 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
           data: {
             statusExterno: args.statusExterno ?? undefined,
             sincronizadoEm: args.agora,
+            // Recusado: o card precisa voltar ao status do estado atual.
+            ...(args.corrigirCard ? { precisaSync: true } : {}),
           },
         });
       }
       if (args.reclamacao) {
-        await tx.reclamacao.update({
-          where: { id: args.reclamacao.id },
+        const passos = args.reclamacao.passos;
+        // Só grava se o estado ainda é o de onde partimos: o SAC pode ter mexido no meio do caminho.
+        const r = await tx.reclamacao.updateMany({
+          where: { id: args.reclamacao.id, estado: args.reclamacao.de },
           data: {
+            estado: passos[passos.length - 1],
+            estadoDesde: args.agora,
             dataAcao: DIA(args.reclamacao.dataAcao),
             situacao: args.reclamacao.situacao,
           },
         });
+        if (r.count > 0) {
+          let de = args.reclamacao.de;
+          for (const [i, para] of passos.entries()) {
+            await tx.estadoHistorico.create({
+              data: {
+                reclamacaoId: args.reclamacao.id,
+                de,
+                para,
+                // Um milissegundo a mais por passo mantém a ordem do histórico.
+                quando: new Date(args.agora.getTime() + i),
+                autorNome: "ClickUp",
+                origem: "clickup",
+              },
+            });
+            de = para;
+          }
+        }
       }
       if (args.auditoria) {
         await tx.auditoria.create({

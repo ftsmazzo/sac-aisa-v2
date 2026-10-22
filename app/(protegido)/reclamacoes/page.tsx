@@ -17,13 +17,17 @@ import {
   type CampoFiltro,
   consultaParaApi,
   data,
+  ESTADOS,
   type EstadoLista,
+  ehEstado,
   lerEstado,
   moeda,
   montarHref,
   type ParamsUrl,
+  ROTULO_ESTADO,
   ROTULO_SITUACAO,
   tomDaSituacao,
+  tomDoEstado,
 } from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
 import { ConteudoFicha } from "./ficha";
@@ -48,6 +52,7 @@ const ROTULO_CAMPO: Record<CampoFiltro, string> = {
   setor: "Setor",
   causa: "Causa",
   situacao: "Situação",
+  estado: "Estado",
   busca: "Busca",
 };
 
@@ -70,6 +75,8 @@ function textoDoFiltro(
       return achar(o?.causas);
     case "situacao":
       return ROTULO_SITUACAO[valor as keyof typeof ROTULO_SITUACAO] ?? valor;
+    case "estado":
+      return ehEstado(valor) ? ROTULO_ESTADO[valor] : valor;
     case "de":
     case "ate":
       return data(valor);
@@ -118,6 +125,28 @@ function Filtros({
   const ativos = CAMPOS_FILTRO.filter((c) => f[c]);
   return (
     <section className="cartao filtros" aria-label="Filtros">
+      <nav className="chips" aria-label="Estado da jornada">
+        <Link
+          href={montarHref(estado, { estado: null, ficha: null })}
+          scroll={false}
+          className="chip"
+          aria-current={!f.estado ? "true" : undefined}
+        >
+          Todos os estados
+        </Link>
+        {ESTADOS.map((e) => (
+          <Link
+            key={e}
+            href={montarHref(estado, { estado: e, ficha: null })}
+            scroll={false}
+            className="chip"
+            aria-current={f.estado === e ? "true" : undefined}
+          >
+            {ROTULO_ESTADO[e]}
+          </Link>
+        ))}
+      </nav>
+
       <nav className="chips" aria-label="Situação e marca">
         <Link
           href={montarHref(estado, { situacao: null, ficha: null })}
@@ -209,6 +238,7 @@ function Filtros({
         {f.situacao && (
           <input type="hidden" name="situacao" value={f.situacao} />
         )}
+        {f.estado && <input type="hidden" name="estado" value={f.estado} />}
         <button type="submit" className="botao botao--primario">
           Filtrar
         </button>
@@ -409,7 +439,10 @@ export default async function Reclamacoes({
                   )}
                   <th scope="col">Nº</th>
                   <th scope="col">Abertura</th>
-                  <th scope="col">Situação</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col" className="tabela__oculta">
+                    Situação
+                  </th>
                   <th scope="col">Produto</th>
                   <th scope="col" className="tabela__oculta">
                     Causa
@@ -458,6 +491,16 @@ export default async function Reclamacoes({
                     </td>
                     <td>{data(r.dataAbertura)}</td>
                     <td>
+                      <Selo tom={tomDoEstado(r.estado)}>
+                        {ROTULO_ESTADO[r.estado]}
+                      </Selo>
+                      {r.prazoMarketplace && r.estado !== "finalizada" && (
+                        <span className="tabela__apoio">
+                          Prazo do canal: {data(r.prazoMarketplace)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="tabela__oculta">
                       <Selo tom={tomDaSituacao(r.situacao)}>
                         {ROTULO_SITUACAO[r.situacao]}
                       </Selo>

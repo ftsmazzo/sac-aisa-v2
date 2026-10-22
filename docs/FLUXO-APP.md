@@ -19,6 +19,31 @@ Os perfis, as regras de decisão e as exceções abaixo são **sugestão**, não
 
 O sistema atual tem `master`, `gestor` e `operador`. O dono entra como gestor (leitura do painel), salvo decisão diferente.
 
+## 1.1 Estados da reclamação e relógios
+
+A reclamação anda por sete estados (nomes de tela): **Triagem**, **Aguardando cliente**, **Encaminhada ao setor**, **Recebida pelo setor**, **Em tratativa**, **Resolvida no setor técnico** e **Finalizada no SAC**. "Resolvida" é do setor técnico; "Finalizada" é do SAC. Reabertura é um **evento**, não um estado: volta a "Encaminhada ao setor", com motivo.
+
+| De → Para | Quem faz |
+|---|---|
+| Triagem ⇄ Aguardando cliente | SAC |
+| Triagem ou Aguardando cliente → Encaminhada ao setor | SAC (exige setor responsável) |
+| Encaminhada → Recebida ("Assumir" na fila) | Setor |
+| Recebida → Em tratativa | Setor (só com o produto recebido, ou sem devolução) |
+| Em tratativa → Resolvida no setor técnico | Setor (põe a data de ação) |
+| Resolvida no setor técnico → Finalizada no SAC | SAC |
+| Resolvida ou Finalizada → Encaminhada (reabertura) | SAC, com motivo |
+| Qualquer outra | Gestor e administrador, com motivo |
+
+A regra mora no domínio (`packages/domain/src/jornada.ts`) e o servidor a confere em toda mudança: transição de quem não pode é 403, transição que não existe é 400. Setor e SAC só andam pelo fluxo; gestor e administrador podem qualquer passagem, e fora do fluxo normal informam o motivo.
+
+**Relógios** (`packages/domain/src/relogios.ts`, calculados do histórico de estados, que guarda data e autor de cada mudança): tempo em cada estado, tempo até o recebimento pelo setor, tempo de tratativa e tempo até a finalização pelo SAC. O relógio interno **pausa em "Aguardando cliente"**. O **prazo do marketplace** (campo da reclamação) corre à parte, em dias corridos, não pausa e aparece separado na ficha. A ficha mostra os tempos e o histórico.
+
+**Alertas novos**: "Setor ainda não recebeu" (encaminhada há mais de 24 h), "Solução devolvida sem finalização" (resolvida no setor técnico há mais de 24 h) e "Prazo do marketplace" (falta 1 dia ou menos, ou já estourou). Esperar o cliente não conta como tratativa parada.
+
+**ClickUp acompanha**: cada estado tem um status do card (mapa configurável em Integrações, com padrão). Mudar o estado no sistema atualiza o card. Mudar o card no ClickUp só vale para Recebida, Em tratativa e Resolvida no setor técnico, andando para a frente; mover para um estado do SAC, voltar atrás ou mexer antes de encaminhar é recusado e o card volta ao status certo. "Complete" no ClickUp vale como Resolvida no setor técnico, nunca como Finalizada.
+
+**Escopo**: SAC, gestor e administrador veem tudo. O responsável de setor vê só os setores do seu cadastro e, se o cadastro tiver marcas, só essas marcas (lista de marcas vazia = todas). O seletor de marca oferece só as marcas permitidas. O administrador define setores e marcas na tela de usuários.
+
 ## 2. Jornadas principais
 
 ### Jornada 1: Registro assistido pelo site
@@ -51,11 +76,11 @@ Exceção: se a API do canal falhar, a captura tenta de novo e avisa o gestor de
 
 Perfil: Responsável de setor, Operação, Gestor
 
-1. O responsável recebe o card no ClickUp e a reclamação na sua fila.
+1. O responsável recebe o card no ClickUp e a reclamação na sua fila (Encaminhada ao setor) e a assume com o botão "Assumir" (Recebida pelo setor).
 2. Ele analisa o caso. **Se o produto precisa voltar, isso é decidido nesta análise**, antes de finalizar. Sem essa análise, o produto físico volta e não é avaliado.
 3. Decisão: com devolução, a situação vira "aguardando produto" e depois "recebido", e a análise do produto é feita antes da conclusão. Sem devolução, segue direto.
 4. O setor registra a causa final, o laudo, a solução, o custo e a **data de ação**, na aba "Análise e solução" da ficha.
-5. A reclamação passa a resolvida. O cliente recebe a resposta, e o card no ClickUp é concluído.
+5. O setor marca "Resolvida no setor técnico" e devolve ao SAC, que responde o cliente e marca "Finalizada no SAC". O card acompanha cada passo (ver 1.1).
 
 Prazos: meta de 2 dias até a ação; alerta aos 7 dias em "aguardando produto" e aos 3 dias nos demais casos. Custo acima de R$ 500 notifica o gestor na hora. Valores são sugestão do sistema atual.
 Telas: fila do setor, detalhe da reclamação, registro de análise e solução.

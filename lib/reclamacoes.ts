@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import type { Situacao } from "@/lib/reclamacoes-formato";
+import type { Estado, Situacao } from "@/lib/reclamacoes-formato";
 import { urlDaApi } from "@/lib/sessao";
 
 export interface ItemLista {
@@ -8,6 +8,9 @@ export interface ItemLista {
   dataAbertura: string | null;
   dataAcao: string | null;
   situacao: Situacao;
+  estado: Estado;
+  /** Prazo do canal (AAAA-MM-DD); conta à parte e não pausa. */
+  prazoMarketplace: string | null;
   devolucao: "NA" | "AGUARDANDO" | "RECEBIDO";
   marca: { id: string; nome: string } | null;
   canal: { id: string; nome: string };
@@ -28,7 +31,37 @@ export interface Pagina {
   totalPaginas: number;
 }
 
+export interface TransicaoDisponivel {
+  para: Estado;
+  rotulo: string;
+  reabertura: boolean;
+  exigeMotivo: boolean;
+}
+
+/** Tempos em milissegundos, calculados pela API. */
+export interface Relogios {
+  porEstadoMs: Record<Estado, number>;
+  /** Relógio interno: pausa em "Aguardando cliente". */
+  internoMs: number;
+  pausado: boolean;
+  ateRecebimentoMs: number | null;
+  ateRecebimentoEmCurso: boolean;
+  tratativaMs: number;
+  ateFinalizacaoMs: number | null;
+  ateFinalizacaoEmCurso: boolean;
+  marketplace: {
+    prazo: string;
+    diasRestantes: number;
+    vencido: boolean;
+    encerrado: boolean;
+  } | null;
+}
+
 export interface Ficha extends ItemLista {
+  estadoDesde: string;
+  historicoEstados: { estado: Estado; quando: string }[];
+  transicoes: TransicaoDisponivel[];
+  relogios: Relogios;
   descricao: string;
   protocoloExterno: string | null;
   dataRecebimento: string | null;

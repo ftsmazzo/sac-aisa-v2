@@ -5,7 +5,7 @@ import { type RespostaAlertas, ROTULO_ALERTA } from "@/lib/fila-alertas";
 import { consultaDeMarca } from "@/lib/marca-escolhida";
 import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi } from "@/lib/reclamacoes";
-import { moeda } from "@/lib/reclamacoes-formato";
+import { moeda, ROTULO_ESTADO, tomDoEstado } from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
 
 /** Alertas calculados na hora pelas regras de demora e custo, sobre o que está em aberto. */
@@ -62,6 +62,7 @@ export default async function Alertas() {
               <tr>
                 <th scope="col">Nº</th>
                 <th scope="col">Alerta</th>
+                <th scope="col">Estado</th>
                 <th scope="col">Em aberto</th>
                 <th scope="col" className="tabela__oculta">
                   Produto
@@ -89,6 +90,11 @@ export default async function Alertas() {
                   <td>
                     <Selo tom={i.tipo === "CUSTO_ALTO" ? "perigo" : "atencao"}>
                       {ROTULO_ALERTA[i.tipo]}
+                    </Selo>
+                  </td>
+                  <td>
+                    <Selo tom={tomDoEstado(i.estado)}>
+                      {ROTULO_ESTADO[i.estado]}
                     </Selo>
                   </td>
                   <td>

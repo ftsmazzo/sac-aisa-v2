@@ -23,6 +23,17 @@ enum Situacao {
   resolvida
 }
 
+/// Jornada da reclamação. Reabertura é evento (volta a `encaminhada`), não estado.
+enum EstadoJornada {
+  triagem
+  aguardando_cliente
+  encaminhada
+  recebida
+  em_tratativa
+  resolvida_setor
+  finalizada
+}
+
 enum Devolucao {
   NA
   AGUARDANDO
@@ -68,6 +79,9 @@ enum AlertTipo {
   CUSTO_ALTO
   CAUSA_OUTROS
   RASCUNHO_PENDENTE
+  SEM_RECEBIMENTO_SETOR
+  SOLUCAO_SEM_FINALIZACAO
+  PRAZO_MARKETPLACE
 }
 
 enum AlertStatus {
@@ -98,6 +112,7 @@ model Marca {
   ativa Boolean @default(true)
 
   reclamacoes Reclamacao[]
+  usuarios    UsuarioMarca[]
 
   @@map("marcas")
 }
@@ -215,6 +230,11 @@ model Reclamacao {
   setorRespManual  Boolean   @default(false)
   causaManual      Boolean   @default(false)
   situacao         Situacao  @default(tratativa)
+  /// Estado da jornada e desde quando. O histórico completo fica em `EstadoHistorico`.
+  estado           EstadoJornada @default(triagem)
+  estadoDesde      DateTime  @default(now())
+  /// Prazo que o marketplace dá para resolver. Corre à parte do relógio interno.
+  prazoMarketplace DateTime? @db.Date
   devolucao        Devolucao @default(NA)
   dataAbertura     DateTime  @db.Date
   dataAcao         DateTime? @db.Date
@@ -254,8 +274,10 @@ model Reclamacao {
   captura  CapturaCanal?
   card     ClickupCard?
   ia       IaRegistro[]
+  historicoEstados EstadoHistorico[]
 
   @@index([situacao])
+  @@index([estado])
   @@index([dataAbertura])
   @@index([marcaId])
   @@index([canalId])
@@ -264,6 +286,26 @@ model Reclamacao {
   @@index([causaId])
   @@index([produtoId])
   @@map("reclamacoes")
+}
+
+/// Cada mudança de estado, com data e autor. Base dos relógios por etapa.
+model EstadoHistorico {
+  id           String         @id @default(cuid())
+  reclamacaoId String
+  de           EstadoJornada?
+  para         EstadoJornada
+  quando       DateTime       @default(now())
+  autorId      String?
+  autorNome    String         @default("")
+  motivo       String         @default("")
+  /// web, clickup, importacao, migracao ou sistema.
+  origem       String         @default("web")
+  reabertura   Boolean        @default(false)
+
+  reclamacao Reclamacao @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+
+  @@index([reclamacaoId, quando])
+  @@map("estado_historico")
 }
 
 model Custo {
@@ -553,6 +595,7 @@ model Usuario {
   alteradoEm  DateTime @updatedAt
 
   setores    UsuarioSetor[]
+  marcas     UsuarioMarca[]
   permissoes PermissaoUsuario[]
   sessoes    Sessao[]
 
@@ -568,6 +611,18 @@ model UsuarioSetor {
 
   @@id([usuarioId, setorId])
   @@map("usuario_setores")
+}
+
+/// Marcas que o responsável de setor enxerga. Lista vazia = todas.
+model UsuarioMarca {
+  usuarioId String
+  marcaId   String
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  marca   Marca   @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, marcaId])
+  @@map("usuario_marcas")
 }
 
 model PermissaoUsuario {

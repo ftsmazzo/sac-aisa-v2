@@ -155,3 +155,81 @@
   min-height: auto;
   overflow: visible;
 }
+
+/* Próximo passo, tempos e histórico de estados na ficha. */
+.passo,
+.tempos,
+.historico {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.passo {
+  padding: 14px;
+  border-radius: var(--raio-p);
+  background: var(--marca-suave);
+}
+.passo__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.passo__motivo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tempos__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+.tempos__linha {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tempos__linha dt {
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+}
+.tempos__linha dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.tempos__apoio {
+  font-weight: 400;
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+}
+.tempos__canal {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--cor-borda);
+  font-size: 0.9375rem;
+}
+.tempos__canal[data-vencido="sim"] strong {
+  color: var(--cor-perigo);
+}
+.historico__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9375rem;
+}
+.historico__lista li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.historico__lista time {
+  color: var(--cor-suave);
+  font-variant-numeric: tabular-nums;
+}

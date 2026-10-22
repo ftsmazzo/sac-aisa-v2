@@ -79,6 +79,10 @@ const FICHA = {
       criadoEm: true,
     },
   },
+  historicoEstados: {
+    orderBy: { quando: "asc" },
+    select: { para: true, quando: true },
+  },
   _count: { select: { fotos: true } },
 } as const;
 
@@ -149,10 +153,12 @@ function dadosEscalares(e: EstadoReclamacao, situacao: Situacao) {
     setorRespId: e.setorRespId,
     setorRespManual: e.setorRespManual,
     situacao,
+    estado: e.estado,
     devolucao: e.devolucao,
     dataAbertura: DIA(e.dataAbertura) as Date,
     dataAcao: DIA(e.dataAcao),
     dataRecebimento: DIA(e.dataRecebimento),
+    prazoMarketplace: DIA(e.prazoMarketplace),
     protocoloExterno: e.protocoloExterno,
     descricao: e.descricao,
     laudo: e.laudo,
@@ -253,9 +259,11 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
         setorRespId: r.setorRespId,
         setorRespManual: r.setorRespManual,
         devolucao: r.devolucao,
+        estado: r.estado,
         dataAbertura: ISO(r.dataAbertura) as string,
         dataAcao: ISO(r.dataAcao),
         dataRecebimento: ISO(r.dataRecebimento),
+        prazoMarketplace: ISO(r.prazoMarketplace),
         protocoloExterno: r.protocoloExterno,
         descricao: r.descricao,
         laudo: r.laudo,
@@ -295,6 +303,15 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
           causas: args.estado.causaId
             ? { create: { causaId: args.estado.causaId, primaria: true } }
             : undefined,
+          historicoEstados: {
+            create: {
+              de: null,
+              para: args.estado.estado,
+              autorId: args.usuarioId,
+              autorNome: args.usuarioNome,
+              origem: "web",
+            },
+          },
         },
         select: { id: true, numero: true },
       });
@@ -309,12 +326,31 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
         where: { id: args.id },
         data: {
           ...dadosEscalares(args.estado, args.situacao),
+          ...(args.transicao ? { estadoDesde: new Date() } : {}),
           alteradoPorId: args.usuarioId,
           custo: {
             upsert: { create: args.estado.custos, update: args.estado.custos },
           },
         },
       });
+      if (args.transicao) {
+        await tx.estadoHistorico.create({
+          data: {
+            reclamacaoId: args.id,
+            de: args.transicao.de,
+            para: args.transicao.para,
+            autorId: args.usuarioId,
+            autorNome: args.auditoria.usuarioNome,
+            motivo: args.transicao.motivo,
+            origem: "web",
+            reabertura: args.transicao.reabertura,
+          },
+        });
+        await tx.clickupCard.updateMany({
+          where: { reclamacaoId: args.id },
+          data: { precisaSync: true },
+        });
+      }
       // A causa principal acompanha `causaId`; os motivos extras ficam como estão.
       await tx.reclamacaoCausa.deleteMany({
         where: { reclamacaoId: args.id, primaria: true },
@@ -345,6 +381,7 @@ const ACOES_DA_LINHA = [
   "reclamacao.editar",
   "analise.criar",
   "analise.editar",
+  "reclamacao.estado",
 ];
 
 /** Lê a reclamação, a auditoria dela e os nomes de setor e causa para escrever a linha do tempo. */
@@ -412,7 +449,7 @@ function usuarioDe(req: PedidoComUsuario) {
 
 function escopoDe(req: PedidoComUsuario): Escopo {
   const u = usuarioDe(req);
-  return { perfil: u.perfil, setores: u.setores };
+  return { perfil: u.perfil, setores: u.setores, marcas: u.marcas };
 }
 
 /**

@@ -148,6 +148,22 @@ describe("gravação em lotes no banco", () => {
         "utf8",
       ),
     );
+    // A jornada (estado e histórico de estados) vem de migração própria.
+    await db.exec(
+      readFileSync(
+        join(
+          __dirname,
+          "..",
+          "..",
+          "..",
+          "prisma",
+          "migrations",
+          "20261025000000_jornada",
+          "migration.sql",
+        ),
+        "utf8",
+      ),
+    );
     await aplicarTabelas((sql, params) => db.query(sql, params), tabelas);
   });
 

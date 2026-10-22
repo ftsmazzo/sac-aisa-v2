@@ -1,10 +1,15 @@
 import type { Prisma } from "@prisma/client";
 import {
+  calcularRelogios,
   custoTotal,
   type Devolucao,
+  type Estado,
+  ehEstado,
+  marcasVisiveis,
   type Perfil,
   type Situacao,
   situacao,
+  transicoesPermitidas,
   veTodosOsSetores,
 } from "@sac-aisa/domain";
 
@@ -27,6 +32,7 @@ export interface ConsultaLista {
   setorId?: string;
   causaId?: string;
   situacao?: Situacao;
+  estado?: Estado;
   busca?: string;
   pagina: number;
   porPagina: number;
@@ -96,6 +102,12 @@ export function lerConsulta(query: Record<string, unknown>): ResultadoConsulta {
     consulta.situacao = sit as Situacao;
   }
 
+  const est = texto(query.estado);
+  if (est !== undefined) {
+    if (!ehEstado(est)) return { ok: false, mensagem: "Estado inválido." };
+    consulta.estado = est;
+  }
+
   const busca = texto(query.busca);
   if (busca !== undefined) {
     if (busca.length > BUSCA_MAX) {
@@ -123,14 +135,25 @@ export function lerConsulta(query: Record<string, unknown>): ResultadoConsulta {
 export interface Escopo {
   perfil: Perfil;
   setores: string[];
+  /** Marcas do usuário (nomes). Só limita o responsável de setor; vazia = todas. */
+  marcas?: string[];
 }
 
-/** Quem não vê todos os setores só enxerga reclamação cujo setor responsável é um dos seus. */
+/**
+ * Quem não vê todos os setores só enxerga reclamação cujo setor responsável é um dos seus.
+ * O responsável de setor com marcas na lista só enxerga essas marcas.
+ */
 export function filtroDeEscopo(
   escopo: Escopo,
 ): Prisma.ReclamacaoWhereInput | null {
-  if (veTodosOsSetores(escopo.perfil)) return null;
-  return { setorResp: { nome: { in: escopo.setores } } };
+  const e: Prisma.ReclamacaoWhereInput[] = [];
+  if (!veTodosOsSetores(escopo.perfil)) {
+    e.push({ setorResp: { nome: { in: escopo.setores } } });
+  }
+  const marcas = marcasVisiveis(escopo.perfil, escopo.marcas ?? []);
+  if (marcas) e.push({ marca: { nome: { in: marcas } } });
+  if (e.length === 0) return null;
+  return e.length === 1 ? e[0] : { AND: e };
 }
 
 /** Mesma regra de `situacao()` do domínio, escrita como filtro de banco. */
@@ -174,6 +197,7 @@ export function montarFiltro(
     });
   }
   if (consulta.situacao) e.push(filtroDeSituacao(consulta.situacao));
+  if (consulta.estado) e.push({ estado: consulta.estado });
 
   if (consulta.busca) {
     const b = consulta.busca;
@@ -214,6 +238,9 @@ export interface LinhaBanco {
   dataAbertura: Date;
   dataAcao: Date | null;
   devolucao: Devolucao;
+  estado: Estado;
+  estadoDesde: Date;
+  prazoMarketplace: Date | null;
   descricao: string;
   cidade: string;
   uf: string;
@@ -257,6 +284,8 @@ export function paraItemLista(l: LinhaBanco) {
     dataAbertura: DIA_ISO(l.dataAbertura),
     dataAcao: DIA_ISO(l.dataAcao),
     situacao: c.situacao,
+    estado: l.estado,
+    prazoMarketplace: DIA_ISO(l.prazoMarketplace),
     devolucao: l.devolucao,
     marca: l.marca,
     canal: l.canal,
@@ -313,16 +342,48 @@ export interface FichaBanco extends Omit<LinhaBanco, "causa"> {
     resultado: string;
     criadoEm: Date;
   }[];
+  historicoEstados: { para: Estado; quando: Date }[];
   _count: { fotos: number };
 }
 
-export function paraFicha(f: FichaBanco) {
+function hojeEmSaoPaulo(agora: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(agora);
+}
+
+/** Quem está lendo e quando: os relógios e as transições dependem dos dois. */
+export interface ContextoFicha {
+  perfil: Perfil;
+  agora: Date;
+}
+
+export function paraFicha(
+  f: FichaBanco,
+  ctx: ContextoFicha = { perfil: "administrador", agora: new Date() },
+) {
   const c = calculados(f);
   const causa = f.causa
     ? { id: f.causa.id, nome: f.causa.nome, categoria: f.causa.categoria }
     : null;
+  // Sem histórico (dado de antes da jornada), o estado atual vale desde `estadoDesde`.
+  const historico = f.historicoEstados.length
+    ? f.historicoEstados.map((h) => ({ estado: h.para, quando: h.quando }))
+    : [{ estado: f.estado, quando: f.estadoDesde }];
   return {
     ...paraItemLista({ ...f, causa }),
+    estadoDesde: f.estadoDesde.toISOString(),
+    relogios: calcularRelogios({
+      historico,
+      agora: ctx.agora,
+      hoje: hojeEmSaoPaulo(ctx.agora),
+      prazoMarketplace: DIA_ISO(f.prazoMarketplace),
+    }),
+    historicoEstados: f.historicoEstados.map((h) => ({
+      estado: h.para,
+      quando: h.quando.toISOString(),
+    })),
+    transicoes: transicoesPermitidas(ctx.perfil, f.estado),
     /** Setor que a causa atual indica; pode diferir do responsável se alguém o trocou. */
     setorSugerido: f.causa
       ? (f.causa.regra?.setor ?? f.causa.setor ?? null)
@@ -382,7 +443,10 @@ export interface RepositorioReclamacoes {
 }
 
 export class ServicoReclamacoes {
-  constructor(private readonly repo: RepositorioReclamacoes) {}
+  constructor(
+    private readonly repo: RepositorioReclamacoes,
+    private readonly agora: () => Date = () => new Date(),
+  ) {}
 
   async listar(consulta: ConsultaLista, escopo: Escopo) {
     const { linhas, total } = await this.repo.listar({
@@ -406,16 +470,22 @@ export class ServicoReclamacoes {
       ? { AND: [{ id }, doEscopo] }
       : { id };
     const ficha = await this.repo.obter(where);
-    return ficha ? paraFicha(ficha) : null;
+    return ficha
+      ? paraFicha(ficha, { perfil: escopo.perfil, agora: this.agora() })
+      : null;
   }
 
-  /** Quem é restrito a setores só recebe os próprios setores na lista de filtros. */
+  /** Quem é restrito a setores ou marcas só recebe os próprios nas listas de filtros. */
   async opcoes(escopo: Escopo): Promise<OpcoesFiltro> {
     const o = await this.repo.opcoes();
-    if (veTodosOsSetores(escopo.perfil)) return o;
+    const marcas = marcasVisiveis(escopo.perfil, escopo.marcas ?? []);
+    const doEscopo = marcas
+      ? { ...o, marcas: o.marcas.filter((m) => marcas.includes(m.nome)) }
+      : o;
+    if (veTodosOsSetores(escopo.perfil)) return doEscopo;
     return {
-      ...o,
-      setores: o.setores.filter((s) => escopo.setores.includes(s.nome)),
+      ...doEscopo,
+      setores: doEscopo.setores.filter((s) => escopo.setores.includes(s.nome)),
     };
   }
 }

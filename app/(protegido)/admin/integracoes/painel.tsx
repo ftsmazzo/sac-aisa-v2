@@ -15,8 +15,8 @@ import {
   proximaTentativa,
   type RascunhoIntegracao,
   rascunhoInicial,
-  SITUACOES,
 } from "@/lib/integracoes";
+import { ESTADOS, ROTULO_ESTADO } from "@/lib/reclamacoes-formato";
 
 type Aviso = { tom: "ok" | "erro" | "info"; texto: string };
 
@@ -225,78 +225,42 @@ function CartaoIntegracao({
               ))}
             </div>
 
-            <h3 className="integracao__sub">Status do ClickUp → situação</h3>
-            <ul className="integracao__mapa">
-              {rascunho.mapa.map((linha, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: linhas editáveis sem id próprio
-                <li key={i} className="integracao__mapa-linha">
+            <h3 className="integracao__sub">Estado → status do ClickUp</h3>
+            <p className="campo__ajuda">
+              Os status precisam existir na lista do ClickUp. O setor só move o
+              card entre Recebida, Em tratativa e Resolvida no setor técnico;
+              “Complete” no ClickUp vale como Resolvida no setor técnico, nunca
+              como Finalizada. Mover o card para um estado do SAC é recusado e o
+              card volta. Vazio usa o padrão.
+            </p>
+            <div className="integracao__campos">
+              {ESTADOS.map((e) => (
+                <div className="campo" key={e}>
+                  <label
+                    className="campo__rotulo"
+                    htmlFor={`${idBase}-estado-${e}`}
+                  >
+                    {ROTULO_ESTADO[e]}
+                  </label>
                   <div className="campo__entrada">
                     <input
+                      id={`${idBase}-estado-${e}`}
                       type="text"
-                      aria-label="Status no ClickUp"
-                      placeholder="ex.: complete"
-                      value={linha.status}
-                      onChange={(e) =>
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={rascunho.estados[e] ?? ""}
+                      placeholder={integracao.clickup?.padraoEstados?.[e] ?? ""}
+                      onChange={(ev) =>
                         setRascunho((r) => ({
                           ...r,
-                          mapa: r.mapa.map((l, j) =>
-                            j === i ? { ...l, status: e.target.value } : l,
-                          ),
+                          estados: { ...r.estados, [e]: ev.target.value },
                         }))
                       }
                       disabled={!gravacaoLiberada}
                     />
                   </div>
-                  <div className="campo__entrada">
-                    <select
-                      aria-label="Situação no SAC"
-                      value={linha.situacao}
-                      onChange={(e) =>
-                        setRascunho((r) => ({
-                          ...r,
-                          mapa: r.mapa.map((l, j) =>
-                            j === i ? { ...l, situacao: e.target.value } : l,
-                          ),
-                        }))
-                      }
-                      disabled={!gravacaoLiberada}
-                    >
-                      {SITUACOES.map((s) => (
-                        <option key={s.valor} value={s.valor}>
-                          {s.rotulo}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Botao
-                    variante="secundario"
-                    onClick={() =>
-                      setRascunho((r) => ({
-                        ...r,
-                        mapa: r.mapa.filter((_, j) => j !== i),
-                      }))
-                    }
-                    disabled={!gravacaoLiberada}
-                    aria-label={`Remover o status ${linha.status || "da linha"}`}
-                  >
-                    Remover
-                  </Botao>
-                </li>
+                </div>
               ))}
-            </ul>
-            <div>
-              <Botao
-                variante="secundario"
-                onClick={() =>
-                  setRascunho((r) => ({
-                    ...r,
-                    mapa: [...r.mapa, { status: "", situacao: "tratativa" }],
-                  }))
-                }
-                disabled={!gravacaoLiberada}
-              >
-                Adicionar status
-              </Botao>
             </div>
           </>
         )}

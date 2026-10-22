@@ -1,17 +1,36 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { type Devolucao, type Situacao, situacao } from "@sac-aisa/domain";
+import {
+  type Devolucao,
+  type Estado,
+  ROTULO_ESTADO,
+  type Situacao,
+  situacao,
+} from "@sac-aisa/domain";
 import {
   comentarioAnalise,
   comentarioDevolucao,
+  decidirStatusExterno,
+  estadoDoStatus,
   linkFicha,
+  mapaEstadosEfetivo,
   type OrigemMudanca,
   prazoDoCard,
   prioridadeDoCard,
   ROTULO_SITUACAO,
-  statusDaSituacao,
+  statusDoEstado,
 } from "./clickup-sync";
 import type { Http, ServicoIntegracoes } from "./integracoes";
+import { dataDeAcaoDoEstado } from "./jornada";
 import { removerSegredos } from "./segredos";
+
+export {
+  type DecisaoStatus,
+  decidirStatusExterno,
+  estadoDoStatus,
+  MAPA_ESTADOS_PADRAO,
+  mapaEstadosEfetivo,
+  statusDoEstado,
+} from "./clickup-sync";
 
 // ---------- Card ao registrar ----------
 
@@ -41,9 +60,21 @@ export interface DadosCard {
     pedido: string;
     dataAbertura: string;
     situacao: Situacao;
+    /** Estado da jornada: é ele que escolhe o status do card. */
+    estado: Estado;
     devolucao: Devolucao;
     custoTotal: number;
   };
+}
+
+/** O que o webhook muda na reclamação: o(s) estado(s) do setor, a data de ação e a situação. */
+export interface MudancaPorClickup {
+  id: string;
+  /** Estado de onde partiu e passos percorridos, na ordem; o último é o estado novo. */
+  de: Estado;
+  passos: Estado[];
+  dataAcao: string | null;
+  situacao: Situacao;
 }
 
 export interface DadosAnalise {
@@ -141,20 +172,24 @@ export interface RepositorioClickup {
   } | null>;
   reclamacaoParaStatus(id: string): Promise<{
     numero: number;
+    estado: Estado;
+    dataAbertura: string;
     dataAcao: string | null;
     devolucao: Devolucao;
+    temSetor: boolean;
   } | null>;
-  /** Grava, numa transação, o status do card, a mudança da reclamação (se houver), a auditoria e o evento como processado. */
+  /**
+   * Grava, numa transação: o status do card, a mudança de estado da reclamação (se houver, com
+   * uma linha de histórico por passo), a auditoria e o evento como processado.
+   * `corrigirCard` marca o card para voltar ao status certo (o ClickUp o moveu para onde não podia).
+   */
   aplicarStatus(args: {
     eventoId: string;
     cardId: string | null;
     statusExterno: string | null;
-    reclamacao: {
-      id: string;
-      dataAcao: string | null;
-      situacao: Situacao;
-    } | null;
+    reclamacao: MudancaPorClickup | null;
     auditoria: AuditoriaClickup | null;
+    corrigirCard: boolean;
     agora: Date;
   }): Promise<void>;
 }
@@ -177,6 +212,7 @@ export function montarCard(r: DadosCard["reclamacao"], urlWeb?: string) {
   const detalhes = [
     r.produto && `Produto: ${r.produto}`,
     r.causa && `Causa: ${r.causa}`,
+    `Estado: ${ROTULO_ESTADO[r.estado]}`,
     `Situação: ${ROTULO_SITUACAO[r.situacao]}`,
     r.setorNome && `Setor responsável: ${r.setorNome}`,
     r.pedido && `Pedido: ${r.pedido}`,
@@ -190,21 +226,22 @@ export function montarCard(r: DadosCard["reclamacao"], urlWeb?: string) {
   };
 }
 
-/** Corpo do PUT /task/{id}: o estado atual da reclamação. O status só sai se o card ainda não está num status da mesma situação. */
+/** Corpo do PUT /task/{id}: o estado atual da reclamação. O status só sai se o card ainda não está no status do estado. */
 export function montarAtualizacao(
   r: DadosCard["reclamacao"],
   args: {
-    mapa: Record<string, unknown>;
+    mapa: Record<Estado, string>;
     statusAtual: string | null;
     hoje: string;
     urlWeb?: string;
   },
 ) {
   const card = montarCard(r, args.urlWeb);
-  const jaNaSituacao =
+  const alvo = statusDoEstado(r.estado, args.mapa);
+  const jaNoStatus =
     args.statusAtual !== null &&
-    args.mapa[args.statusAtual.trim().toLowerCase()] === r.situacao;
-  const status = jaNaSituacao ? null : statusDaSituacao(args.mapa, r.situacao);
+    args.statusAtual.trim().toLowerCase() === alvo.trim().toLowerCase();
+  const status = jaNoStatus ? null : alvo;
   return {
     name: card.name,
     markdown_content: card.markdown_description,
@@ -435,7 +472,7 @@ export class ServicoClickup {
     const agora = this.agora();
     const cfg = await this.integr.config("clickup");
     const listas = await this.integr.listasClickup();
-    const mapa = objeto(cfg.mapaStatus) ?? {};
+    const mapa = mapaEstadosEfetivo(cfg);
     const padrao =
       typeof cfg.listaPadraoId === "string" ? cfg.listaPadraoId : "";
     const alvoLista =
@@ -655,6 +692,8 @@ export class ServicoWebhookClickup {
     private readonly repo: RepositorioClickup,
     private readonly integr: Pick<ServicoIntegracoes, "segredo" | "config">,
     private readonly agora: () => Date = () => new Date(),
+    /** Devolve o card ao status certo quando o ClickUp o moveu para onde não podia. */
+    private readonly corrigirCard?: (reclamacaoId: string) => Promise<unknown>,
   ) {}
 
   /** Confere a assinatura e guarda o evento. Quem chama responde 200 e processa depois. */
@@ -713,40 +752,67 @@ export class ServicoWebhookClickup {
         statusExterno: null,
         reclamacao: null,
         auditoria: null,
+        corrigirCard: false,
         agora,
       });
       return;
     }
 
     const cfg = await this.integr.config("clickup");
-    const mapa = objeto(cfg.mapaStatus) ?? {};
-    const alvo = mapa[status.trim().toLowerCase()];
-    let reclamacao: {
-      id: string;
-      dataAcao: string | null;
-      situacao: Situacao;
-    } | null = null;
+    const alvo = estadoDoStatus(status, mapaEstadosEfetivo(cfg));
+    let reclamacao: MudancaPorClickup | null = null;
     let auditoria: AuditoriaClickup | null = null;
+    let corrigirCard = false;
 
-    if (
-      card.reclamacaoId &&
-      (alvo === "aguardando" || alvo === "tratativa" || alvo === "resolvida")
-    ) {
+    if (card.reclamacaoId && alvo) {
       const atual = await this.repo.reclamacaoParaStatus(card.reclamacaoId);
       if (atual) {
-        const m = aplicarStatusExterno(atual, alvo, hojeEmSaoPaulo(agora));
-        if (m.mudou) {
+        const decisao = decidirStatusExterno(
+          {
+            estado: atual.estado,
+            devolucao: atual.devolucao,
+            temSetor: atual.temSetor,
+          },
+          alvo,
+        );
+        if (decisao.tipo === "aplicar") {
+          const novo = decisao.passos[decisao.passos.length - 1];
+          const dataAcao = dataDeAcaoDoEstado(
+            novo,
+            { dataAcao: atual.dataAcao, dataAbertura: atual.dataAbertura },
+            hojeEmSaoPaulo(agora),
+          );
           reclamacao = {
             id: card.reclamacaoId,
-            dataAcao: m.dataAcao,
-            situacao: m.situacao,
+            de: atual.estado,
+            passos: decisao.passos,
+            dataAcao,
+            situacao: situacao({ dataAcao, devolucao: atual.devolucao }),
           };
           auditoria = {
             acao: "clickup.status",
             alvo: `Reclamação #${atual.numero}`,
-            detalhe: `Atualizada pelo ClickUp: status "${status}", situação ${m.situacao}.`,
+            detalhe: `Atualizada pelo ClickUp: status "${status}", ${ROTULO_ESTADO[atual.estado]} → ${ROTULO_ESTADO[novo]}.`,
             reclamacaoId: card.reclamacaoId,
-            extra: { statusExterno: status, situacao: m.situacao },
+            extra: {
+              statusExterno: status,
+              de: atual.estado,
+              para: novo,
+              passos: decisao.passos,
+            },
+          };
+        } else if (decisao.tipo === "reverter") {
+          corrigirCard = true;
+          auditoria = {
+            acao: "clickup.status",
+            alvo: `Reclamação #${atual.numero}`,
+            detalhe: `ClickUp recusado: card movido para "${status}". ${decisao.motivo} O card volta ao status do estado atual.`,
+            reclamacaoId: card.reclamacaoId,
+            extra: {
+              statusExterno: status,
+              recusado: true,
+              estado: atual.estado,
+            },
           };
         }
       }
@@ -757,7 +823,11 @@ export class ServicoWebhookClickup {
       statusExterno: status,
       reclamacao,
       auditoria,
+      corrigirCard,
       agora,
     });
+    if (corrigirCard && card.reclamacaoId && this.corrigirCard) {
+      await this.corrigirCard(card.reclamacaoId).catch(() => undefined);
+    }
   }
 }

@@ -1,3 +1,5 @@
+import { ESTADOS, type Estado } from "./reclamacoes-formato";
+
 /** Formato que a API devolve em GET /admin/integracoes. O segredo nunca vem: só a máscara. */
 export type EstadoIntegracao = "pendente" | "conectado" | "erro";
 
@@ -22,7 +24,9 @@ export interface Integracao {
   campos: CampoIntegracao[];
   clickup?: {
     setores: { id: string; nome: string; listaId: string }[];
-    mapaStatus: Record<string, string>;
+    /** Status do ClickUp que cada estado usa hoje. */
+    mapaEstados: Record<Estado, string>;
+    padraoEstados: Record<Estado, string>;
   };
 }
 
@@ -30,12 +34,6 @@ export interface PainelIntegracoes {
   gravacaoLiberada: boolean;
   integracoes: Integracao[];
 }
-
-export const SITUACOES: { valor: string; rotulo: string }[] = [
-  { valor: "tratativa", rotulo: "Em tratativa" },
-  { valor: "aguardando", rotulo: "Aguardando produto" },
-  { valor: "resolvida", rotulo: "Resolvida" },
-];
 
 export const ESTADO_SELO: Record<
   EstadoIntegracao,
@@ -50,8 +48,8 @@ export interface RascunhoIntegracao {
   /** Campo de texto: valor atual. Segredo: o que a pessoa digitou (vazio = manter). */
   campos: Record<string, string>;
   listas: Record<string, string>;
-  /** Linhas do mapa, na ordem em que aparecem na tela. */
-  mapa: { status: string; situacao: string }[];
+  /** Status do ClickUp por estado. Vazio = usar o padrão. */
+  estados: Record<Estado, string>;
 }
 
 export function rascunhoInicial(i: Integracao): RascunhoIntegracao {
@@ -62,25 +60,28 @@ export function rascunhoInicial(i: Integracao): RascunhoIntegracao {
     listas: Object.fromEntries(
       (i.clickup?.setores ?? []).map((s) => [s.id, s.listaId]),
     ),
-    mapa: Object.entries(i.clickup?.mapaStatus ?? {}).map(
-      ([status, situacao]) => ({ status, situacao }),
-    ),
+    estados: Object.fromEntries(
+      ESTADOS.map((e) => {
+        const atual = i.clickup?.mapaEstados?.[e] ?? "";
+        const padrao = i.clickup?.padraoEstados?.[e] ?? "";
+        // O que é igual ao padrão fica vazio: o placeholder já o mostra.
+        return [e, atual === padrao ? "" : atual];
+      }),
+    ) as Record<Estado, string>,
   };
 }
 
-/** Corpo do PUT: só o que o formulário controla. Linha do mapa sem status é descartada. */
+/** Corpo do PUT: só o que o formulário controla. Estado com campo vazio volta ao padrão. */
 export function montarEntrada(i: Integracao, r: RascunhoIntegracao) {
   const corpo: {
     campos: Record<string, string>;
     listas?: Record<string, string>;
-    mapaStatus?: Record<string, string>;
+    mapaEstados?: Record<string, string>;
   } = { campos: { ...r.campos } };
   if (i.chave === "clickup") {
     corpo.listas = r.listas;
-    corpo.mapaStatus = Object.fromEntries(
-      r.mapa
-        .filter((l) => l.status.trim() !== "")
-        .map((l) => [l.status.trim().toLowerCase(), l.situacao]),
+    corpo.mapaEstados = Object.fromEntries(
+      ESTADOS.map((e) => [e, (r.estados[e] ?? "").trim()]),
     );
   }
   return corpo;

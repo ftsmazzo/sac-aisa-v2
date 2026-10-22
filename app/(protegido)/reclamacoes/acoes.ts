@@ -109,3 +109,68 @@ export async function salvarReclamacao(
     return { ok: false, status: 502, mensagem: MENSAGEM_GENERICA };
   }
 }
+
+export type ResultadoEstado =
+  | {
+      ok: true;
+      id: string;
+      numero: number;
+      estado: string;
+      reabertura: boolean;
+    }
+  | { ok: false; status: number; mensagem: string };
+
+/**
+ * Muda o estado da jornada. Quem decide se a pessoa pode, e se o motivo é obrigatório,
+ * é a API; aqui só se leva o pedido e se traduz o erro.
+ */
+export async function mudarEstado(
+  id: string,
+  para: string,
+  motivo?: string,
+): Promise<ResultadoEstado> {
+  const token = (await cookies()).get("sac_sessao")?.value;
+  if (!token) {
+    return { ok: false, status: 401, mensagem: MENSAGEM_POR_STATUS[401] };
+  }
+  try {
+    const r = await fetch(
+      `${urlDaApi()}/reclamacoes/${encodeURIComponent(id)}/estado`,
+      {
+        method: "POST",
+        headers: {
+          cookie: `sac_sessao=${encodeURIComponent(token)}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(motivo ? { para, motivo } : { para }),
+        cache: "no-store",
+      },
+    );
+    const dados = (await r.json().catch(() => ({}))) as {
+      id?: string;
+      numero?: number;
+      estado?: string;
+      reabertura?: boolean;
+      message?: string;
+    };
+    if (r.ok && dados.id && typeof dados.numero === "number") {
+      return {
+        ok: true,
+        id: dados.id,
+        numero: dados.numero,
+        estado: dados.estado ?? para,
+        reabertura: dados.reabertura === true,
+      };
+    }
+    return {
+      ok: false,
+      status: r.status,
+      mensagem:
+        r.status < 500 && dados.message
+          ? dados.message
+          : (MENSAGEM_POR_STATUS[r.status] ?? MENSAGEM_GENERICA),
+    };
+  } catch {
+    return { ok: false, status: 502, mensagem: MENSAGEM_GENERICA };
+  }
+}

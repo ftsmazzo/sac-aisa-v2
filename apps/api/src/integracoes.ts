@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { UsuarioLogado } from "@sac-aisa/auth";
-import { temPermissao } from "@sac-aisa/domain";
+import { ESTADOS, type Estado, temPermissao } from "@sac-aisa/domain";
+import { MAPA_ESTADOS_PADRAO, mapaEstadosEfetivo } from "./clickup-sync";
 import {
   cifrar,
   decifrar,
@@ -17,8 +18,6 @@ export type ChaveIntegracao =
   | "shopee"
   | "openrouter";
 export type EstadoIntegracao = "pendente" | "conectado" | "erro";
-
-export const SITUACOES_MAPA = ["aguardando", "tratativa", "resolvida"] as const;
 
 interface CampoDef {
   nome: string;
@@ -42,7 +41,7 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
       "No ClickUp, abra Configurações › Apps e gere um token pessoal (começa com pk_). Use um usuário de serviço, não uma pessoa: o token e o webhook ficam atrelados a esse usuário e param se ele for desativado.",
       "Informe o ID da lista de cada setor. O ID aparece na URL da lista. A lista padrão recebe o que não tiver setor ou lista.",
       "Crie o webhook do ClickUp apontando para /api/webhooks/clickup deste sistema e cole aqui o segredo que o ClickUp devolve.",
-      "No mapa de status, diga a que situação cada status do ClickUp corresponde.",
+      'No mapa de estados, diga qual status do ClickUp acompanha cada estado da reclamação. Crie esses status na lista (o ClickUp recusa nome que não existe). O setor só move o card entre Recebida, Em tratativa e Resolvida no setor técnico; "Complete" vale como Resolvida no setor técnico, nunca como Finalizada.',
     ],
     campos: [
       {
@@ -161,8 +160,8 @@ export interface EntradaIntegracao {
   campos?: Record<string, string>;
   /** setorId → ID da lista no ClickUp. Vazio remove. Só no ClickUp. */
   listas?: Record<string, string>;
-  /** status do ClickUp (minúsculas) → situação. Só no ClickUp. Substitui o mapa inteiro. */
-  mapaStatus?: Record<string, string>;
+  /** estado → status do ClickUp. Só no ClickUp. Substitui o mapa inteiro; vazio volta ao padrão. */
+  mapaEstados?: Partial<Record<Estado, string>>;
 }
 
 export class ErroIntegracao extends Error {
@@ -187,7 +186,7 @@ export function lerEntradaIntegracao(
   const erro = (mensagem: string) => ({ ok: false as const, mensagem });
   if (!ehObjeto(corpo)) return erro("Corpo inválido.");
   for (const k of Object.keys(corpo)) {
-    if (!["campos", "listas", "mapaStatus"].includes(k)) {
+    if (!["campos", "listas", "mapaEstados"].includes(k)) {
       return erro(`Campo não aceito: "${k}".`);
     }
   }
@@ -224,22 +223,33 @@ export function lerEntradaIntegracao(
     entrada.listas = listas;
   }
 
-  if ("mapaStatus" in corpo) {
-    if (chave !== "clickup")
-      return erro("Mapa de status só existe no ClickUp.");
-    if (!ehObjeto(corpo.mapaStatus)) return erro("Mapa de status inválido.");
-    const entradas = Object.entries(corpo.mapaStatus);
-    if (entradas.length > 30) return erro("Status demais no mapa.");
-    const mapa: Record<string, string> = {};
-    for (const [status, v] of entradas) {
-      const s = status.trim().toLowerCase();
-      if (s === "" || s.length > 60) return erro("Nome de status inválido.");
-      if (!(SITUACOES_MAPA as readonly unknown[]).includes(v)) {
-        return erro(`Situação inválida para o status "${s}".`);
-      }
-      mapa[s] = v as string;
+  if ("mapaEstados" in corpo) {
+    if (chave !== "clickup") {
+      return erro("Mapa de estados só existe no ClickUp.");
     }
-    entrada.mapaStatus = mapa;
+    if (!ehObjeto(corpo.mapaEstados)) return erro("Mapa de estados inválido.");
+    const mapa: Partial<Record<Estado, string>> = {};
+    for (const [estado, v] of Object.entries(corpo.mapaEstados)) {
+      if (!(ESTADOS as readonly string[]).includes(estado)) {
+        return erro(`Estado inválido no mapa: "${estado}".`);
+      }
+      if (typeof v !== "string")
+        return erro(`Status inválido para "${estado}".`);
+      const s = v.trim();
+      if (s.length > 60) return erro(`Status longo demais para "${estado}".`);
+      if (s !== "") mapa[estado as Estado] = s;
+    }
+    // Dois estados no mesmo status impediriam saber, pelo card, em que estado a reclamação está.
+    const efetivo = mapaEstadosEfetivo({ mapaEstados: mapa });
+    const vistos = new Set<string>();
+    for (const e of ESTADOS) {
+      const n = efetivo[e].toLowerCase();
+      if (vistos.has(n)) {
+        return erro(`O status "${efetivo[e]}" está em mais de um estado.`);
+      }
+      vistos.add(n);
+    }
+    entrada.mapaEstados = mapa;
   }
 
   if (Object.keys(entrada).length === 0) return erro("Nada para gravar.");
@@ -521,7 +531,9 @@ export interface IntegracaoVisao {
   campos: CampoVisao[];
   clickup?: {
     setores: { id: string; nome: string; listaId: string }[];
-    mapaStatus: Record<string, string>;
+    /** Status do ClickUp que cada estado usa hoje (o padrão com a troca do administrador). */
+    mapaEstados: Record<Estado, string>;
+    padraoEstados: Record<Estado, string>;
   };
 }
 
@@ -549,14 +561,6 @@ function textoDe(config: Record<string, unknown>): Record<string, string> {
   for (const [k, v] of Object.entries(config)) {
     if (typeof v === "string") r[k] = v;
   }
-  return r;
-}
-
-function mapaDe(config: Record<string, unknown>): Record<string, string> {
-  const m = config.mapaStatus;
-  if (!ehObjeto(m)) return {};
-  const r: Record<string, string> = {};
-  for (const [k, v] of Object.entries(m)) if (typeof v === "string") r[k] = v;
   return r;
 }
 
@@ -605,7 +609,8 @@ export class ServicoIntegracoes {
             nome: s.nome,
             listaId: listas[s.id] ?? "",
           })),
-          mapaStatus: mapaDe(reg?.config ?? {}),
+          mapaEstados: mapaEstadosEfetivo(reg?.config ?? {}),
+          padraoEstados: { ...MAPA_ESTADOS_PADRAO },
         };
       }
       integracoes.push(visao);
@@ -647,9 +652,9 @@ export class ServicoIntegracoes {
         alterados.push(nome);
       }
     }
-    if (entrada.mapaStatus) {
-      config.mapaStatus = entrada.mapaStatus;
-      alterados.push("mapaStatus");
+    if (entrada.mapaEstados) {
+      config.mapaEstados = entrada.mapaEstados;
+      alterados.push("mapaEstados");
     }
     if (entrada.listas) alterados.push("listas");
 

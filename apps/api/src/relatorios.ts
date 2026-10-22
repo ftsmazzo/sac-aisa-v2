@@ -284,7 +284,11 @@ export class ServicoRelatorios {
     if (!temPermissao(usuario.permissoes, "relatorios.ver")) {
       throw new ErroEscrita(403, "Sem permissão para ver relatórios.");
     }
-    const escopo: Escopo = { perfil: usuario.perfil, setores: usuario.setores };
+    const escopo: Escopo = {
+      perfil: usuario.perfil,
+      setores: usuario.setores,
+      marcas: usuario.marcas,
+    };
     const linhas = await this.repo.linhas({
       where: filtroDoRelatorio(filtros, escopo),
       take: LIMITE_RELATORIO + 1,

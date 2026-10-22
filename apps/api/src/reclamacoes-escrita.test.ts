@@ -570,7 +570,7 @@ describe("triagem enxuta: o que é do setor", () => {
   it("quem tem a permissão de analisar grava os campos do setor", async () => {
     const { repo, gravado } = repoFalso({
       setorNome: "Logística",
-      estado: existente({ devolucao: "RECEBIDO" }),
+      estado: existente({ devolucao: "RECEBIDO", estado: "em_tratativa" }),
     });
     await new ServicoEscrita(repo, AGORA).editar(
       "r1",

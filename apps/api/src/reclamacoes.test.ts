@@ -22,6 +22,9 @@ function linha(over: Partial<LinhaBanco> = {}): LinhaBanco {
     dataAbertura: dia("2026-03-10"),
     dataAcao: null,
     devolucao: "NA",
+    estado: "em_tratativa",
+    estadoDesde: new Date("2026-03-10T12:00:00Z"),
+    prazoMarketplace: null,
     descricao: "Cliente recebeu a peça trincada.",
     cidade: "Araraquara",
     uf: "SP",
@@ -68,6 +71,7 @@ function ficha(over: Partial<FichaBanco> = {}): FichaBanco {
       { primaria: false, causa: { id: "b", nome: "B", categoria: "X" } },
     ],
     analises: [],
+    historicoEstados: [],
     _count: { fotos: 2 },
     ...over,
   };

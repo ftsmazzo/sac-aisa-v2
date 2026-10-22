@@ -47,6 +47,11 @@ export interface ReclamacaoLike extends CustosLike {
   obs?: string | null;
   obsCausa?: string | null;
   reg?: number | null;
+  /** Estado da jornada (ver `jornada.ts`) e desde quando, em ISO 8601. */
+  estado?: string | null;
+  estadoDesde?: string | null;
+  /** Data limite do marketplace (AAAA-MM-DD). */
+  prazoMarketplace?: string | null;
 }
 
 export interface CausaDef {
