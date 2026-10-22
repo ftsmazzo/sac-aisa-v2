@@ -39,6 +39,8 @@ O produto gera valor quando uma reclamação é registrada, vai ao setor certo, 
 | 8. Virada | Execução em paralelo com o sac-renato, conferência dos números, migração final, congelar o sistema atual e desligá-lo | Alta ao final | Fases 1 a 7 e validação do gestor |
 | Depois | WhatsApp (cliente e gestor), Magalu, PWA instalável, resposta automática de volta ao marketplace | Baixa | A definir com o cliente |
 
+Arquitetura, dados, segurança e fatias das fases 5a a 5c: [IA](IA.md).
+
 Fases 3 e 5 podem andar em paralelo depois da 2, assim como o front e o back dentro de cada fase, desde que não mexam nos mesmos arquivos.
 
 ## 3. Marcos externos

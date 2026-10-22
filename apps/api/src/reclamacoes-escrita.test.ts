@@ -331,7 +331,12 @@ describe("editar", () => {
       { devolucao: "RECEBIDO", custos: { guia: 8 } },
       usuario("gestor"),
     );
-    expect(r).toEqual({ id: "r1", numero: 7, alterou: true });
+    expect(r).toEqual({
+      id: "r1",
+      numero: 7,
+      alterou: true,
+      devolucaoRecebida: true,
+    });
     const a = gravado.auditorias[0];
     expect(a).toMatchObject({
       usuarioId: "u-gestor",

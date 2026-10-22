@@ -1567,6 +1567,39 @@ a.chip:hover {
   text-align: center;
 }
 
+/* ---------- Fila de envio ao ClickUp ---------- */
+.fila-clickup {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fila-clickup__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.fila-clickup__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.fila-clickup__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.fila-clickup__erro {
+  font-size: 0.875rem;
+  color: var(--cor-suave);
+  overflow-wrap: anywhere;
+}
+
 /* Identidade por marca no sistema logado: seletor do cabeçalho e logos pequenas. */
 .seletor-marca {
   margin: 0;
@@ -1854,5 +1887,176 @@ a.chip:hover {
   a {
     color: inherit;
     text-decoration: none;
+  }
+}
+
+/* Relatório na tela: gráficos e mapa de calor. No papel valem as tabelas numéricas. */
+.relatorio__papel > * + * {
+  margin-top: 20px;
+}
+.relatorio__visual {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.relatorio__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.relatorio__kpis div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: var(--raio-m);
+  background: var(--marca-suave);
+}
+.relatorio__kpis dt {
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+}
+.relatorio__kpis dd {
+  font-size: 1.625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--marca-texto);
+}
+.relatorio__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 20px;
+}
+.relatorio__painel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  min-width: 0;
+}
+.relatorio__painel small {
+  font-weight: 500;
+  color: var(--cor-suave);
+}
+.barras {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.barras__item {
+  display: grid;
+  grid-template-columns: minmax(80px, 36%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.875rem;
+}
+.barras__rotulo {
+  overflow-wrap: anywhere;
+}
+.barras__trilho {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--cor-borda);
+  overflow: hidden;
+}
+.barras__barra {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--marca);
+}
+.barras__valor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.barras__valor small {
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+.situacao-barra {
+  display: flex;
+  height: 22px;
+  border-radius: 999px;
+  overflow: hidden;
+  gap: 2px;
+}
+.situacao-barra__parte--resolvida {
+  background: var(--cor-ok);
+}
+.situacao-barra__parte--tratativa {
+  background: var(--cor-info);
+}
+.situacao-barra__parte--aguardando {
+  background: var(--cor-atencao);
+}
+.situacao-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+}
+.situacao-legenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.situacao-legenda__ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.calor th,
+.calor td {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.calor th:first-child {
+  text-align: left;
+}
+.calor__celula {
+  background: color-mix(in srgb, var(--marca) var(--forca), transparent);
+}
+.calor__zero {
+  color: var(--cor-suave);
+}
+
+/* Seleção de reclamações para imprimir em lote. */
+.selecao-barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tabela__marcar {
+  width: 1%;
+  padding-right: 0;
+}
+.tabela__marcar input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--marca);
+}
+.lote-folhas {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+@media print {
+  .lote-folhas {
+    display: block;
+  }
+  .lote-folhas .folha {
+    break-after: page;
+  }
+  .lote-folhas .folha:last-child {
+    break-after: auto;
   }
 }

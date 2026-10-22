@@ -298,6 +298,8 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
           criadoPorId: args.usuarioId,
           alteradoPorId: args.usuarioId,
           custo: { create: args.estado.custos },
+          // O card do ClickUp nasce pendente junto do registro; a fila cria o card lá.
+          card: { create: { proximaTentativaEm: new Date() } },
           causas: args.estado.causaId
             ? { create: { causaId: args.estado.causaId, primaria: true } }
             : undefined,
@@ -346,7 +348,7 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
         });
         await tx.clickupCard.updateMany({
           where: { reclamacaoId: args.id },
-          data: { statusPendente: true },
+          data: { precisaSync: true },
         });
       }
       // A causa principal acompanha `causaId`; os motivos extras ficam como estão.
@@ -537,14 +539,14 @@ export class ControladorReclamacoes {
     }
     const r = lerEntrada(corpo, "editar");
     if (!r.ok) throw new BadRequestException(r.mensagem);
-    const feito = await this.comErros(() =>
+    const editada = await this.comErros(() =>
       this.escrita.editar(id, r.entrada, usuarioDe(req)),
     );
-    // Se a gravação mexeu no estado, o card ganha o status novo; sem marca pendente, nada é chamado.
-    if (feito.alterou) {
-      void this.clickup.sincronizarEstado(id).catch(() => undefined);
+    // Depois de gravar: o card acompanha a mudança, sem segurar a resposta nem falhar por ela.
+    if (editada.alterou) {
+      void this.clickup.aposEdicao(editada.id, editada).catch(() => undefined);
     }
-    return feito;
+    return editada;
   }
 
   private async comErros<T>(f: () => Promise<T>): Promise<T> {

@@ -207,7 +207,7 @@ describe("gravação no banco com a migração real", () => {
           "..",
           "prisma",
           "migrations",
-          "20261024000000_jornada",
+          "20261025000000_jornada",
           "migration.sql",
         ),
         "utf8",

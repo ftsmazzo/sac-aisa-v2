@@ -13,6 +13,7 @@ import {
   textoDias,
 } from "@/lib/relatorios-formato";
 import { obterUsuario } from "@/lib/sessao";
+import { VisaoGrafica } from "./visual";
 
 function Seletor({
   nome,
@@ -216,156 +217,160 @@ export default async function Relatorios({
             </p>
           )}
 
-          <section className="relatorio__bloco">
-            <h3 className="ficha__subtitulo">Totais</h3>
-            <dl className="relatorio__totais">
-              <div>
-                <dt>Reclamações</dt>
-                <dd>{r.totais.reclamacoes}</dd>
-              </div>
-              <div>
-                <dt>Resolvidas</dt>
-                <dd>{r.totais.resolvidas}</dd>
-              </div>
-              <div>
-                <dt>Em tratativa</dt>
-                <dd>{r.totais.tratativa}</dd>
-              </div>
-              <div>
-                <dt>Aguardando produto</dt>
-                <dd>{r.totais.aguardando}</dd>
-              </div>
-              <div>
-                <dt>Custo total</dt>
-                <dd>{moeda(r.totais.custoTotal)}</dd>
-              </div>
-            </dl>
-          </section>
+          <VisaoGrafica r={r} />
 
-          <section className="relatorio__bloco">
-            <h3 className="ficha__subtitulo">Tempo médio por etapa</h3>
-            <table className="tabela-simples relatorio__tabela">
-              <thead>
-                <tr>
-                  <th scope="col">Etapa</th>
-                  <th scope="col">Reclamações</th>
-                  <th scope="col">Média</th>
-                </tr>
-              </thead>
-              <tbody>
-                {r.etapas.map((e) => (
-                  <tr key={e.chave}>
-                    <td>{e.rotulo}</td>
-                    <td>{e.n}</td>
-                    <td>{textoDias(e.mediaDias)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-
-          <section className="relatorio__bloco">
-            <h3 className="ficha__subtitulo">Ocorrências por setor</h3>
-            {r.porSetor.length === 0 ? (
-              <p className="pagina__apoio">Nenhuma reclamação no filtro.</p>
-            ) : (
-              <table className="tabela-simples relatorio__tabela">
-                <thead>
-                  <tr>
-                    <th scope="col">Setor responsável</th>
-                    <th scope="col">Reclamações</th>
-                    <th scope="col">Custo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.porSetor.map((s) => (
-                    <tr key={s.setor}>
-                      <td>{s.setor}</td>
-                      <td>{s.total}</td>
-                      <td>{moeda(s.custo)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
-
-          <section className="relatorio__bloco">
-            <h3 className="ficha__subtitulo">Ocorrências por produto</h3>
-            {r.porProduto.length === 0 ? (
-              <p className="pagina__apoio">Nenhuma reclamação no filtro.</p>
-            ) : (
-              <table className="tabela-simples relatorio__tabela">
-                <thead>
-                  <tr>
-                    <th scope="col">Produto</th>
-                    <th scope="col">Reclamações</th>
-                    <th scope="col">Custo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.porProduto.map((p) => (
-                    <tr key={p.codigo || p.produto}>
-                      <td>
-                        {p.codigo ? `${p.codigo} · ` : ""}
-                        {p.produto}
-                      </td>
-                      <td>{p.total}</td>
-                      <td>{moeda(p.custo)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
-
-          <section className="relatorio__bloco">
-            <h3 className="ficha__subtitulo">
-              Bancada de origem × tipo de ocorrência
-            </h3>
-            {r.bancadaXTipo.linhas.length === 0 ? (
-              <p className="pagina__apoio">Nenhuma reclamação no filtro.</p>
-            ) : (
-              <>
-                <div className="tabela-caixa">
-                  <table className="tabela-simples relatorio__tabela">
-                    <thead>
-                      <tr>
-                        <th scope="col">Bancada</th>
-                        {r.bancadaXTipo.tipos.map((t) => (
-                          <th key={t} scope="col">
-                            {t}
-                          </th>
-                        ))}
-                        <th scope="col">Total</th>
-                        <th scope="col">Causa na montagem</th>
-                        <th scope="col">Causa fora da montagem</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {r.bancadaXTipo.linhas.map((b) => (
-                        <tr key={b.bancada}>
-                          <th scope="row">{b.bancada}</th>
-                          {r.bancadaXTipo.tipos.map((t) => (
-                            <td key={t}>{b.porTipo[t] ?? 0}</td>
-                          ))}
-                          <td>{b.total}</td>
-                          <td>{b.daMontagem}</td>
-                          <td>{b.foraDaMontagem}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+          <div className="so-impressao relatorio__papel">
+            <section className="relatorio__bloco">
+              <h3 className="ficha__subtitulo">Totais</h3>
+              <dl className="relatorio__totais">
+                <div>
+                  <dt>Reclamações</dt>
+                  <dd>{r.totais.reclamacoes}</dd>
                 </div>
-                <p className="relatorio__nota">
-                  A bancada só responde pela ocorrência quando a causa vem da
-                  montagem. Defeito de componente, lote, projeto, embalagem,
-                  transporte ou venda, ou causa ainda sem origem, cai em “fora
-                  da montagem”.
-                </p>
-              </>
-            )}
-          </section>
+                <div>
+                  <dt>Resolvidas</dt>
+                  <dd>{r.totais.resolvidas}</dd>
+                </div>
+                <div>
+                  <dt>Em tratativa</dt>
+                  <dd>{r.totais.tratativa}</dd>
+                </div>
+                <div>
+                  <dt>Aguardando produto</dt>
+                  <dd>{r.totais.aguardando}</dd>
+                </div>
+                <div>
+                  <dt>Custo total</dt>
+                  <dd>{moeda(r.totais.custoTotal)}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className="relatorio__bloco">
+              <h3 className="ficha__subtitulo">Tempo médio por etapa</h3>
+              <table className="tabela-simples relatorio__tabela">
+                <thead>
+                  <tr>
+                    <th scope="col">Etapa</th>
+                    <th scope="col">Reclamações</th>
+                    <th scope="col">Média</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.etapas.map((e) => (
+                    <tr key={e.chave}>
+                      <td>{e.rotulo}</td>
+                      <td>{e.n}</td>
+                      <td>{textoDias(e.mediaDias)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            <section className="relatorio__bloco">
+              <h3 className="ficha__subtitulo">Ocorrências por setor</h3>
+              {r.porSetor.length === 0 ? (
+                <p className="pagina__apoio">Nenhuma reclamação no filtro.</p>
+              ) : (
+                <table className="tabela-simples relatorio__tabela">
+                  <thead>
+                    <tr>
+                      <th scope="col">Setor responsável</th>
+                      <th scope="col">Reclamações</th>
+                      <th scope="col">Custo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.porSetor.map((s) => (
+                      <tr key={s.setor}>
+                        <td>{s.setor}</td>
+                        <td>{s.total}</td>
+                        <td>{moeda(s.custo)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            <section className="relatorio__bloco">
+              <h3 className="ficha__subtitulo">Ocorrências por produto</h3>
+              {r.porProduto.length === 0 ? (
+                <p className="pagina__apoio">Nenhuma reclamação no filtro.</p>
+              ) : (
+                <table className="tabela-simples relatorio__tabela">
+                  <thead>
+                    <tr>
+                      <th scope="col">Produto</th>
+                      <th scope="col">Reclamações</th>
+                      <th scope="col">Custo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.porProduto.map((p) => (
+                      <tr key={p.codigo || p.produto}>
+                        <td>
+                          {p.codigo ? `${p.codigo} · ` : ""}
+                          {p.produto}
+                        </td>
+                        <td>{p.total}</td>
+                        <td>{moeda(p.custo)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            <section className="relatorio__bloco">
+              <h3 className="ficha__subtitulo">
+                Bancada de origem × tipo de ocorrência
+              </h3>
+              {r.bancadaXTipo.linhas.length === 0 ? (
+                <p className="pagina__apoio">Nenhuma reclamação no filtro.</p>
+              ) : (
+                <>
+                  <div className="tabela-caixa">
+                    <table className="tabela-simples relatorio__tabela">
+                      <thead>
+                        <tr>
+                          <th scope="col">Bancada</th>
+                          {r.bancadaXTipo.tipos.map((t) => (
+                            <th key={t} scope="col">
+                              {t}
+                            </th>
+                          ))}
+                          <th scope="col">Total</th>
+                          <th scope="col">Causa na montagem</th>
+                          <th scope="col">Causa fora da montagem</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.bancadaXTipo.linhas.map((b) => (
+                          <tr key={b.bancada}>
+                            <th scope="row">{b.bancada}</th>
+                            {r.bancadaXTipo.tipos.map((t) => (
+                              <td key={t}>{b.porTipo[t] ?? 0}</td>
+                            ))}
+                            <td>{b.total}</td>
+                            <td>{b.daMontagem}</td>
+                            <td>{b.foraDaMontagem}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="relatorio__nota">
+                    A bancada só responde pela ocorrência quando a causa vem da
+                    montagem. Defeito de componente, lote, projeto, embalagem,
+                    transporte ou venda, ou causa ainda sem origem, cai em “fora
+                    da montagem”.
+                  </p>
+                </>
+              )}
+            </section>
+          </div>
         </article>
       )}
     </>

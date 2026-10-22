@@ -20,6 +20,7 @@ import {
   ServicoAnalise,
 } from "./analise-setor";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
+import { ServicoClickup } from "./clickup";
 import {
   type LinhaAberta,
   type RepositorioFila,
@@ -187,8 +188,26 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
 export class ControladorAnalise {
   private readonly servico: ServicoAnalise;
 
-  constructor(@Inject(PrismaClient) prisma: PrismaClient) {
+  constructor(
+    @Inject(PrismaClient) prisma: PrismaClient,
+    @Inject(ServicoClickup) private readonly clickup: ServicoClickup,
+  ) {
     this.servico = new ServicoAnalise(new RepositorioAnalisePrisma(prisma));
+  }
+
+  /** Depois de gravar: comenta a análise no card e atualiza o resto, sem segurar a resposta. */
+  private async depois<
+    T extends {
+      id: string;
+      alterou: boolean;
+      criando: boolean;
+      devolucaoRecebida: boolean;
+    },
+  >(reclamacaoId: string, r: T): Promise<T> {
+    if (r.alterou) {
+      void this.clickup.aposAnalise(reclamacaoId, r).catch(() => undefined);
+    }
+    return r;
   }
 
   @Requer("reclamacoes.analisar")
@@ -201,7 +220,9 @@ export class ControladorAnalise {
     if (!ID.test(id)) throw new NotFoundException("Reclamação não encontrada.");
     const r = lerAnalise(corpo, "criar");
     if (!r.ok) throw new BadRequestException(r.mensagem);
-    return comErros(() => this.servico.criar(id, r.entrada, usuarioDe(req)));
+    return comErros(async () =>
+      this.depois(id, await this.servico.criar(id, r.entrada, usuarioDe(req))),
+    );
   }
 
   @Requer("reclamacoes.analisar")
@@ -217,8 +238,11 @@ export class ControladorAnalise {
     }
     const r = lerAnalise(corpo, "editar");
     if (!r.ok) throw new BadRequestException(r.mensagem);
-    return comErros(() =>
-      this.servico.editar(id, analiseId, r.entrada, usuarioDe(req)),
+    return comErros(async () =>
+      this.depois(
+        id,
+        await this.servico.editar(id, analiseId, r.entrada, usuarioDe(req)),
+      ),
     );
   }
 }

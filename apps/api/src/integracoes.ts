@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { UsuarioLogado } from "@sac-aisa/auth";
 import { ESTADOS, type Estado, temPermissao } from "@sac-aisa/domain";
-import { MAPA_ESTADOS_PADRAO, mapaEstadosEfetivo } from "./clickup";
+import { MAPA_ESTADOS_PADRAO, mapaEstadosEfetivo } from "./clickup-sync";
 import {
   cifrar,
   decifrar,
@@ -61,6 +61,13 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
         rotulo: "Lista padrão",
         tipo: "texto",
         ajuda: "ID da lista para setor sem lista própria.",
+      },
+      {
+        nome: "workspaceId",
+        rotulo: "ID do workspace",
+        tipo: "texto",
+        ajuda:
+          "Número que aparece na URL do ClickUp (app.clickup.com/NÚMERO/...). Necessário para mover o card quando o setor responsável muda.",
       },
     ],
   },
@@ -540,7 +547,7 @@ export interface PainelIntegracoes {
  * Só o administrador mexe nas integrações. A permissão `integracoes.gerir` é conferida
  * junto do perfil, para um override de permissão não abrir a porta para outro perfil.
  */
-function exigirAdministrador(u: UsuarioLogado) {
+export function exigirAdministrador(u: UsuarioLogado) {
   if (
     u.perfil !== "administrador" ||
     !temPermissao(u.permissoes, "integracoes.gerir")
