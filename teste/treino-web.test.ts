@@ -69,6 +69,7 @@ describe("integração com o ClickUp: cards de treino", () => {
       setores: [],
       mapaEstados: {} as never,
       padraoEstados: {} as never,
+      assistente: { workspaceId: "", spaceId: "", webhookAtivo: false },
     },
   };
 
