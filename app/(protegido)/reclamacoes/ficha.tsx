@@ -38,13 +38,15 @@ const CUSTOS: [keyof Ficha["custos"], string][] = [
   ["guia", "Guia"],
 ];
 
-/** Ficha somente leitura. A edição entra na fatia seguinte. */
+/** Ficha em leitura. Com `hrefEditar`, mostra o botão que abre o formulário de edição. */
 export function ConteudoFicha({
   ficha,
   fechar,
+  hrefEditar,
 }: {
   ficha: Ficha;
   fechar: string;
+  hrefEditar?: string;
 }) {
   return (
     <>
@@ -61,13 +63,24 @@ export function ConteudoFicha({
             {ficha.rascunho && <Selo tom="atencao">Rascunho</Selo>}
           </div>
         </div>
-        <Link
-          href={fechar}
-          scroll={false}
-          className="botao botao--secundario ficha__fechar"
-        >
-          Fechar
-        </Link>
+        <div className="ficha__acoes">
+          {hrefEditar && (
+            <Link
+              href={hrefEditar}
+              scroll={false}
+              className="botao botao--primario ficha__fechar"
+            >
+              Editar
+            </Link>
+          )}
+          <Link
+            href={fechar}
+            scroll={false}
+            className="botao botao--secundario ficha__fechar"
+          >
+            Fechar
+          </Link>
+        </div>
       </header>
 
       <div className="ficha__corpo">

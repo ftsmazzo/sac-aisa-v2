@@ -1,14 +1,19 @@
 import {
   BadRequestException,
+  Body,
   Controller,
+  ForbiddenException,
   Get,
   Inject,
   NotFoundException,
   Param,
+  Patch,
+  Post,
   Query,
   Req,
 } from "@nestjs/common";
-import { PrismaClient } from "@prisma/client";
+import { type Prisma, PrismaClient } from "@prisma/client";
+import type { Situacao } from "@sac-aisa/domain";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
 import {
   type Escopo,
@@ -17,6 +22,16 @@ import {
   type RepositorioReclamacoes,
   ServicoReclamacoes,
 } from "./reclamacoes";
+import {
+  type AuditoriaNova,
+  ErroEscrita,
+  type EstadoReclamacao,
+  lerEntrada,
+  type Referencias,
+  type RegistroAtual,
+  type RepositorioEscrita,
+  ServicoEscrita,
+} from "./reclamacoes-escrita";
 
 const LISTA = {
   marca: { select: { id: true, nome: true } },
@@ -75,7 +90,7 @@ export class RepositorioReclamacoesPrisma implements RepositorioReclamacoes {
   }
 
   async opcoes(): Promise<OpcoesFiltro> {
-    const [marcas, canais, setores, causas] = await Promise.all([
+    const [marcas, canais, setores, causas, bancadas] = await Promise.all([
       this.prisma.marca.findMany({
         where: { ativa: true },
         orderBy: { nome: "asc" },
@@ -95,26 +110,243 @@ export class RepositorioReclamacoesPrisma implements RepositorioReclamacoes {
         orderBy: [{ categoria: "asc" }, { ordem: "asc" }],
         select: { id: true, nome: true, categoria: true },
       }),
+      this.prisma.bancada.findMany({
+        where: { ativa: true },
+        orderBy: { codigo: "asc" },
+        select: { id: true, codigo: true, nome: true },
+      }),
     ]);
-    return { marcas, canais, setores, causas };
+    return { marcas, canais, setores, causas, bancadas };
   }
 }
 
+const DIA = (s: string | null) => (s ? new Date(`${s}T00:00:00.000Z`) : null);
+const ISO = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+function dadosEscalares(e: EstadoReclamacao, situacao: Situacao) {
+  return {
+    canalId: e.canalId,
+    marcaId: e.marcaId,
+    produtoId: e.produtoId,
+    bancadaId: e.bancadaId,
+    causaId: e.causaId,
+    causaManual: e.causaManual,
+    setorRespId: e.setorRespId,
+    setorRespManual: e.setorRespManual,
+    situacao,
+    devolucao: e.devolucao,
+    dataAbertura: DIA(e.dataAbertura) as Date,
+    dataAcao: DIA(e.dataAcao),
+    dataRecebimento: DIA(e.dataRecebimento),
+    protocoloExterno: e.protocoloExterno,
+    descricao: e.descricao,
+    laudo: e.laudo,
+    procedencia: e.procedencia,
+    solucao: e.solucao,
+    observacao: e.observacao,
+    garantia: e.garantia,
+    pedido: e.pedido,
+    clienteNome: e.clienteNome,
+    cidade: e.cidade,
+    uf: e.uf,
+    transportadora: e.transportadora,
+    peca: e.peca,
+  };
+}
+
+function registroAuditoria(a: AuditoriaNova) {
+  return {
+    usuarioId: a.usuarioId,
+    usuarioNome: a.usuarioNome,
+    acao: a.acao,
+    alvo: a.alvo,
+    detalhe: a.detalhe,
+    reclamacaoId: a.reclamacaoId,
+    extra: a.extra as unknown as Prisma.InputJsonValue,
+  };
+}
+
+/** Escrita pelo Prisma: dado e auditoria entram na mesma transação, ou nenhum dos dois. */
+export class RepositorioEscritaPrisma implements RepositorioEscrita {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async referencias(): Promise<Referencias> {
+    const [canais, marcas, bancadas, setores, causas] = await Promise.all([
+      this.prisma.canal.findMany({
+        where: { ativo: true },
+        select: { id: true },
+      }),
+      this.prisma.marca.findMany({
+        where: { ativa: true },
+        select: { id: true },
+      }),
+      this.prisma.bancada.findMany({
+        where: { ativa: true },
+        select: { id: true },
+      }),
+      this.prisma.setor.findMany({
+        where: { ativo: true },
+        select: { id: true },
+      }),
+      this.prisma.causa.findMany({
+        select: {
+          id: true,
+          setorId: true,
+          regra: { select: { setorId: true } },
+        },
+      }),
+    ]);
+    const ids = (l: { id: string }[]) => new Set(l.map((x) => x.id));
+    return {
+      canais: ids(canais),
+      marcas: ids(marcas),
+      bancadas: ids(bancadas),
+      setores: ids(setores),
+      causaSetor: new Map(
+        causas.map((c) => [c.id, c.regra?.setorId ?? c.setorId]),
+      ),
+    };
+  }
+
+  async produtoPorCodigo(codigo: string) {
+    const p = await this.prisma.produto.findUnique({
+      where: { codigo },
+      select: { id: true },
+    });
+    return p?.id ?? null;
+  }
+
+  async obterAtual(
+    where: Parameters<RepositorioEscrita["obterAtual"]>[0],
+  ): Promise<RegistroAtual | null> {
+    const r = await this.prisma.reclamacao.findFirst({
+      where,
+      include: { custo: true },
+    });
+    if (!r) return null;
+    const n = (v: unknown) => (v == null ? 0 : Number(v));
+    return {
+      id: r.id,
+      numero: r.numero,
+      estado: {
+        canalId: r.canalId,
+        marcaId: r.marcaId,
+        produtoId: r.produtoId,
+        bancadaId: r.bancadaId,
+        causaId: r.causaId,
+        causaManual: r.causaManual,
+        setorRespId: r.setorRespId,
+        setorRespManual: r.setorRespManual,
+        devolucao: r.devolucao,
+        dataAbertura: ISO(r.dataAbertura) as string,
+        dataAcao: ISO(r.dataAcao),
+        dataRecebimento: ISO(r.dataRecebimento),
+        protocoloExterno: r.protocoloExterno,
+        descricao: r.descricao,
+        laudo: r.laudo,
+        procedencia: r.procedencia,
+        solucao: r.solucao,
+        observacao: r.observacao,
+        garantia: r.garantia,
+        pedido: r.pedido,
+        clienteNome: r.clienteNome,
+        cidade: r.cidade,
+        uf: r.uf,
+        transportadora: r.transportadora,
+        peca: r.peca,
+        custos: {
+          freteEnvio: n(r.custo?.freteEnvio),
+          freteRetorno: n(r.custo?.freteRetorno),
+          valorPeca: n(r.custo?.valorPeca),
+          estorno: n(r.custo?.estorno),
+          desconto: n(r.custo?.desconto),
+          guia: n(r.custo?.guia),
+        },
+      },
+    };
+  }
+
+  criar(args: Parameters<RepositorioEscrita["criar"]>[0]) {
+    return this.prisma.$transaction(async (tx) => {
+      const r = await tx.reclamacao.create({
+        data: {
+          ...dadosEscalares(args.estado, args.situacao),
+          origemRegistro: "web",
+          criadoPorId: args.usuarioId,
+          alteradoPorId: args.usuarioId,
+          custo: { create: args.estado.custos },
+          causas: args.estado.causaId
+            ? { create: { causaId: args.estado.causaId, primaria: true } }
+            : undefined,
+        },
+        select: { id: true, numero: true },
+      });
+      await tx.auditoria.create({ data: registroAuditoria(args.auditar(r)) });
+      return r;
+    });
+  }
+
+  async atualizar(args: Parameters<RepositorioEscrita["atualizar"]>[0]) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.reclamacao.update({
+        where: { id: args.id },
+        data: {
+          ...dadosEscalares(args.estado, args.situacao),
+          alteradoPorId: args.usuarioId,
+          custo: {
+            upsert: { create: args.estado.custos, update: args.estado.custos },
+          },
+        },
+      });
+      // A causa principal acompanha `causaId`; os motivos extras ficam como estão.
+      await tx.reclamacaoCausa.deleteMany({
+        where: { reclamacaoId: args.id, primaria: true },
+      });
+      if (args.estado.causaId) {
+        await tx.reclamacaoCausa.upsert({
+          where: {
+            reclamacaoId_causaId: {
+              reclamacaoId: args.id,
+              causaId: args.estado.causaId,
+            },
+          },
+          create: {
+            reclamacaoId: args.id,
+            causaId: args.estado.causaId,
+            primaria: true,
+          },
+          update: { primaria: true },
+        });
+      }
+      await tx.auditoria.create({ data: registroAuditoria(args.auditoria) });
+    });
+  }
+}
+
+function usuarioDe(req: PedidoComUsuario) {
+  if (!req.usuario) throw new BadRequestException("Sessão ausente.");
+  return req.usuario;
+}
+
 function escopoDe(req: PedidoComUsuario): Escopo {
-  const u = req.usuario;
-  if (!u) throw new BadRequestException("Sessão ausente.");
+  const u = usuarioDe(req);
   return { perfil: u.perfil, setores: u.setores };
 }
 
-/** Só leitura nesta fatia. O guarda global já exige login; aqui exige `reclamacoes.ver`. */
+/**
+ * O guarda global já exige login e confere a origem de toda escrita; cada rota exige a
+ * permissão própria. O serviço de escrita confere de novo, porque quem decide é o servidor.
+ */
 @Controller("reclamacoes")
 export class ControladorReclamacoes {
   private readonly servico: ServicoReclamacoes;
+  private readonly escrita: ServicoEscrita;
 
   constructor(@Inject(PrismaClient) prisma: PrismaClient) {
     this.servico = new ServicoReclamacoes(
       new RepositorioReclamacoesPrisma(prisma),
     );
+    this.escrita = new ServicoEscrita(new RepositorioEscritaPrisma(prisma));
   }
 
   @Requer("reclamacoes.ver")
@@ -144,5 +376,41 @@ export class ControladorReclamacoes {
     const ficha = await this.servico.obter(id, escopoDe(req));
     if (!ficha) throw new NotFoundException("Reclamação não encontrada.");
     return ficha;
+  }
+
+  @Requer("reclamacoes.criar")
+  @Post()
+  async criar(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    const r = lerEntrada(corpo, "criar");
+    if (!r.ok) throw new BadRequestException(r.mensagem);
+    return this.comErros(() => this.escrita.criar(r.entrada, usuarioDe(req)));
+  }
+
+  @Requer("reclamacoes.editar")
+  @Patch(":id")
+  async editar(
+    @Param("id") id: string,
+    @Body() corpo: unknown,
+    @Req() req: PedidoComUsuario,
+  ) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+      throw new NotFoundException("Reclamação não encontrada.");
+    }
+    const r = lerEntrada(corpo, "editar");
+    if (!r.ok) throw new BadRequestException(r.mensagem);
+    return this.comErros(() =>
+      this.escrita.editar(id, r.entrada, usuarioDe(req)),
+    );
+  }
+
+  private async comErros<T>(f: () => Promise<T>): Promise<T> {
+    try {
+      return await f();
+    } catch (e) {
+      if (!(e instanceof ErroEscrita)) throw e;
+      if (e.status === 403) throw new ForbiddenException(e.message);
+      if (e.status === 404) throw new NotFoundException(e.message);
+      throw new BadRequestException(e.message);
+    }
   }
 }

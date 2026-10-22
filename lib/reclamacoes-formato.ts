@@ -33,6 +33,8 @@ export const CAMPOS_FILTRO = [
 ] as const;
 export type CampoFiltro = (typeof CAMPOS_FILTRO)[number];
 
+const ACOES = ["nova", "editar"] as const;
+
 export type ParamsUrl = Record<string, string | string[] | undefined>;
 
 const primeiro = (v: string | string[] | undefined) =>
@@ -42,6 +44,8 @@ export interface EstadoLista {
   filtros: Partial<Record<CampoFiltro, string>>;
   pagina: number;
   ficha?: string;
+  /** `nova` abre o cadastro em branco; `editar` abre a edição da ficha aberta. */
+  acao?: "nova" | "editar";
 }
 
 export function lerEstado(params: ParamsUrl): EstadoLista {
@@ -55,10 +59,13 @@ export function lerEstado(params: ParamsUrl): EstadoLista {
     filtros,
     pagina: Number.isInteger(p) && p >= 1 ? p : 1,
     ficha: primeiro(params.ficha),
+    acao: ACOES.find((a) => a === primeiro(params.acao)),
   };
 }
 
-type Mudanca = Partial<Record<CampoFiltro | "pagina" | "ficha", string | null>>;
+type Mudanca = Partial<
+  Record<CampoFiltro | "pagina" | "ficha" | "acao", string | null>
+>;
 
 /** Monta o link da lista. Mudar um filtro volta para a página 1; `null` remove o campo. */
 export function montarHref(estado: EstadoLista, mudar: Mudanca = {}): string {
@@ -77,6 +84,10 @@ export function montarHref(estado: EstadoLista, mudar: Mudanca = {}): string {
   if (pagina && pagina !== "1") q.set("pagina", pagina);
   const ficha = "ficha" in mudar ? mudar.ficha : estado.ficha;
   if (ficha) q.set("ficha", ficha);
+  // Trocar de ficha ou fechá-la também sai do formulário, a menos que a ação venha junto.
+  const acao =
+    "acao" in mudar ? mudar.acao : "ficha" in mudar ? null : estado.acao;
+  if (acao) q.set("acao", acao);
   const s = q.toString();
   return s ? `/reclamacoes?${s}` : "/reclamacoes";
 }

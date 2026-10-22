@@ -7,6 +7,7 @@ import {
   type OpcoesFiltro,
   type Pagina,
 } from "@/lib/reclamacoes";
+import { valoresDaFicha, valoresVazios } from "@/lib/reclamacoes-form";
 import {
   CAMPOS_FILTRO,
   type CampoFiltro,
@@ -22,7 +23,15 @@ import {
 } from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
 import { ConteudoFicha } from "./ficha";
+import { FormularioReclamacao } from "./formulario";
 import { PainelFicha } from "./painel-ficha";
+
+/** Hoje no fuso de Brasília, que é o dia que a API usa para recusar data futura. */
+function hojeEmBrasilia(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date());
+}
 
 const SITUACOES = ["aguardando", "tratativa", "resolvida"] as const;
 
@@ -296,18 +305,38 @@ export default async function Reclamacoes({
   const fechar = montarHref(estado, { ficha: null });
   const opcoesOk = opcoes.ok ? opcoes.dados : null;
 
+  const podeCriar = usuario.permissoes.includes("reclamacoes.criar");
+  const podeEditar = usuario.permissoes.includes("reclamacoes.editar");
+  const podeTrocarSetor = usuario.permissoes.includes(
+    "reclamacoes.trocar_setor",
+  );
+  const cadastrando = estado.acao === "nova" && podeCriar;
+  const editando = estado.acao === "editar" && podeEditar;
+  const painelAberto = cadastrando || !!estado.ficha;
+
   return (
     <>
-      <div className="pagina__cab">
-        <h1 className="pagina__titulo">Reclamações</h1>
-        <p className="pagina__apoio">
-          {lista.ok
-            ? `${lista.dados.total} ${lista.dados.total === 1 ? "reclamação" : "reclamações"}`
-            : "Não foi possível carregar a lista."}
-          {usuario.perfil === "responsavel_setor" &&
-            usuario.setores.length > 0 &&
-            ` · só do seu setor (${usuario.setores.join(", ")})`}
-        </p>
+      <div className="pagina__cab pagina__cab--acao">
+        <div className="pagina__cab-texto">
+          <h1 className="pagina__titulo">Reclamações</h1>
+          <p className="pagina__apoio">
+            {lista.ok
+              ? `${lista.dados.total} ${lista.dados.total === 1 ? "reclamação" : "reclamações"}`
+              : "Não foi possível carregar a lista."}
+            {usuario.perfil === "responsavel_setor" &&
+              usuario.setores.length > 0 &&
+              ` · só do seu setor (${usuario.setores.join(", ")})`}
+          </p>
+        </div>
+        {podeCriar && (
+          <Link
+            href={montarHref(estado, { ficha: null, acao: "nova" })}
+            scroll={false}
+            className="botao botao--primario"
+          >
+            Nova reclamação
+          </Link>
+        )}
       </div>
 
       <Filtros estado={estado} opcoes={opcoesOk} />
@@ -404,13 +433,59 @@ export default async function Reclamacoes({
         </>
       )}
 
-      {estado.ficha && (
+      {painelAberto && (
         <PainelFicha
           fechar={fechar}
-          titulo={ficha?.ok ? `Reclamação ${ficha.dados.numero}` : "Reclamação"}
+          titulo={
+            cadastrando
+              ? "Nova reclamação"
+              : ficha?.ok
+                ? `Reclamação ${ficha.dados.numero}`
+                : "Reclamação"
+          }
         >
-          {ficha?.ok ? (
-            <ConteudoFicha ficha={ficha.dados} fechar={fechar} />
+          {cadastrando && opcoesOk ? (
+            <FormularioReclamacao
+              modo="criar"
+              inicial={valoresVazios(hojeEmBrasilia())}
+              opcoes={opcoesOk}
+              podeTrocarSetor={podeTrocarSetor}
+              cancelar={fechar}
+              depois={montarHref(estado, { ficha: "__ID__", acao: null })}
+            />
+          ) : cadastrando ? (
+            <div className="ficha__vazio">
+              <h2 className="ficha__titulo">
+                Não foi possível abrir o cadastro
+              </h2>
+              <p className="pagina__apoio">Tente de novo em instantes.</p>
+              <Link
+                href={fechar}
+                scroll={false}
+                className="botao botao--secundario"
+              >
+                Voltar para a lista
+              </Link>
+            </div>
+          ) : ficha?.ok && editando && opcoesOk ? (
+            <FormularioReclamacao
+              modo="editar"
+              id={ficha.dados.id}
+              numero={ficha.dados.numero}
+              inicial={valoresDaFicha(ficha.dados)}
+              opcoes={opcoesOk}
+              podeTrocarSetor={podeTrocarSetor}
+              cancelar={montarHref(estado, { acao: null })}
+              depois={montarHref(estado, { acao: null })}
+            />
+          ) : ficha?.ok ? (
+            <ConteudoFicha
+              ficha={ficha.dados}
+              fechar={fechar}
+              hrefEditar={
+                podeEditar ? montarHref(estado, { acao: "editar" }) : undefined
+              }
+            />
           ) : (
             <div className="ficha__vazio">
               <h2 className="ficha__titulo">
