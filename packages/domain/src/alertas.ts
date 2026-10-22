@@ -58,6 +58,40 @@ export function avaliarAlertasReclamacao(
   return out;
 }
 
+export const ROTULO_ALERTA: Record<AlertTipo, string> = {
+  AGUARDANDO_DIAS: "Produto demora a chegar",
+  TRATATIVA_META: "Tratativa além da meta",
+  CUSTO_ALTO: "Custo alto",
+  CAUSA_OUTROS: "Causa sem classificação",
+  RASCUNHO_PENDENTE: "Rascunho parado",
+};
+
+export interface Urgencia {
+  alertas: AlertTipo[];
+  dias: number;
+  custo: number;
+}
+
+/** Quanto a reclamação pede atenção: alertas disparados, dias em aberto e custo. */
+export function urgenciaDe(
+  r: ReclamacaoLike,
+  cfg: AlertConfig = ALERT_CONFIG_PADRAO,
+  hoje = new Date().toISOString().slice(0, 10),
+): Urgencia {
+  return {
+    alertas: avaliarAlertasReclamacao(r, cfg, hoje),
+    dias: (r.data ? diasEntre(r.data, hoje) : null) ?? 0,
+    custo: custoTotal(r),
+  };
+}
+
+/** Ordem da fila: mais alertas, depois mais dias em aberto, depois maior custo. */
+export function compararUrgencia(a: Urgencia, b: Urgencia): number {
+  return (
+    b.alertas.length - a.alertas.length || b.dias - a.dias || b.custo - a.custo
+  );
+}
+
 /** Rascunho capturado de um canal que ficou sem registro além do limite. */
 export function rascunhoAtrasado(
   capturadoEm: Date,

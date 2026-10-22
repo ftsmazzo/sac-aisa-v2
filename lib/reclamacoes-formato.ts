@@ -33,7 +33,7 @@ export const CAMPOS_FILTRO = [
 ] as const;
 export type CampoFiltro = (typeof CAMPOS_FILTRO)[number];
 
-const ACOES = ["nova", "editar"] as const;
+const ACOES = ["nova", "editar", "analise"] as const;
 
 export type ParamsUrl = Record<string, string | string[] | undefined>;
 
@@ -44,8 +44,8 @@ export interface EstadoLista {
   filtros: Partial<Record<CampoFiltro, string>>;
   pagina: number;
   ficha?: string;
-  /** `nova` abre o cadastro em branco; `editar` abre a edição da ficha aberta. */
-  acao?: "nova" | "editar";
+  /** `nova` abre o cadastro em branco; `editar` a edição; `analise` a aba de análise do setor. */
+  acao?: "nova" | "editar" | "analise";
 }
 
 export function lerEstado(params: ParamsUrl): EstadoLista {

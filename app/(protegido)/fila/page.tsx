@@ -1,0 +1,130 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Selo } from "@/components/ui";
+import { type RespostaFila, ROTULO_ALERTA } from "@/lib/fila-alertas";
+import { buscarNaApi } from "@/lib/reclamacoes";
+import { data, moeda, ROTULO_DEVOLUCAO } from "@/lib/reclamacoes-formato";
+import { obterUsuario } from "@/lib/sessao";
+
+/** Fila do setor: reclamações em aberto que ainda esperam a análise, as mais urgentes primeiro. */
+export default async function Fila() {
+  const usuario = await obterUsuario();
+  if (!usuario) redirect("/login");
+
+  if (!usuario.permissoes.includes("reclamacoes.analisar")) {
+    return (
+      <section className="vazio">
+        <h1 className="vazio__titulo">Sem acesso à fila do setor</h1>
+        <p className="vazio__texto">
+          Seu perfil não registra análise do setor. Fale com o administrador se
+          precisar dela.
+        </p>
+      </section>
+    );
+  }
+
+  const fila = await buscarNaApi<RespostaFila>("/fila");
+  if (!fila.ok && fila.status === 401) redirect("/login");
+
+  return (
+    <>
+      <div className="pagina__cab">
+        <h1 className="pagina__titulo">Fila do setor</h1>
+        <p className="pagina__apoio">
+          {fila.ok
+            ? `${fila.dados.total} ${fila.dados.total === 1 ? "reclamação aguarda" : "reclamações aguardam"} análise`
+            : "Não foi possível carregar a fila."}
+          {usuario.perfil === "responsavel_setor" &&
+            usuario.setores.length > 0 &&
+            ` · só do seu setor (${usuario.setores.join(", ")})`}
+        </p>
+      </div>
+
+      {fila.ok && fila.dados.itens.length === 0 && (
+        <section className="vazio">
+          <h2 className="vazio__titulo">Nada na fila</h2>
+          <p className="vazio__texto">
+            Todas as reclamações em aberto já têm a análise do setor.
+          </p>
+        </section>
+      )}
+
+      {fila.ok && fila.dados.itens.length > 0 && (
+        <div className="cartao tabela-caixa">
+          <table className="tabela">
+            <caption className="sr-only">
+              Reclamações pendentes de análise, por urgência
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Nº</th>
+                <th scope="col">Em aberto</th>
+                <th scope="col">Produto</th>
+                <th scope="col" className="tabela__oculta">
+                  Setor
+                </th>
+                <th scope="col" className="tabela__oculta">
+                  Devolução
+                </th>
+                <th scope="col">Alertas</th>
+                <th scope="col" className="tabela__num">
+                  Custo
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {fila.dados.itens.map((i) => (
+                <tr key={i.id}>
+                  <td>
+                    <Link
+                      href={`/reclamacoes?ficha=${encodeURIComponent(i.id)}&acao=analise`}
+                      className="tabela__abrir"
+                      aria-label={`Analisar a reclamação ${i.numero}`}
+                    >
+                      #{i.numero}
+                    </Link>
+                  </td>
+                  <td>
+                    {i.diasEmAberto} {i.diasEmAberto === 1 ? "dia" : "dias"}
+                    <span className="tabela__apoio">
+                      desde {data(i.dataAbertura)}
+                    </span>
+                  </td>
+                  <td className="tabela__produto">
+                    <span className="tabela__principal">
+                      {i.produto?.nome ?? "—"}
+                    </span>
+                    {i.causa && (
+                      <span className="tabela__apoio">{i.causa}</span>
+                    )}
+                  </td>
+                  <td className="tabela__oculta">{i.setorResp?.nome ?? "—"}</td>
+                  <td className="tabela__oculta">
+                    {ROTULO_DEVOLUCAO[i.devolucao]}
+                  </td>
+                  <td>
+                    {i.alertas.length === 0
+                      ? "—"
+                      : i.alertas.map((t) => (
+                          <Selo key={t} tom="atencao">
+                            {ROTULO_ALERTA[t]}
+                          </Selo>
+                        ))}
+                  </td>
+                  <td className="tabela__num">{moeda(i.custoTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!fila.ok && fila.status !== 401 && (
+        <section className="vazio">
+          <h2 className="vazio__titulo">Não foi possível carregar a fila</h2>
+          <p className="vazio__texto">Tente de novo em instantes.</p>
+        </section>
+      )}
+    </>
+  );
+}
