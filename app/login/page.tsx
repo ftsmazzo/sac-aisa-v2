@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { Marca } from "@/components/ui";
+import { LogoMarca, Marca } from "@/components/ui";
+import { MARCAS } from "@/lib/marcas";
 import { obterUsuario } from "@/lib/sessao";
 import { Formulario } from "./formulario";
 
@@ -86,7 +87,12 @@ export default async function PaginaLogin() {
             decidir com dados.
           </p>
         </div>
-        <p className="marca__legenda">Reclamações e indicadores</p>
+        <div className="marcas-faixa">
+          <p className="marcas-faixa__titulo">Marcas atendidas</p>
+          {MARCAS.map((m) => (
+            <LogoMarca key={m.id} marca={m.id} altura={44} />
+          ))}
+        </div>
       </section>
 
       <section className="login__lado">
@@ -104,6 +110,12 @@ export default async function PaginaLogin() {
           <p className="login__rodape">
             Esqueceu a senha? Fale com o administrador do sistema.
           </p>
+          <div className="marcas-faixa login__logos-mobile">
+            <p className="marcas-faixa__titulo">Marcas atendidas</p>
+            {MARCAS.map((m) => (
+              <LogoMarca key={m.id} marca={m.id} altura={32} />
+            ))}
+          </div>
         </div>
       </section>
     </main>
