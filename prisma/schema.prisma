@@ -424,7 +424,23 @@ model CapturaCanal {
   @@map("capturas_canal")
 }
 
-/// Estado do acesso a cada canal. Os segredos ficam em variável de ambiente.
+/// Conexão externa configurada pelo administrador (clickup, mercadolivre, shopee, openrouter).
+/// `config` guarda só o que não é segredo. Cada segredo fica cifrado (AES-256-GCM) em `segredos`
+/// como { nome: { cifrado, fim } }, com `fim` = 4 últimos caracteres para mostrar mascarado.
+model IntegracaoConfig {
+  chave         String    @id
+  config        Json      @default("{}")
+  segredos      Json      @default("{}")
+  estado        String    @default("pendente")
+  ultimoErro    String?
+  testadoEm     DateTime?
+  alteradoEm    DateTime  @updatedAt
+  alteradoPorId String?
+
+  @@map("integracoes_config")
+}
+
+/// Estado do acesso a cada canal (autorização OAuth, expiração). Os tokens ficam em IntegracaoConfig.
 model IntegracaoCanal {
   canalId    String    @id
   tipoAuth   String    @default("")
@@ -459,10 +475,15 @@ model ClickupCard {
   sincronizadoEm DateTime?
   tentativas     Int       @default(0)
   ultimoErro     String?
+  /// Quando a fila tenta de novo. Nulo com `taskId` vazio = parou de tentar (esgotou).
+  proximaTentativaEm DateTime?
   criadoEm       DateTime  @default(now())
 
   reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
   plano      PlanoAcao?  @relation(fields: [planoId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([proximaTentativaEm])
 
   @@map("clickup_cards")
 }

@@ -111,3 +111,10 @@ export const SETORES_RESP = [
   "PCP",
   "SAC / Pós-venda",
 ] as const;
+
+/**
+ * Defeito de componente, lote, projeto, embalagem, transporte ou venda aparece em qualquer
+ * bancada sem ser culpa de quem montou. Só a causa de origem "montagem" conta como da bancada.
+ */
+export const atribuivelABancada = (origem?: Origem | string | null) =>
+  origem === "montagem";

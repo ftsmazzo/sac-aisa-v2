@@ -5,12 +5,13 @@ import { urlDaApi } from "@/lib/sessao";
  * Só rotas listadas passam, e o IP real da pessoa segue no cabeçalho para o
  * limite de tentativas contar por pessoa, e não pelo IP deste servidor.
  */
-const PREFIXOS_PERMITIDOS = ["auth", "admin"];
+const PREFIXOS_PERMITIDOS = ["auth", "admin", "webhooks"];
 const CABECALHOS_DE_ENTRADA = [
   "cookie",
   "content-type",
   "origin",
   "user-agent",
+  "x-signature",
 ];
 
 type Contexto = { params: Promise<{ caminho: string[] }> };
@@ -62,4 +63,4 @@ async function repassar(req: Request, ctx: Contexto): Promise<Response> {
   }
 }
 
-export { repassar as GET, repassar as POST };
+export { repassar as GET, repassar as POST, repassar as PUT };

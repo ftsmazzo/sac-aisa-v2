@@ -8,9 +8,20 @@ import {
 } from "./analise-fila.controller";
 import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
+import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
 import { ControladorImportacao } from "./importacao.controller";
+import { ServicoIntegracoes } from "./integracoes";
+import {
+  ControladorIntegracoes,
+  ControladorWebhooks,
+  FilaClickup,
+  RepositorioClickupPrisma,
+  RepositorioIntegracoesPrisma,
+} from "./integracoes.controller";
 import { ControladorReclamacoes } from "./reclamacoes.controller";
+import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
+import { lerChave } from "./segredos";
 
 @Module({
   controllers: [
@@ -18,11 +29,36 @@ import { RepositorioPrisma } from "./repositorio-prisma";
     ControladorAuth,
     ControladorImportacao,
     ControladorReclamacoes,
+    ControladorIntegracoes,
+    ControladorWebhooks,
     ControladorAnalise,
     ControladorFilaAlertas,
+    ControladorRelatorios,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },
+    {
+      provide: ServicoIntegracoes,
+      useFactory: (prisma: PrismaClient) =>
+        new ServicoIntegracoes(
+          new RepositorioIntegracoesPrisma(prisma),
+          lerChave(process.env.INTEGRACOES_CHAVE),
+        ),
+      inject: [PrismaClient],
+    },
+    {
+      provide: ServicoClickup,
+      useFactory: (prisma: PrismaClient, integr: ServicoIntegracoes) =>
+        new ServicoClickup(new RepositorioClickupPrisma(prisma), integr),
+      inject: [PrismaClient, ServicoIntegracoes],
+    },
+    {
+      provide: ServicoWebhookClickup,
+      useFactory: (prisma: PrismaClient, integr: ServicoIntegracoes) =>
+        new ServicoWebhookClickup(new RepositorioClickupPrisma(prisma), integr),
+      inject: [PrismaClient, ServicoIntegracoes],
+    },
+    FilaClickup,
     {
       provide: ServicoAuth,
       useFactory: (prisma: PrismaClient) =>

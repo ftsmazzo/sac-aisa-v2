@@ -15,6 +15,7 @@ A ordem das fases é **sugestão**, não decisão. Prazo e orçamento ficaram pa
 - Fase 2, fatia 1 (leitura): lista de reclamações com filtros, busca e paginação e ficha lateral somente leitura, sobre os dados importados.
 - Fase 2, fatia 2 (escrita): cadastro e edição de reclamação na ficha lateral (`POST` e `PATCH /reclamacoes`), com causa, setor e situação calculados pelo servidor e auditoria de quem mudou o quê.
 - Fase 2, fatia 3 (análise, fila e alertas): análise do setor na aba da ficha (`POST /reclamacoes/:id/analise` e `PATCH /reclamacoes/:id/analise/:analiseId`), com a decisão de retorno do produto comandando a devolução e a situação, setor tirado da reclamação e auditoria na mesma transação. Fila do setor (`GET /fila`, tela `/fila`) por urgência e alertas calculados na hora pelas regras do domínio (`GET /alertas`, tela `/alertas`, contagem no menu). Alerta ainda não é gravado em `alertas` nem enviado por WhatsApp ou ClickUp; o alerta de rascunho parado espera as capturas. Faltam as fotos.
+- Fase 3, fatia A (ClickUp e conexões): página `/admin/integracoes` (só administrador) para guardar e testar ClickUp, Mercado Livre, Shopee e OpenRouter, com segredos cifrados (`INTEGRACOES_CHAVE`); card automático no ClickUp ao registrar, com fila de nova tentativa e erro visível; webhook `/webhooks/clickup` com assinatura validada que atualiza a situação. Mercado Livre e Shopee só têm configuração e teste de credenciais; autorização da conta e captura ficam para a fase 6. Falta: card dos planos de ação, trocar a lista do card quando o setor muda e botão "tentar de novo agora".
 - Pendente da base: GlitchTip (erros) e Uptime Kuma (monitor em `/health`, 60 s).
 
 ## 1. MVP
@@ -30,7 +31,10 @@ O produto gera valor quando uma reclamação é registrada, vai ao setor certo, 
 | 3. ClickUp | Card automático ao registrar, mapa setor → lista, webhook de movimentação, sincronização de status com nova tentativa e erro registrado | Alta | Fase 2; token do ClickUp e a lista de espaços e listas por setor |
 | 4. Painel de indicadores | Filtro cruzado, bancada × ocorrência, tempo por setor, setores e produtos com mais reclamação, custo, atrasadas, relatórios | Alta | Fases 2 e 3; KPIs e metas aprovados pelo dono |
 | 5. IA no registro | Jornada guiada, rascunho com produto, bancada, causa e origem, sugestões com confiança, `IaRegistro` e taxa de aceite; falha da IA cai nas regras | Média | Fase 2; chave do OpenRouter |
-| 6. Marketplaces | Primeiro estudo da API de cada canal. Depois Mercado Livre e Shopee: captura, rascunho pré-tratado pela IA, fila de pendentes e alerta de atraso. Magalu fica para depois | Média | Fases 2 e 5; acesso às APIs aprovado |
+| 5a. Triagem por IA | Com os dados que vêm da API do canal (texto, pedido, SKU), a IA aponta o que falta para a reclamação ficar correta e propõe as perguntas, cada uma com botão "Copiar" para o atendente; sugere causa, setor, produto e bancada com a confiança; a pessoa confirma, a IA nunca grava | Alta | Fase 5; chave do OpenRouter |
+| 5b. Conhecimento da empresa (RAG) | Base de conhecimento a partir do histórico importado, laudos, soluções e do modo de responder da empresa; busca por similaridade; resposta sugerida ao cliente em tom humanizado e dentro do padrão da empresa, para a pessoa revisar e copiar; aviso de reclamação repetida; resumo da ficha; resumo semanal ao gestor | Alta | Fase 5a; histórico importado; exemplos de resposta aprovados pela empresa |
+| 5c. Padrões e fotos | Padrões de bancada × ocorrência destacados pela IA (sem culpar quem montou), descrição do defeito pela foto e sugestão do tipo de ocorrência | Média | Fases 4, 5b e fotos |
+| 6. Marketplaces | Primeiro estudo da API de cada canal (levantamento do cliente de 22/10/2026). Depois Mercado Livre e Shopee: captura, rascunho pré-tratado pela IA, dados do comprador preenchidos pela API, fila de pendentes e alerta de atraso. Magalu fica para depois | Média | Fases 2 e 5; acesso às APIs aprovado |
 | 7. Melhoria contínua | Plano de ação ligado às reclamações, card no ClickUp e acompanhamento do efeito (a ocorrência caiu depois da ação?) | Média | Fases 3 e 4 |
 | 8. Virada | Execução em paralelo com o sac-renato, conferência dos números, migração final, congelar o sistema atual e desligá-lo | Alta ao final | Fases 1 a 7 e validação do gestor |
 | Depois | WhatsApp (cliente e gestor), Magalu, PWA instalável, resposta automática de volta ao marketplace | Baixa | A definir com o cliente |
@@ -62,6 +66,15 @@ Fases 3 e 5 podem andar em paralelo depois da 2, assim como o front e o back den
 - **Fase 8:** dois ciclos completos em paralelo sem divergência de números; usuários treinados; o sac-renato fica somente leitura e depois é desligado.
 
 ---
+
+## Regras da IA e dos dados do comprador (decididas em 22/10/2026)
+
+- **Dados do comprador vindos da API.** Nome, e-mail e telefone que o canal entregar entram no registro da reclamação, preenchidos pela captura, para reduzir erro de digitação. O que o canal mascarar (a Shopee mascara o e-mail) fica mascarado, e o sistema não tenta reconstituir. Acesso a esses campos segue o perfil, e a retenção segue a decisão de LGPD pendente.
+- **Esses dados não vão para o modelo.** O prompt recebe texto da reclamação, SKU, produto e histórico; nome, e-mail e telefone ficam de fora. Na resposta sugerida ao cliente, o nome entra por troca de campo depois da IA, no servidor.
+- **A IA propõe, a pessoa decide.** Nenhuma sugestão grava estoque, situação, causa ou resposta sozinha. Falha ou ausência da IA cai nas regras e no formulário normal.
+- **Segredos.** Chave do OpenRouter e credenciais de ferramentas entram por variável de ambiente ou pela tela de integrações do administrador (criptografadas, com `INTEGRACOES_CHAVE` no ambiente); nunca no Git, em log ou em resposta da API.
+- **Conhecimento da empresa.** A base do RAG usa só texto aprovado pela empresa (histórico, laudos, soluções, exemplos de resposta), sem dado pessoal do comprador, e cada sugestão mostra de quais casos ela veio.
+- **Custo.** Cada chamada grava em `IaRegistro` (modelo, tokens, custo e aceite), com limite diário configurável.
 
 ## Riscos do plano
 

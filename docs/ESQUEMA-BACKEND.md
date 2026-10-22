@@ -43,9 +43,10 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 | Entidade | Campos-chave | Relacionamentos |
 |---|---|---|
 | CapturaCanal | id, canalId, idExterno (único por canal), payload bruto (JSON), sugestão da IA (JSON), status (pendente, aceito, descartado), reclamacaoId, capturadoEm, limiteEm | **novo**. Rascunho do marketplace antes do registro. Evita duplicata pelo idExterno |
-| IntegracaoCanal | canalId, tipo de autorização, expiração, ativo. Segredos só em variável de ambiente ou cifrados | **novo** |
-| ClickupConfig | setorId, listaId, listaPadrão, mapeamento de status do ClickUp para situação | **novo** |
-| ClickupCard | reclamacaoId ou planoId, taskId, listaId, status externo, sincronizadoEm, tentativas, ultimoErro | **novo**. Um card por reclamação ou plano |
+| IntegracaoConfig | chave (clickup, mercadolivre, shopee, openrouter), config (JSON, só o que não é segredo), segredos (JSON `{ nome: { cifrado, fim } }`), estado (pendente, conectado, erro), ultimoErro, testadoEm | **novo**. Conexões configuradas pelo administrador. Segredo cifrado com AES-256-GCM; ver decisão na seção 3 |
+| IntegracaoCanal | canalId, tipo de autorização, expiração, ativo | **novo**. Estado da autorização OAuth de cada canal (entra com a captura, fase 6). Os tokens ficam em `IntegracaoConfig` |
+| ClickupConfig | setorId, listaId | **novo**. Mapa setor → lista. A lista padrão (`listaPadraoId`) e o mapa de status do ClickUp → situação (`mapaStatus`) ficam em `IntegracaoConfig` (`clickup`), porque valem para todos os setores |
+| ClickupCard | reclamacaoId ou planoId, taskId, listaId, status externo, sincronizadoEm, tentativas, ultimoErro, proximaTentativaEm | **novo**. Um card por reclamação ou plano. Nasce pendente (sem `taskId`) na mesma transação do registro. `ultimoErro` preenchido e `proximaTentativaEm` nulo = a fila esgotou as tentativas |
 | ClickupEvento | taskId, tipo, payload, recebidoEm, processadoEm | **novo**. Histórico dos webhooks |
 | IaRegistro | reclamacaoId ou captura, tipo (preenchimento, classificação), sugestão, confiança, aceita (sim/não/alterada), modelo, criadoEm | **novo**. Alimenta a taxa de aceite da IA e a revisão |
 
@@ -67,7 +68,8 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 - Perfis: **operação**, **responsável de setor**, **gestor**, **administrador**. O sistema atual tem `master`, `gestor` e `operador`; `master` vira administrador.
 - Permissão por tela (`PermissaoUsuario`), como hoje, sobre o perfil.
 - Escopo: o responsável de setor só vê Reclamações, cards e planos do(s) seu(s) setor(es); sem setor vinculado, não vê nada. Operação, gestor e administrador veem todos os setores (`PERFIS_TODOS_OS_SETORES` no domínio). A conferência é feita no servidor em toda ação, nunca só na tela.
-- Segredos (ClickUp, marketplaces, OpenRouter) só em variável de ambiente.
+- **Segredos das integrações (decisão da fase 3):** token do ClickUp, segredo do webhook, Secret Key do Mercado Livre, Partner Key da Shopee e chave do OpenRouter são digitados pelo administrador em `/admin/integracoes`, e não em variável de ambiente solta. Ficam em `IntegracaoConfig.segredos`, cifrados com AES-256-GCM (IV aleatório por gravação; o nome da integração e do campo entram como dado autenticado, então um valor copiado para outro campo não abre). A chave de cifra é a única variável de ambiente: `INTEGRACOES_CHAVE`, 32 bytes em base64 (`openssl rand -base64 32`) ou 64 caracteres hexadecimais, fora do Git. Sem ela, a tela avisa e a API recusa gravar (503). A API nunca devolve segredo: só `preenchido` e a máscara `••••` + 4 últimos caracteres (segredo com menos de 12 caracteres não mostra nenhum). Trocar a `INTEGRACOES_CHAVE` invalida os segredos já gravados; o teste avisa e a pessoa informa de novo. A auditoria registra quais campos mudaram, nunca o valor.
+- Fora a `INTEGRACOES_CHAVE`, o ambiente guarda só `DATABASE_URL`, `WEB_ORIGINS`, `API_URL` e, opcional, `WEB_BASE_URL` (link da ficha no card do ClickUp) e `SENTRY_DSN`.
 
 ## 3. Endpoints/ações principais
 
@@ -83,6 +85,7 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 | `/reclamacoes/:id/analise` | POST | `reclamacoes.analisar` | Registra a decisão de retorno do produto. O setor vem da reclamação, nunca do corpo; um registro por setor; reclamação resolvida ou sem setor é recusada. Precisa voltar e não chegou = devolução aguardando; com `produtoRecebidoEm` = recebido; não volta = sem devolução. Análise, ajuste da reclamação e auditoria na mesma transação |
 | `/reclamacoes/:id/analise/:analiseId` | PATCH | `reclamacoes.analisar` | Edita só a análise do setor atual (a de outro setor é 404). Sem mudança não grava nem audita. Texto livre não vai para a auditoria |
 | `/fila` | GET | `reclamacoes.analisar` | Reclamações em aberto, com setor responsável, sem análise desse setor, por urgência (alertas, dias em aberto, custo). Escopo por setor |
+| `/relatorios` | GET | `relatorios.ver` (gestor, responsável de setor, administrador) | Filtros `de`, `ate` (abertura), `marca`, `setor`, `causa`; valor inválido é 400. Devolve totais (por situação do domínio e custo), tempo médio por etapa (abertura até o produto chegar, até a análise do setor, tratativa, abertura até a resolução; datas fora de ordem não entram), ocorrências por setor, os 15 produtos mais frequentes e bancada × tipo de ocorrência (tipo = categoria da causa). Só a causa de origem `montagem` conta como da bancada (`atribuivelABancada`, no domínio); componente, lote, projeto, embalagem, transporte, venda ou sem origem vão para "fora da montagem". Sem bancada ou sem causa aparece como "Sem bancada" e "A classificar". Rascunho fica de fora. Escopo por setor igual ao da lista. Varre até 5.000 reclamações (as mais recentes) e avisa em `cortado`. Sem dado de cliente na resposta. Consulta pelo Prisma, parametrizada |
 | `/reclamacoes/:id/fotos` | POST | Sim | Tipo e tamanho conferidos; arquivo no volume, caminho no banco |
 | `/ia/rascunho` | POST | Operação+ | A IA sugere produto, bancada, causa e origem; **nunca grava**. Registra em `IaRegistro` |
 | `/capturas` | GET | Operação+ | Fila de rascunhos pendentes do marketplace |
@@ -90,10 +93,14 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 | `/planos` | GET, POST, PATCH | Responsável, gestor | Plano de melhoria. Conclusão dispara a janela de efeito |
 | `/planos/:id/efeito` | GET | Gestor | Ocorrência antes e depois da ação |
 | `/painel/resumo`, `/painel/cruzamento` | GET | Gestor | Indicadores; bancada × ocorrência; tempo por setor |
+| `/alertas` | GET, PATCH | Gestor | Lista e resolve alertas |
+| `/webhooks/clickup` | POST | Por assinatura | Público, mas só aceita corpo com `X-Signature` válido (HMAC-SHA256 hex do corpo cru com o segredo do webhook, comparação em tempo constante). Assinatura inválida ou segredo não configurado é 401 e nada é gravado. Válido: grava `ClickupEvento`, responde 200 e processa em seguida. O status novo (`history_items[].after`) passa pelo mapa de status; `resolvida` põe a data de ação de hoje (recusado se o produto ainda aguarda devolução), `tratativa` reabre (limpa a data de ação), `aguardando` não altera (depende da devolução). Mudança de reclamação vai para a auditoria como "ClickUp". Evento de task desconhecida só é marcado como processado |
 | `/alertas` | GET, PATCH | `alertas.ver` (lista); gestor (resolver, ainda não feito) | Lista alertas calculados na hora pelas regras de `alertas.ts` sobre o que está em aberto, com contagem por tipo e escopo por setor. Nesta fatia não grava em `alertas`; o PATCH vem com a varredura e o envio |
-| `/webhooks/clickup` | POST | Por segredo | Valida assinatura; grava `ClickupEvento`; atualiza situação |
 | `/cadastros/*` (marcas, canais, bancadas, setores, causas, produtos) | CRUD | Administrador | Lista controlada; sem duplicata |
-| `/usuarios`, `/integracoes`, `/config` | CRUD | Administrador | Limites de alerta, mapa setor → lista do ClickUp |
+| `/admin/integracoes` | GET | `integracoes.gerir` + perfil administrador | Painel: um item por integração com estado, último erro, campos (texto com valor; segredo só com máscara), listas por setor e mapa de status do ClickUp, passos de configuração e `gravacaoLiberada` |
+| `/admin/integracoes/:chave` | PUT | idem | Grava `{ campos, listas?, mapaStatus? }`. Segredo vazio mantém o gravado; campo desconhecido é 400; sem `INTEGRACOES_CHAVE` é 503. Volta o estado para pendente e audita |
+| `/admin/integracoes/:chave/testar` | POST | idem | "Testar conexão": chama a API de fora e devolve só `{ ok, mensagem, estado }`. ClickUp: token e cada lista. Mercado Livre: credenciais do app (`client_credentials`). Shopee: assinatura do app (`get_shops_by_partner`). OpenRouter: chave. A autorização da conta vendedora (ML) e da loja (Shopee) e a captura entram na fase 6 |
+| `/usuarios`, `/config` | CRUD | Administrador | Limites de alerta |
 
 ## 4. Processamento assíncrono
 
@@ -101,8 +108,8 @@ Fila no Redis (BullMQ, a confirmar), com falhas registradas e nova tentativa com
 
 - **Captura dos marketplaces:** a cada 10 minutos (a definir), por canal. Reconhece duplicata pelo `idExterno`.
 - **Pré-tratamento pela IA:** para cada captura nova.
-- **Criar card no ClickUp:** ao registrar a Reclamação ou o Plano. Falhou, fica pendente em `ClickupCard` com contagem de tentativas, e avisa o gestor se passar do prazo.
-- **Webhook do ClickUp:** responde rápido e processa em segundo plano.
+- **Criar card no ClickUp:** ao registrar a Reclamação (o Plano entra na fase 7). O `ClickupCard` pendente nasce na transação do registro e a primeira tentativa sai logo depois, sem segurar a resposta. A fila é no próprio banco (um laço a cada 60 s na API pega cards sem `taskId` com `proximaTentativaEm` vencida; Redis fica para quando houver mais filas). A lista é a do setor responsável; sem lista própria, a `listaPadraoId`; sem nenhuma, o erro fica registrado e tenta de novo em 1 h sem gastar tentativa. Sem token configurado nada quebra: o card fica pendente até alguém configurar. Falha do ClickUp ou da rede grava `ultimoErro` (sem o token) e `tentativas`, e a espera cresce: 1, 5, 15 min, 1 h, 3 h, 12 h; passada a última, `proximaTentativaEm` fica nulo e o erro permanece visível. O card leva número, canal, marca, descrição, produto, causa, setor e pedido; nunca nome, cidade nem contato do cliente.
+- **Webhook do ClickUp:** responde 200 logo depois de validar a assinatura e gravar o evento; o processamento roda em seguida, fora da resposta.
 - **Varredura de alertas:** periódica. Rascunho parado (24 h, a definir), aguardando produto (7 dias), tratativa sem ação (2 e 3 dias) e custo acima de R$ 500, com chave de deduplicação.
 - **Efeito do plano:** ao concluir, calcula a janela depois da ação.
 - **Backup diário do Postgres**, com retenção de 30 dias.

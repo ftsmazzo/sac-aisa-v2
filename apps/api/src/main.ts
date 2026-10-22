@@ -36,6 +36,17 @@ async function iniciar() {
     json({ limit: "25mb" }),
   );
 
+  // O webhook do ClickUp é assinado sobre o corpo cru: guarda os bytes antes de qualquer leitura.
+  app.use(
+    "/webhooks/clickup",
+    json({
+      limit: "200kb",
+      verify: (req, _res, buf) => {
+        (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+      },
+    }),
+  );
+
   app.useBodyParser("json", { limit: "100kb" });
 
   app.use((_req: Request, res: Response, next: NextFunction) => {
