@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { BotaoSair } from "@/components/botao-sair";
+import { NavLink } from "@/components/nav-link";
 import { Marca, Selo } from "@/components/ui";
 import { obterUsuario } from "@/lib/sessao";
 
@@ -27,9 +27,9 @@ export default async function LayoutProtegido({
         <div className="casca__topo-interno">
           <Marca nome="SAC" legenda="Reclamações e indicadores" />
           <nav className="casca__nav" aria-label="Principal">
-            <Link href="/">Início</Link>
+            <NavLink href="/">Início</NavLink>
             {usuario.permissoes.includes("dados.importar") && (
-              <Link href="/admin/importacao">Importação</Link>
+              <NavLink href="/admin/importacao">Importação</NavLink>
             )}
           </nav>
           <span className="casca__espaco" />

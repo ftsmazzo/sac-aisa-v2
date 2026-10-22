@@ -10,9 +10,9 @@ export default async function PaginaImportacao() {
 
   return (
     <>
-      <div>
-        <h1>Importar backup do sistema antigo</h1>
-        <p style={{ color: "var(--cor-suave)", marginTop: 4 }}>
+      <div className="pagina__cab">
+        <h1 className="pagina__titulo">Importar backup do sistema antigo</h1>
+        <p className="pagina__apoio">
           Traz as reclamações, as vendas por dia e os usuários do sac-renato.
           Primeiro você confere, depois grava.
         </p>

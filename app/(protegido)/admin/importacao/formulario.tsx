@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, type ReactNode, useState } from "react";
 import { Botao, Selo } from "@/components/ui";
 import {
   formatarData,
@@ -51,6 +51,79 @@ function Avisos({ relatorio }: { relatorio: RelatorioImportacao }) {
         <li key={a}>{a}</li>
       ))}
     </ul>
+  );
+}
+
+function IconeArquivo() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5M12 17v-6m0 0-2.5 2.5M12 11l2.5 2.5" />
+    </svg>
+  );
+}
+
+function IconeFeito() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m3.5 8.5 3 3 6-7" />
+    </svg>
+  );
+}
+
+/** Uma etapa do fluxo. Etapa pendente mostra só o título e a dica de quando abre. */
+function Passo({
+  n,
+  estado,
+  titulo,
+  selo,
+  pendente,
+  children,
+}: {
+  n: number;
+  estado: "feita" | "atual" | "pendente";
+  titulo: string;
+  selo?: ReactNode;
+  pendente?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <li
+      className={`etapa etapa--${estado}`}
+      aria-current={estado === "atual" ? "step" : undefined}
+    >
+      <span className="etapa__marca" aria-hidden="true">
+        {estado === "feita" ? <IconeFeito /> : n}
+      </span>
+      <div className="etapa__corpo">
+        <h2 className="etapa__titulo">
+          {titulo}
+          {selo}
+          {estado === "feita" && <span className="sr-only">(concluída)</span>}
+        </h2>
+        {estado === "pendente" ? (
+          <p className="etapa__texto">{pendente}</p>
+        ) : (
+          <div className="etapa__conteudo">{children}</div>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -119,136 +192,175 @@ export function Formulario() {
     }
   }
 
+  const travado = etapa === "concluido" || ocupado !== null;
+  const estadoEscolher = resumo ? "feita" : "atual";
+  const estadoConferir =
+    etapa !== "escolher" ? "feita" : resumo ? "atual" : "pendente";
+  const estadoImportar =
+    etapa === "concluido"
+      ? "feita"
+      : etapa === "conferido"
+        ? "atual"
+        : "pendente";
+
   return (
-    <>
-      <section className="cartao passo">
-        <h2 className="passo__titulo">1. Escolha o arquivo</h2>
-        <p style={{ color: "var(--cor-suave)", fontSize: 14 }}>
+    <ol className="etapas">
+      <Passo n={1} estado={estadoEscolher} titulo="Escolha o arquivo">
+        <p className="etapa__texto">
           O arquivo .json gerado a partir do dump do sac-renato. Ele é lido aqui
           no navegador e só vai para o servidor quando você pedir.
         </p>
-        <input
-          type="file"
-          accept=".json,application/json"
-          onChange={aoEscolher}
-          aria-label="Arquivo de importação"
-          disabled={etapa === "concluido" || ocupado !== null}
-        />
+        <label
+          className={[
+            "arquivo",
+            nomeArquivo && "arquivo--cheio",
+            travado && "arquivo--travado",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <span className="arquivo__icone">
+            <IconeArquivo />
+          </span>
+          <span className="arquivo__texto">
+            <span className="arquivo__nome">
+              {nomeArquivo ?? "Escolher arquivo"}
+            </span>
+            <span className="arquivo__dica">
+              {nomeArquivo
+                ? "Clique para trocar o arquivo"
+                : "Clique aqui ou arraste o .json para cá"}
+            </span>
+          </span>
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={aoEscolher}
+            aria-label="Arquivo de importação"
+            disabled={travado}
+          />
+        </label>
         {erro && (
           <p className="aviso aviso--erro" role="alert">
             {erro}
           </p>
         )}
         {resumo && (
-          <>
-            <p style={{ fontSize: 14 }}>
-              <strong>{nomeArquivo}</strong>
-            </p>
-            <div className="resumo">
-              <div className="resumo__item">
-                <span className="resumo__valor">
-                  {resumo.reclamacoes.toLocaleString("pt-BR")}
-                </span>
-                <span className="resumo__rotulo">
-                  reclamações ({formatarData(resumo.primeiraData)} a{" "}
-                  {formatarData(resumo.ultimaData)})
-                </span>
-              </div>
-              <div className="resumo__item">
-                <span className="resumo__valor">
-                  {resumo.vendas.toLocaleString("pt-BR")}
-                </span>
-                <span className="resumo__rotulo">vendas por dia</span>
-              </div>
-              <div className="resumo__item">
-                <span className="resumo__valor">{resumo.causasGravadas}</span>
-                <span className="resumo__rotulo">causas gravadas</span>
-              </div>
-              <div className="resumo__item">
-                <span className="resumo__valor">{resumo.usuarios}</span>
-                <span className="resumo__rotulo">usuários</span>
-              </div>
+          <dl className="resumo">
+            <div className="resumo__item">
+              <dt className="resumo__rotulo">
+                reclamações ({formatarData(resumo.primeiraData)} a{" "}
+                {formatarData(resumo.ultimaData)})
+              </dt>
+              <dd className="resumo__valor">
+                {resumo.reclamacoes.toLocaleString("pt-BR")}
+              </dd>
             </div>
-          </>
+            <div className="resumo__item">
+              <dt className="resumo__rotulo">vendas por dia</dt>
+              <dd className="resumo__valor">
+                {resumo.vendas.toLocaleString("pt-BR")}
+              </dd>
+            </div>
+            <div className="resumo__item">
+              <dt className="resumo__rotulo">causas gravadas</dt>
+              <dd className="resumo__valor">{resumo.causasGravadas}</dd>
+            </div>
+            <div className="resumo__item">
+              <dt className="resumo__rotulo">usuários</dt>
+              <dd className="resumo__valor">{resumo.usuarios}</dd>
+            </div>
+          </dl>
         )}
-      </section>
+      </Passo>
 
-      {resumo && etapa !== "concluido" && (
-        <section className="cartao passo">
-          <h2 className="passo__titulo">2. Conferir sem gravar</h2>
-          <p style={{ color: "var(--cor-suave)", fontSize: 14 }}>
-            O servidor converte o arquivo e mostra o que seria importado. Nada é
-            gravado nesta etapa.
-          </p>
+      <Passo
+        n={2}
+        estado={estadoConferir}
+        titulo="Conferir sem gravar"
+        pendente="Disponível depois de escolher o arquivo."
+      >
+        <p className="etapa__texto">
+          O servidor converte o arquivo e mostra o que seria importado. Nada é
+          gravado nesta etapa.
+        </p>
+        {etapa !== "concluido" && (
           <div>
             <Botao
               variante="secundario"
               onClick={() => enviar("simular")}
               disabled={ocupado !== null}
             >
-              {ocupado === "simular" ? "Conferindo…" : "Conferir"}
+              {ocupado === "simular"
+                ? "Conferindo…"
+                : etapa === "conferido"
+                  ? "Conferir de novo"
+                  : "Conferir"}
             </Botao>
           </div>
-          {resposta?.modo === "simular" && (
-            <>
-              <p className="aviso aviso--info">
-                {resposta.relatorio.importadas.toLocaleString("pt-BR")} de{" "}
-                {resposta.relatorio.lidas.toLocaleString("pt-BR")} reclamações
-                seriam importadas. Causas gravadas no sistema antigo:{" "}
-                {resposta.relatorio.causaDefinidaNoBackup}; definidas pela
-                regra: {resposta.relatorio.causaInferida}.
-              </p>
-              <Contagens
-                titulo="O que seria importado"
-                dados={resposta.relatorio.contagens}
-              />
-              <Avisos relatorio={resposta.relatorio} />
-            </>
-          )}
-        </section>
-      )}
-
-      {etapa === "conferido" && (
-        <section className="cartao passo">
-          <h2 className="passo__titulo">3. Importar</h2>
-          <label className="confirmar">
-            <input
-              type="checkbox"
-              checked={confirmou}
-              onChange={(e) => setConfirmou(e.target.checked)}
+        )}
+        {resposta?.modo === "simular" && (
+          <>
+            <p className="aviso aviso--info" role="status">
+              {resposta.relatorio.importadas.toLocaleString("pt-BR")} de{" "}
+              {resposta.relatorio.lidas.toLocaleString("pt-BR")} reclamações
+              seriam importadas. Causas gravadas no sistema antigo:{" "}
+              {resposta.relatorio.causaDefinidaNoBackup}; definidas pela regra:{" "}
+              {resposta.relatorio.causaInferida}.
+            </p>
+            <Contagens
+              titulo="O que seria importado"
+              dados={resposta.relatorio.contagens}
             />
-            <span>
-              Entendi que isto grava no banco. O que já existe não é alterado, e
-              rodar de novo não duplica nada.
-            </span>
-          </label>
-          <div>
-            <Botao
-              onClick={() => enviar("gravar")}
-              disabled={!confirmou || ocupado !== null}
-            >
-              {ocupado === "gravar" ? "Importando…" : "Importar agora"}
-            </Botao>
-          </div>
-        </section>
-      )}
+            <Avisos relatorio={resposta.relatorio} />
+          </>
+        )}
+      </Passo>
 
-      {etapa === "concluido" && resposta?.gravado && (
-        <section className="cartao passo">
-          <h2 className="passo__titulo">
-            Importação concluída <Selo tom="ok">gravado</Selo>
-          </h2>
-          <p className="aviso aviso--ok" role="status">
-            O backup foi gravado numa única transação. Linhas que já existiam
-            foram mantidas como estavam.
-          </p>
-          <Contagens
-            titulo="Linhas enviadas ao banco"
-            dados={resposta.gravado}
-          />
-          <Avisos relatorio={resposta.relatorio} />
-        </section>
-      )}
-    </>
+      <Passo
+        n={3}
+        estado={estadoImportar}
+        titulo="Importar"
+        selo={etapa === "concluido" ? <Selo tom="ok">Gravado</Selo> : undefined}
+        pendente="Disponível depois da conferência."
+      >
+        {etapa === "conferido" && (
+          <>
+            <label className="confirmar">
+              <input
+                type="checkbox"
+                checked={confirmou}
+                onChange={(e) => setConfirmou(e.target.checked)}
+              />
+              <span>
+                Entendi que isto grava no banco. O que já existe não é alterado,
+                e rodar de novo não duplica nada.
+              </span>
+            </label>
+            <div>
+              <Botao
+                onClick={() => enviar("gravar")}
+                disabled={!confirmou || ocupado !== null}
+              >
+                {ocupado === "gravar" ? "Importando…" : "Importar agora"}
+              </Botao>
+            </div>
+          </>
+        )}
+        {etapa === "concluido" && resposta?.gravado && (
+          <>
+            <p className="aviso aviso--ok" role="status">
+              O backup foi gravado numa única transação. Linhas que já existiam
+              foram mantidas como estavam.
+            </p>
+            <Contagens
+              titulo="Linhas enviadas ao banco"
+              dados={resposta.gravado}
+            />
+            <Avisos relatorio={resposta.relatorio} />
+          </>
+        )}
+      </Passo>
+    </ol>
   );
 }
