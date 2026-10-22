@@ -1567,6 +1567,39 @@ a.chip:hover {
   text-align: center;
 }
 
+/* ---------- Fila de envio ao ClickUp ---------- */
+.fila-clickup {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fila-clickup__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.fila-clickup__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.fila-clickup__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.fila-clickup__erro {
+  font-size: 0.875rem;
+  color: var(--cor-suave);
+  overflow-wrap: anywhere;
+}
+
 /* Identidade por marca no sistema logado: seletor do cabeçalho e logos pequenas. */
 .seletor-marca {
   margin: 0;

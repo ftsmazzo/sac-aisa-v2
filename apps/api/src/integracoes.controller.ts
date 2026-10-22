@@ -22,9 +22,13 @@ import {
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { type PedidoComUsuario, Publico, Requer } from "./auth.guard";
 import {
+  type DadosAnalise,
   type DadosCard,
   ErroWebhook,
+  type FilaDoClickup,
+  type ItemFila,
   iniciarFila,
+  MAX_TENTATIVAS,
   type RepositorioClickup,
   ServicoClickup,
   ServicoWebhookClickup,
@@ -34,6 +38,7 @@ import {
   type ChaveIntegracao,
   chaveValida,
   ErroIntegracao,
+  exigirAdministrador,
   lerEntradaIntegracao,
   type RegistroIntegracao,
   type RepositorioIntegracoes,
@@ -177,17 +182,40 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
             canal: { select: { nome: true } },
             produto: { select: { codigo: true, nome: true } },
             causa: { select: { nome: true } },
+            situacao: true,
+            devolucao: true,
+            custo: true,
           },
+        },
+        comentarios: {
+          where: { enviadoEm: null },
+          orderBy: { criadoEm: "asc" },
+          select: { id: true, texto: true },
         },
       },
     });
     if (!c?.reclamacao) return null;
     const r = c.reclamacao;
+    const n = (v: unknown) => (v == null ? 0 : Number(v));
     return {
       cardId: c.id,
       taskId: c.taskId,
+      listaId: c.listaId,
+      statusExterno: c.statusExterno,
       tentativas: c.tentativas,
+      precisaSync: c.precisaSync,
+      comentarios: c.comentarios,
       reclamacao: {
+        situacao: r.situacao,
+        devolucao: r.devolucao,
+        custoTotal: r.custo
+          ? n(r.custo.freteEnvio) +
+            n(r.custo.freteRetorno) +
+            n(r.custo.valorPeca) +
+            n(r.custo.estorno) +
+            n(r.custo.desconto) +
+            n(r.custo.guia)
+          : 0,
         id: r.id,
         numero: r.numero,
         descricao: r.descricao,
@@ -233,12 +261,145 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     });
   }
 
+  async marcarSync(args: Parameters<RepositorioClickup["marcarSync"]>[0]) {
+    const c = await this.prisma.clickupCard.findUnique({
+      where: { reclamacaoId: args.reclamacaoId },
+      select: { id: true, proximaTentativaEm: true, tentativas: true },
+    });
+    if (!c) return;
+    // Esgotado (passou de todas as tentativas) só volta pelo botão "Tentar de novo".
+    const esgotado = c.tentativas >= MAX_TENTATIVAS;
+    await this.prisma.clickupCard.update({
+      where: { id: c.id },
+      data: {
+        precisaSync: true,
+        proximaTentativaEm:
+          c.proximaTentativaEm ?? (esgotado ? null : args.agora),
+        comentarios: {
+          create: args.comentarios.map((texto) => ({ texto })),
+        },
+      },
+    });
+  }
+
+  async comentarioEnviado(id: string, agora: Date) {
+    await this.prisma.clickupComentario.update({
+      where: { id },
+      data: { enviadoEm: agora },
+    });
+  }
+
+  async registrarSincronizado(
+    args: Parameters<RepositorioClickup["registrarSincronizado"]>[0],
+  ) {
+    await this.prisma.clickupCard.update({
+      where: { id: args.cardId },
+      data: {
+        precisaSync: false,
+        listaId: args.listaId ?? undefined,
+        statusExterno: args.statusExterno ?? undefined,
+        sincronizadoEm: args.agora,
+        tentativas: 0,
+        ultimoErro: null,
+        proximaTentativaEm: null,
+      },
+    });
+  }
+
+  async carregarAnalise(analiseId: string): Promise<DadosAnalise | null> {
+    const a = await this.prisma.analiseSetor.findUnique({
+      where: { id: analiseId },
+      select: {
+        reclamacaoId: true,
+        produtoPrecisaVoltar: true,
+        produtoRecebidoEm: true,
+        conclusao: true,
+        resultado: true,
+        setor: { select: { nome: true } },
+        reclamacao: { select: { numero: true } },
+      },
+    });
+    if (!a) return null;
+    return {
+      reclamacaoId: a.reclamacaoId,
+      numero: a.reclamacao.numero,
+      setorNome: a.setor.nome,
+      produtoPrecisaVoltar: a.produtoPrecisaVoltar,
+      produtoRecebidoEm: ISO(a.produtoRecebidoEm),
+      conclusao: a.conclusao,
+      resultado: a.resultado,
+    };
+  }
+
+  async fila(): Promise<FilaDoClickup> {
+    const cards = await this.prisma.clickupCard.findMany({
+      where: {
+        OR: [
+          { taskId: null },
+          { precisaSync: true },
+          { comentarios: { some: { enviadoEm: null } } },
+        ],
+      },
+      orderBy: { criadoEm: "asc" },
+      take: 200,
+      select: {
+        id: true,
+        taskId: true,
+        tentativas: true,
+        ultimoErro: true,
+        proximaTentativaEm: true,
+        reclamacao: { select: { numero: true } },
+        plano: { select: { titulo: true } },
+        _count: { select: { comentarios: { where: { enviadoEm: null } } } },
+      },
+    });
+    const itens: ItemFila[] = cards.map((c) => ({
+      cardId: c.id,
+      titulo: c.reclamacao
+        ? `Reclamação #${c.reclamacao.numero}`
+        : (c.plano?.titulo ?? "Card"),
+      estado: !c.ultimoErro
+        ? "pendente"
+        : c.proximaTentativaEm
+          ? "erro"
+          : "esgotado",
+      taskId: c.taskId,
+      tentativas: c.tentativas,
+      ultimoErro: c.ultimoErro,
+      proximaTentativaEm: c.proximaTentativaEm?.toISOString() ?? null,
+      comentariosPendentes: c._count.comentarios,
+    }));
+    const totais = { pendente: 0, erro: 0, esgotado: 0 };
+    for (const i of itens) totais[i.estado] += 1;
+    return { itens, totais };
+  }
+
+  async reenviar(cardId: string | null, agora: Date) {
+    const r = await this.prisma.clickupCard.updateMany({
+      where: {
+        ...(cardId ? { id: cardId } : {}),
+        ultimoErro: { not: null },
+        OR: [
+          { taskId: null },
+          { precisaSync: true },
+          { comentarios: { some: { enviadoEm: null } } },
+        ],
+      },
+      data: { tentativas: 0, proximaTentativaEm: agora },
+    });
+    return r.count;
+  }
+
   async pendentes(agora: Date, limite: number) {
     const l = await this.prisma.clickupCard.findMany({
       where: {
-        taskId: null,
         reclamacaoId: { not: null },
         proximaTentativaEm: { lte: agora },
+        OR: [
+          { taskId: null },
+          { precisaSync: true },
+          { comentarios: { some: { enviadoEm: null } } },
+        ],
       },
       orderBy: { proximaTentativaEm: "asc" },
       take: limite,
@@ -247,16 +408,35 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     return l.flatMap((x) => (x.reclamacaoId ? [x.reclamacaoId] : []));
   }
 
-  async gravarEvento(e: { taskId: string; tipo: string; payload: unknown }) {
-    const r = await this.prisma.clickupEvento.create({
-      data: {
-        taskId: e.taskId,
-        tipo: e.tipo,
-        payload: e.payload as Prisma.InputJsonValue,
-      },
-      select: { id: true },
-    });
-    return r.id;
+  async gravarEvento(
+    e: Parameters<RepositorioClickup["gravarEvento"]>[0],
+  ): Promise<{ id: string; duplicado: boolean }> {
+    try {
+      const r = await this.prisma.clickupEvento.create({
+        data: {
+          taskId: e.taskId,
+          tipo: e.tipo,
+          payload: e.payload as Prisma.InputJsonValue,
+          chave: e.chave,
+        },
+        select: { id: true },
+      });
+      return { id: r.id, duplicado: false };
+    } catch (erro) {
+      // Chave única repetida: a mesma entrega chegou de novo.
+      const duplicada =
+        e.chave !== null &&
+        typeof erro === "object" &&
+        erro !== null &&
+        (erro as { code?: unknown }).code === "P2002";
+      if (!duplicada) throw erro;
+      const original = await this.prisma.clickupEvento.update({
+        where: { chave: e.chave as string },
+        data: { repeticoes: { increment: 1 } },
+        select: { id: true },
+      });
+      return { id: original.id, duplicado: true };
+    }
   }
 
   obterEvento(id: string) {
@@ -275,9 +455,15 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
   async cardPorTaskId(taskId: string) {
     const c = await this.prisma.clickupCard.findUnique({
       where: { taskId },
-      select: { id: true, reclamacaoId: true },
+      select: { id: true, reclamacaoId: true, statusExterno: true },
     });
-    return c ? { cardId: c.id, reclamacaoId: c.reclamacaoId } : null;
+    return c
+      ? {
+          cardId: c.id,
+          reclamacaoId: c.reclamacaoId,
+          statusExterno: c.statusExterno,
+        }
+      : null;
   }
 
   async reclamacaoParaStatus(id: string) {
@@ -358,7 +544,39 @@ function usuarioDe(req: PedidoComUsuario) {
 export class ControladorIntegracoes {
   constructor(
     @Inject(ServicoIntegracoes) private readonly servico: ServicoIntegracoes,
+    @Inject(ServicoClickup) private readonly clickup: ServicoClickup,
   ) {}
+
+  /** Fila de envio ao ClickUp: pendentes, com erro e esgotados. */
+  @Requer("integracoes.gerir")
+  @Get("clickup/fila")
+  filaClickup(@Req() req: PedidoComUsuario) {
+    return this.comErros(async () => {
+      exigirAdministrador(usuarioDe(req));
+      return this.clickup.fila();
+    });
+  }
+
+  /** "Tentar de novo": um card (`cardId`) ou tudo o que está com erro ou esgotado. */
+  @Requer("integracoes.gerir")
+  @Post("clickup/fila/reenviar")
+  @HttpCode(200)
+  reenviarClickup(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    const cardId =
+      typeof corpo === "object" && corpo !== null && "cardId" in corpo
+        ? (corpo as { cardId: unknown }).cardId
+        : null;
+    if (
+      cardId !== null &&
+      (typeof cardId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(cardId))
+    ) {
+      throw new BadRequestException("Card inválido.");
+    }
+    return this.comErros(async () => {
+      exigirAdministrador(usuarioDe(req));
+      return { reenviados: await this.clickup.reenviar(cardId) };
+    });
+  }
 
   @Requer("integracoes.gerir")
   @Get()
@@ -423,11 +641,16 @@ export class ControladorWebhooks {
     @Headers("x-signature") assinatura: string | undefined,
   ) {
     try {
-      const { id } = await this.webhook.receber(req.rawBody, assinatura);
-      // Responde já; o ClickUp não espera o processamento.
-      setImmediate(() => {
-        this.webhook.processar(id).catch(() => undefined);
-      });
+      const { id, duplicado } = await this.webhook.receber(
+        req.rawBody,
+        assinatura,
+      );
+      // Responde já; o ClickUp não espera o processamento. Entrega repetida é ignorada.
+      if (!duplicado) {
+        setImmediate(() => {
+          this.webhook.processar(id).catch(() => undefined);
+        });
+      }
       return { ok: true };
     } catch (e) {
       if (e instanceof ErroWebhook) {
