@@ -28,6 +28,9 @@ export default async function LayoutProtegido({
           <Marca nome="SAC" legenda="Reclamações e indicadores" />
           <nav className="casca__nav" aria-label="Principal">
             <NavLink href="/">Início</NavLink>
+            {usuario.permissoes.includes("reclamacoes.ver") && (
+              <NavLink href="/reclamacoes">Reclamações</NavLink>
+            )}
             {usuario.permissoes.includes("dados.importar") && (
               <NavLink href="/admin/importacao">Importação</NavLink>
             )}

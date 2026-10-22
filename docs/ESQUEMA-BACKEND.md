@@ -66,7 +66,7 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 - Método: login próprio, usuário e senha, hash **Argon2id**, cookie de sessão httpOnly, sem SSO. Limite de tentativas por IP e por usuário.
 - Perfis: **operação**, **responsável de setor**, **gestor**, **administrador**. O sistema atual tem `master`, `gestor` e `operador`; `master` vira administrador.
 - Permissão por tela (`PermissaoUsuario`), como hoje, sobre o perfil.
-- Escopo: o responsável de setor só vê Reclamações, cards e planos do(s) seu(s) setor(es). Gestor e administrador veem tudo. A conferência é feita no servidor em toda ação, nunca só na tela.
+- Escopo: o responsável de setor só vê Reclamações, cards e planos do(s) seu(s) setor(es); sem setor vinculado, não vê nada. Operação, gestor e administrador veem todos os setores (`PERFIS_TODOS_OS_SETORES` no domínio). A conferência é feita no servidor em toda ação, nunca só na tela.
 - Segredos (ClickUp, marketplaces, OpenRouter) só em variável de ambiente.
 
 ## 3. Endpoints/ações principais
@@ -75,9 +75,11 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 |---|---|---|---|
 | `/health` | GET | Não | Não consulta banco nem devolve dado do negócio |
 | `/auth/login`, `/auth/logout` | POST | Não / Sim | Limite de tentativas; cookie httpOnly |
-| `/reclamacoes` | GET | Sim | Filtros de período, causa, setor, produto, canal, marca e bancada; escopo por perfil |
+| `/reclamacoes` | GET | `reclamacoes.ver` | Filtros `de`, `ate` (abertura), `marca`, `canal`, `setor`, `causa` (principal ou extra), `situacao`, `busca` (número, pedido, cliente, produto, descrição, laudo); `pagina` e `porPagina` (máx. 100). Situação e custo calculados pelo domínio. Escopo por perfil. Valor inválido é 400. Produto e bancada entram depois |
+| `/reclamacoes/filtros` | GET | `reclamacoes.ver` | Marcas, canais, setores e causas para os chips; o responsável de setor recebe só os seus setores |
+| `/reclamacoes/:id` | GET | `reclamacoes.ver` | Ficha completa (custos, causas extras, análises, nº de fotos). Fora do escopo do usuário devolve 404, igual a inexistente |
 | `/reclamacoes` | POST | Operação+ | Cria. Define setor responsável pela causa e enfileira o card no ClickUp |
-| `/reclamacoes/:id` | GET, PATCH | Sim | Edição com auditoria. Troca de setor só por gestor ou administrador |
+| `/reclamacoes/:id` | PATCH | Sim | Edição com auditoria (próxima fatia). Troca de setor só por gestor ou administrador |
 | `/reclamacoes/:id/analise` | POST | Responsável de setor | Registra a decisão de retorno do produto; sem ela não finaliza |
 | `/reclamacoes/:id/fotos` | POST | Sim | Tipo e tamanho conferidos; arquivo no volume, caminho no banco |
 | `/ia/rascunho` | POST | Operação+ | A IA sugere produto, bancada, causa e origem; **nunca grava**. Registra em `IaRegistro` |

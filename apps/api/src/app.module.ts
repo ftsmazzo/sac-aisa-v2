@@ -5,10 +5,16 @@ import { ServicoAuth } from "@sac-aisa/auth";
 import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
 import { ControladorImportacao } from "./importacao.controller";
+import { ControladorReclamacoes } from "./reclamacoes.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
 
 @Module({
-  controllers: [ControladorSaude, ControladorAuth, ControladorImportacao],
+  controllers: [
+    ControladorSaude,
+    ControladorAuth,
+    ControladorImportacao,
+    ControladorReclamacoes,
+  ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },
     {
