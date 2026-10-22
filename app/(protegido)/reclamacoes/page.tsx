@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MarcaDoCadastro } from "@/components/marca-do-cadastro";
+import { MarcarTodas } from "@/components/marcar-todas";
 import { Selo } from "@/components/ui";
 import { comMarcaPadrao, TODAS } from "@/lib/marca-escolhida";
 import { marcaAtiva } from "@/lib/marca-servidor";
@@ -349,6 +350,7 @@ export default async function Reclamacoes({
   const fechar = montarHref(estado, { ficha: null });
   const opcoesOk = opcoes.ok ? opcoes.dados : null;
 
+  const podeImprimir = usuario.permissoes.includes("reclamacoes.ver");
   const podeCriar = usuario.permissoes.includes("reclamacoes.criar");
   const podeEditar = usuario.permissoes.includes("reclamacoes.editar");
   const podeTrocarSetor = usuario.permissoes.includes(
@@ -410,11 +412,34 @@ export default async function Reclamacoes({
         </section>
       ) : (
         <>
+          {podeImprimir && (
+            <form
+              id="selecao"
+              method="get"
+              action="/reclamacoes/imprimir"
+              className="selecao-barra sem-impressao"
+            >
+              <button type="submit" className="botao botao--secundario">
+                Imprimir selecionadas
+              </button>
+              <Link
+                href={`/reclamacoes/imprimir?${new URLSearchParams({ ...efetivos, todas: "1" } as Record<string, string>).toString()}`}
+                className="botao botao--secundario"
+              >
+                Imprimir todas do filtro ({lista.dados.total})
+              </Link>
+            </form>
+          )}
           <div className="cartao tabela-caixa">
             <table className="tabela">
               <caption className="sr-only">Lista de reclamações</caption>
               <thead>
                 <tr>
+                  {podeImprimir && (
+                    <th scope="col" className="tabela__marcar">
+                      <MarcarTodas form="selecao" nome="id" />
+                    </th>
+                  )}
                   <th scope="col">Nº</th>
                   <th scope="col">Abertura</th>
                   <th scope="col">Estado</th>
@@ -446,6 +471,17 @@ export default async function Reclamacoes({
                         : undefined
                     }
                   >
+                    {podeImprimir && (
+                      <td className="tabela__marcar">
+                        <input
+                          type="checkbox"
+                          form="selecao"
+                          name="id"
+                          value={r.id}
+                          aria-label={`Selecionar a reclamação ${r.numero}`}
+                        />
+                      </td>
+                    )}
                     <td>
                       <Link
                         href={montarHref(estado, { ficha: r.id })}

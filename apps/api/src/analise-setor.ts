@@ -273,7 +273,13 @@ export class ServicoAnalise {
         para: novaDev.dataRecebimento,
       });
     }
-    if (base && mudancas.length === 0) return { id: base.id, alterou: false };
+    if (base && mudancas.length === 0)
+      return {
+        id: base.id,
+        alterou: false,
+        criando: false,
+        devolucaoRecebida: false,
+      };
 
     const criando = base === null;
     const { id } = await this.repo.salvar({
@@ -303,7 +309,13 @@ export class ServicoAnalise {
         extra: { mudancas },
       }),
     });
-    return { id, alterou: true };
+    return {
+      id,
+      alterou: true,
+      criando,
+      devolucaoRecebida:
+        novaDev.devolucao === "RECEBIDO" && r.devolucao !== "RECEBIDO",
+    };
   }
 
   async criar(

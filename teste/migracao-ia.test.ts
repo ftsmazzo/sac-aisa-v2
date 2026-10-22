@@ -38,9 +38,9 @@ beforeAll(async () => {
   for (const m of [
     "20261022000000_base_v2",
     "20261023000000_integracoes",
-    "20261024000000_jornada",
-    "20261025000000_ia_triagem",
-    "20261025000100_ia_padrao_inicial",
+    "20261025000000_jornada",
+    "20261026000000_ia_triagem",
+    "20261026000100_ia_padrao_inicial",
   ]) {
     await db.exec(migracao(m));
   }

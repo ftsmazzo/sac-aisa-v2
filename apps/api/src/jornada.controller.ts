@@ -81,7 +81,7 @@ export class RepositorioJornadaPrisma implements RepositorioJornada {
       });
       await tx.clickupCard.updateMany({
         where: { reclamacaoId: args.id },
-        data: { statusPendente: true },
+        data: { precisaSync: true },
       });
       await tx.auditoria.create({
         data: {
@@ -130,7 +130,7 @@ export class ControladorJornada {
     const usuario = req.usuario;
     try {
       const feito = await this.servico.mudar(id, r.entrada, usuario);
-      void this.clickup.sincronizarEstado(id).catch(() => undefined);
+      void this.clickup.reclamacaoMudou(id).catch(() => undefined);
       return feito;
     } catch (e) {
       if (!(e instanceof ErroEscrita)) throw e;

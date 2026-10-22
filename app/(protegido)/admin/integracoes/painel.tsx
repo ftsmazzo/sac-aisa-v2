@@ -4,11 +4,15 @@ import { useState } from "react";
 import { Botao, Cartao, Selo } from "@/components/ui";
 import {
   ESTADO_SELO,
+  FILA_SELO,
+  type FilaClickup,
   formatarQuando,
   type Integracao,
   mensagemIntegracao,
   montarEntrada,
+  oQueFalta,
   type PainelIntegracoes,
+  proximaTentativa,
   type RascunhoIntegracao,
   rascunhoInicial,
 } from "@/lib/integracoes";
@@ -290,7 +294,133 @@ function CartaoIntegracao({
   );
 }
 
-export function Painel({ inicial }: { inicial: PainelIntegracoes }) {
+function FilaDoClickup({ inicial }: { inicial: FilaClickup }) {
+  const [fila, setFila] = useState(inicial);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<Aviso | null>(null);
+
+  async function atualizar() {
+    const r = await chamar("/clickup/fila", "GET");
+    if (r.ok) setFila(r.dados as unknown as FilaClickup);
+    return r.ok;
+  }
+
+  async function tentarDeNovo(cardId: string | null) {
+    setOcupado(cardId ?? "todos");
+    setAviso(null);
+    const r = await chamar(
+      "/clickup/fila/reenviar",
+      "POST",
+      cardId ? { cardId } : {},
+    );
+    if (!r.ok) {
+      setAviso({
+        tom: "erro",
+        texto: mensagemIntegracao(r.status, String(r.dados.message ?? "")),
+      });
+    } else {
+      // Dá um instante para a fila processar antes de reler.
+      await new Promise((ok) => setTimeout(ok, 1500));
+      await atualizar();
+      setAviso({ tom: "ok", texto: "Enviado de novo à fila." });
+    }
+    setOcupado(null);
+  }
+
+  const { pendente, erro, esgotado } = fila.totais;
+  return (
+    <Cartao>
+      <section className="integracao" aria-labelledby="fila-clickup">
+        <div className="integracao__cab">
+          <div>
+            <h2 className="integracao__titulo" id="fila-clickup">
+              Fila de envio ao ClickUp
+            </h2>
+            <p className="integracao__resumo">
+              Cards a criar ou atualizar e comentários a postar. Quem falha
+              tenta de novo sozinho, com espera crescente; ao esgotar, fica aqui
+              até alguém mandar tentar de novo.
+            </p>
+          </div>
+          <div className="integracao__estado">
+            <Selo tom="info">{pendente} pendentes</Selo>
+            <Selo tom="atencao">{erro} com erro</Selo>
+            <Selo tom="perigo">{esgotado} esgotados</Selo>
+          </div>
+        </div>
+
+        {fila.itens.length === 0 ? (
+          <p className="aviso aviso--info" role="status">
+            Nada na fila: tudo o que mudou no SAC já está no ClickUp.
+          </p>
+        ) : (
+          <ul className="fila-clickup">
+            {fila.itens.map((i) => {
+              const selo = FILA_SELO[i.estado];
+              return (
+                <li className="fila-clickup__item" key={i.cardId}>
+                  <div className="fila-clickup__topo">
+                    <strong>{i.titulo}</strong>
+                    <Selo tom={selo.tom}>{selo.rotulo}</Selo>
+                  </div>
+                  <span className="campo__ajuda">
+                    Falta {oQueFalta(i)} · {i.tentativas} tentativa(s) ·
+                    próxima: {proximaTentativa(i)}
+                  </span>
+                  {i.ultimoErro && (
+                    <span className="fila-clickup__erro">{i.ultimoErro}</span>
+                  )}
+                  {i.ultimoErro && (
+                    <Botao
+                      variante="secundario"
+                      onClick={() => tentarDeNovo(i.cardId)}
+                      disabled={ocupado !== null}
+                    >
+                      {ocupado === i.cardId ? "Enviando…" : "Tentar de novo"}
+                    </Botao>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {aviso && (
+          <p
+            className={`aviso aviso--${aviso.tom}`}
+            role={aviso.tom === "erro" ? "alert" : "status"}
+          >
+            {aviso.texto}
+          </p>
+        )}
+
+        <div className="integracao__acoes">
+          <Botao
+            onClick={() => tentarDeNovo(null)}
+            disabled={ocupado !== null || erro + esgotado === 0}
+          >
+            {ocupado === "todos" ? "Enviando…" : "Tentar de novo (todos)"}
+          </Botao>
+          <Botao
+            variante="secundario"
+            onClick={atualizar}
+            disabled={ocupado !== null}
+          >
+            Atualizar lista
+          </Botao>
+        </div>
+      </section>
+    </Cartao>
+  );
+}
+
+export function Painel({
+  inicial,
+  fila,
+}: {
+  inicial: PainelIntegracoes;
+  fila: FilaClickup | null;
+}) {
   const [liberada, setLiberada] = useState(inicial.gravacaoLiberada);
 
   async function recarregar(chave: Integracao["chave"]) {
@@ -319,6 +449,7 @@ export function Painel({ inicial }: { inicial: PainelIntegracoes }) {
           recarregar={() => recarregar(i.chave)}
         />
       ))}
+      {fila && <FilaDoClickup inicial={fila} />}
     </div>
   );
 }

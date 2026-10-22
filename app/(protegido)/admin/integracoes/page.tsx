@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import type { PainelIntegracoes } from "@/lib/integracoes";
+import type { FilaClickup, PainelIntegracoes } from "@/lib/integracoes";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { obterUsuario } from "@/lib/sessao";
 import { ConsumoIa } from "./consumo-ia";
@@ -17,6 +17,9 @@ export default async function PaginaIntegracoes() {
   }
 
   const r = await buscarNaApi<PainelIntegracoes>("/admin/integracoes");
+  const fila = await buscarNaApi<FilaClickup>(
+    "/admin/integracoes/clickup/fila",
+  );
 
   return (
     <>
@@ -30,7 +33,7 @@ export default async function PaginaIntegracoes() {
       </div>
       <ConsumoIa />
       {r.ok ? (
-        <Painel inicial={r.dados} />
+        <Painel inicial={r.dados} fila={fila.ok ? fila.dados : null} />
       ) : (
         <p className="aviso aviso--erro" role="alert">
           Não foi possível carregar as integrações. Tente recarregar a página.

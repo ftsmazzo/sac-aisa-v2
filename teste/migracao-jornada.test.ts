@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -8,6 +8,16 @@ const migracao = (nome: string) =>
     join(__dirname, "..", "prisma", "migrations", nome, "migration.sql"),
     "utf8",
   );
+const desfazer = readFileSync(
+  join(
+    __dirname,
+    "..",
+    "prisma",
+    "rollback",
+    "20261025000000_jornada_desfazer.sql",
+  ),
+  "utf8",
+);
 
 let db: PGlite;
 
@@ -15,6 +25,8 @@ let db: PGlite;
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(migracao("20261022000000_base_v2"));
+  await db.exec(migracao("20261023000000_integracoes"));
+  await db.exec(migracao("20261024000000_clickup_sincronizacao"));
   await db.exec(`
     INSERT INTO canais (id, nome, tipo) VALUES ('c1', 'Site', 'interno');
     INSERT INTO reclamacoes (id, "canalId", "dataAbertura", "dataAcao", devolucao, rascunho, situacao, "criadoEm", "alteradoEm") VALUES
@@ -25,7 +37,20 @@ beforeAll(async () => {
       ('rascunho', 'c1', '2026-01-10', NULL, 'NA', true, 'tratativa', '2026-01-10T10:00:00Z', now());
     INSERT INTO alertas (id, tipo, titulo, mensagem, "chaveDedupe") VALUES ('a-antigo', 'CUSTO_ALTO', 't', 'm', 'antigo');
   `);
-  await db.exec(migracao("20261024000000_jornada"));
+  await db.exec(migracao("20261025000000_jornada"));
+});
+
+it("a migração da jornada vem depois das que já existiam e nenhum nome se repete", () => {
+  const pasta = join(__dirname, "..", "prisma", "migrations");
+  const nomes = readdirSync(pasta)
+    .filter((n) => /^[0-9]{14}_/.test(n))
+    .sort();
+  expect(new Set(nomes).size).toBe(nomes.length);
+  const i = nomes.indexOf("20261025000000_jornada");
+  expect(i).toBeGreaterThan(
+    nomes.indexOf("20261024000000_clickup_sincronizacao"),
+  );
+  expect(i).toBeGreaterThan(nomes.indexOf("20261023000000_integracoes"));
 });
 
 afterAll(async () => {
@@ -131,5 +156,31 @@ describe("migração da jornada", () => {
     await db.exec(
       `INSERT INTO alertas (id, tipo, titulo, mensagem, "chaveDedupe") VALUES ('a-novo', 'SEM_RECEBIMENTO_SETOR', 't', 'm', 'novo')`,
     );
+  });
+
+  it("o script de desfazer tira só o que a jornada criou e deixa o resto intacto", async () => {
+    await db.exec(desfazer);
+    const tabelas = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM information_schema.tables
+       WHERE table_name IN ('estado_historico', 'usuario_marcas')`,
+    );
+    expect(tabelas.rows[0].n).toBe("0");
+    const colunas = await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM information_schema.columns
+       WHERE table_name = 'reclamacoes' AND column_name IN ('estado', 'estadoDesde', 'prazoMarketplace')`,
+    );
+    expect(colunas.rows[0].n).toBe("0");
+    const r = await db.query<{ n: string; situacao: string }>(
+      `SELECT count(*)::text AS n, max(situacao::text) AS situacao FROM reclamacoes`,
+    );
+    expect(r.rows[0]).toMatchObject({ n: "5", situacao: "tratativa" });
+    const a = await db.query<{ n: string }>(
+      "SELECT count(*)::text AS n FROM alertas",
+    );
+    expect(a.rows[0].n).toBe("1");
+    // E dá para aplicar a migração de novo por cima.
+    await db.exec(migracao("20261025000000_jornada"));
+    const e = await estados();
+    expect(e.resolvida).toBe("finalizada");
   });
 });
