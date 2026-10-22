@@ -42,6 +42,12 @@ export const PERMISSOES_CATALOGO = [
     acao: "Criar, editar e permissões",
   },
   { chave: "integracoes.gerir", tela: "Integrações", acao: "ClickUp e canais" },
+  { chave: "ia.usar", tela: "IA", acao: "Triagem por IA na ficha" },
+  {
+    chave: "ia.gerir",
+    tela: "IA",
+    acao: "Editar perfil da empresa e perguntas obrigatórias",
+  },
   {
     chave: "dados.importar",
     tela: "Dados",
@@ -60,6 +66,7 @@ const OPERACAO: PermissaoChave[] = [
   "capturas.ver",
   "capturas.tratar",
   "alertas.ver",
+  "ia.usar",
 ];
 
 const RESPONSAVEL_SETOR: PermissaoChave[] = [
@@ -86,6 +93,8 @@ const GESTOR: PermissaoChave[] = [
   "planos.gerir",
   "alertas.ver",
   "alertas.gerir",
+  "ia.usar",
+  "ia.gerir",
 ];
 
 export const PERMISSOES_PADRAO: Record<Perfil, PermissaoChave[]> = {

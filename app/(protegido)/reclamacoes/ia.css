@@ -1,0 +1,228 @@
+/* Triagem por IA na ficha. Só os tokens do sistema. */
+.ia {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-m);
+  background: var(--cor-superficie);
+}
+.ia__cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ia__cab .ficha__subtitulo {
+  margin: 0;
+}
+.ia__nota,
+.ia__rodape {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+}
+.ia-resumo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+.ia-resumo > div:first-child {
+  grid-column: 1 / -1;
+}
+.ia-resumo dt {
+  font-size: 0.75rem;
+  color: var(--cor-suave);
+}
+.ia-resumo dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.ia-resumo__apoio {
+  color: var(--cor-suave);
+  font-size: 0.8125rem;
+}
+.ia-decisao,
+.ia-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ia-decisao__linha {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ia-decisao__linha label,
+.ia-pergunta label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.ia-decisao select,
+.ia-pergunta select,
+.ia-pergunta input[type="text"],
+.ia-pergunta input[type="number"],
+.ia-pergunta input[type="date"] {
+  min-height: 40px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio-p);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font: inherit;
+}
+.ia-decisao__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ia-decisao__registro {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+}
+.ia-bloco__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.9375rem;
+}
+.ia-bloco__grupo {
+  margin: 4px 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cor-suave);
+}
+.ia-perguntas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ia-pergunta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-p);
+}
+.ia-pergunta[data-estado="falta"] {
+  border-color: var(--cor-borda-forte);
+}
+.ia-pergunta__cab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ia-pergunta__opc {
+  font-size: 0.75rem;
+  color: var(--cor-suave);
+}
+.ia-pergunta__sugestao {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+.ia-pergunta__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ia-pergunta__acoes input[type="text"] {
+  flex: 1 1 200px;
+}
+.ia-mensagem {
+  width: 100%;
+  min-height: 140px;
+  padding: 10px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio-p);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+.ia-avisos {
+  margin: 0;
+  padding-left: 28px;
+}
+.ia-copiado {
+  min-height: 24px;
+}
+
+/* Telas de administração: perfil da empresa e perguntas obrigatórias. */
+.ia-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 880px;
+}
+.ia-admin__grade {
+  display: grid;
+  gap: 12px;
+}
+.ia-admin__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ia-admin__campo label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.ia-admin__campo input,
+.ia-admin__campo select,
+.ia-admin__campo textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio-p);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font: inherit;
+}
+.ia-admin__linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ia-admin__linha > * {
+  flex: 1 1 200px;
+}
+.ia-admin__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ia-admin__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-p);
+}
+.ia-admin__item span:first-child {
+  flex: 1 1 260px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .ia-resumo {
+    grid-template-columns: 1fr;
+  }
+}

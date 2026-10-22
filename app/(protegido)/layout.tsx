@@ -81,6 +81,11 @@ export default async function LayoutProtegido({
             {usuario.permissoes.includes("dados.importar") && (
               <NavLink href="/admin/importacao">Importação</NavLink>
             )}
+            {(usuario.perfil === "administrador" ||
+              usuario.perfil === "gestor") &&
+              usuario.permissoes.includes("ia.gerir") && (
+                <NavLink href="/admin/ia">IA</NavLink>
+              )}
             {usuario.perfil === "administrador" &&
               usuario.permissoes.includes("integracoes.gerir") && (
                 <NavLink href="/admin/integracoes">Integrações</NavLink>

@@ -94,6 +94,8 @@ enum AlertStatus {
 enum IaTipo {
   preenchimento
   classificacao
+  triagem
+  pergunta
 }
 
 enum IaAceite {
@@ -218,8 +220,8 @@ model RegraDirecionamento {
 // ---------- Reclamação e tratativa ----------
 
 model Reclamacao {
-  id               String    @id @default(cuid())
-  numero           Int       @unique @default(autoincrement())
+  id               String        @id @default(cuid())
+  numero           Int           @unique @default(autoincrement())
   protocoloExterno String?
   marcaId          String?
   canalId          String
@@ -227,35 +229,35 @@ model Reclamacao {
   bancadaId        String?
   causaId          String?
   setorRespId      String?
-  setorRespManual  Boolean   @default(false)
-  causaManual      Boolean   @default(false)
-  situacao         Situacao  @default(tratativa)
+  setorRespManual  Boolean       @default(false)
+  causaManual      Boolean       @default(false)
+  situacao         Situacao      @default(tratativa)
   /// Estado da jornada e desde quando. O histórico completo fica em `EstadoHistorico`.
   estado           EstadoJornada @default(triagem)
-  estadoDesde      DateTime  @default(now())
+  estadoDesde      DateTime      @default(now())
   /// Prazo que o marketplace dá para resolver. Corre à parte do relógio interno.
-  prazoMarketplace DateTime? @db.Date
-  devolucao        Devolucao @default(NA)
-  dataAbertura     DateTime  @db.Date
-  dataAcao         DateTime? @db.Date
-  dataRecebimento  DateTime? @db.Date
-  descricao        String    @default("")
-  laudo            String    @default("")
-  procedencia      String    @default("")
-  solucao          String    @default("")
-  observacao       String    @default("")
-  garantia         String    @default("")
-  pedido           String    @default("")
-  clienteNome      String    @default("")
-  cidade           String    @default("")
-  uf               String    @default("")
-  transportadora   String    @default("")
-  peca             String    @default("")
-  rascunho         Boolean   @default(false)
-  origemRegistro   String    @default("web")
-  criadoEm         DateTime  @default(now())
+  prazoMarketplace DateTime?     @db.Date
+  devolucao        Devolucao     @default(NA)
+  dataAbertura     DateTime      @db.Date
+  dataAcao         DateTime?     @db.Date
+  dataRecebimento  DateTime?     @db.Date
+  descricao        String        @default("")
+  laudo            String        @default("")
+  procedencia      String        @default("")
+  solucao          String        @default("")
+  observacao       String        @default("")
+  garantia         String        @default("")
+  pedido           String        @default("")
+  clienteNome      String        @default("")
+  cidade           String        @default("")
+  uf               String        @default("")
+  transportadora   String        @default("")
+  peca             String        @default("")
+  rascunho         Boolean       @default(false)
+  origemRegistro   String        @default("web")
+  criadoEm         DateTime      @default(now())
   criadoPorId      String?
-  alteradoEm       DateTime  @updatedAt
+  alteradoEm       DateTime      @updatedAt
   alteradoPorId    String?
 
   marca     Marca?   @relation(fields: [marcaId], references: [id])
@@ -265,15 +267,16 @@ model Reclamacao {
   causa     Causa?   @relation(fields: [causaId], references: [id])
   setorResp Setor?   @relation(fields: [setorRespId], references: [id])
 
-  custo    Custo?
-  causas   ReclamacaoCausa[]
-  fotos    ReclamacaoFoto[]
-  analises AnaliseSetor[]
-  alertas  Alerta[]
-  planos   PlanoReclamacao[]
-  captura  CapturaCanal?
-  card     ClickupCard?
-  ia       IaRegistro[]
+  custo            Custo?
+  causas           ReclamacaoCausa[]
+  fotos            ReclamacaoFoto[]
+  analises         AnaliseSetor[]
+  alertas          Alerta[]
+  planos           PlanoReclamacao[]
+  captura          CapturaCanal?
+  card             ClickupCard?
+  ia               IaRegistro[]
+  respostas        ReclamacaoResposta[]
   historicoEstados EstadoHistorico[]
 
   @@index([situacao])
@@ -508,27 +511,26 @@ model ClickupConfig {
 }
 
 model ClickupCard {
-  id             String    @id @default(cuid())
-  reclamacaoId   String?   @unique
-  planoId        String?   @unique
-  taskId         String?   @unique
-  listaId        String?
-  statusExterno  String?
-  sincronizadoEm DateTime?
-  tentativas     Int       @default(0)
-  ultimoErro     String?
+  id                 String    @id @default(cuid())
+  reclamacaoId       String?   @unique
+  planoId            String?   @unique
+  taskId             String?   @unique
+  listaId            String?
+  statusExterno      String?
+  sincronizadoEm     DateTime?
+  tentativas         Int       @default(0)
+  ultimoErro         String?
   /// Quando a fila tenta de novo. Nulo com `taskId` vazio = parou de tentar (esgotou).
   proximaTentativaEm DateTime?
   /// O estado da reclamação mudou e o status do card ainda não foi atualizado no ClickUp.
-  statusPendente Boolean   @default(false)
-  criadoEm       DateTime  @default(now())
+  statusPendente     Boolean   @default(false)
+  criadoEm           DateTime  @default(now())
 
   reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
   plano      PlanoAcao?  @relation(fields: [planoId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@index([proximaTentativaEm])
-
   @@map("clickup_cards")
 }
 
@@ -544,22 +546,118 @@ model ClickupEvento {
   @@map("clickup_eventos")
 }
 
-/// O que a IA sugeriu e se a pessoa aceitou. Alimenta a taxa de aceite.
+/// Cada chamada à IA: o que foi pedido (já sem dado pessoal), o que voltou, quanto custou e o que a pessoa decidiu.
 model IaRegistro {
-  id           String    @id @default(cuid())
-  reclamacaoId String?
-  capturaId    String?
-  tipo         IaTipo
-  sugestao     Json
-  confianca    Decimal?  @db.Decimal(4, 3)
-  aceite       IaAceite?
-  modelo       String    @default("")
-  criadoEm     DateTime  @default(now())
+  id               String    @id @default(cuid())
+  reclamacaoId     String?
+  capturaId        String?
+  tipo             IaTipo
+  sugestao         Json
+  confianca        Decimal?  @db.Decimal(4, 3)
+  aceite           IaAceite?
+  modelo           String    @default("")
+  etapa            String    @default("")
+  versaoPrompt     String    @default("")
+  versaoPerfil     Int?
+  tokensEntrada    Int       @default(0)
+  tokensSaida      Int       @default(0)
+  custoUsd         Decimal   @default(0) @db.Decimal(10, 6)
+  latenciaMs       Int       @default(0)
+  /// Entrada já redigida: nunca o texto original nem o nome do comprador.
+  entradaRedigida  String    @default("")
+  erro             String?
+  usouRegras       Boolean   @default(false)
+  /// Texto final, só quando a pessoa o alterou.
+  textoFinal       String?
+  causaEscolhidaId String?
+  aceitoEm         DateTime?
+  usuarioId        String?
+  criadoEm         DateTime  @default(now())
 
   reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id], onDelete: SetNull)
 
   @@index([reclamacaoId])
+  @@index([criadoEm])
   @@map("ia_registros")
+}
+
+enum PerguntaTipo {
+  texto
+  escolha
+  numero
+  sim_nao
+  foto
+  data
+}
+
+/// Perfil da empresa que dá o tom às mensagens da IA. Cada publicação é uma versão nova.
+model PerfilEmpresaVersao {
+  id               String   @id @default(cuid())
+  versao           Int      @unique
+  descricao        String   @default("")
+  missao           String   @default("")
+  valores          String   @default("")
+  metas            String   @default("")
+  tomDeVoz         String   @default("")
+  dizer            String   @default("")
+  evitar           String   @default("")
+  /// `{marca}` vira o nome da marca da reclamação.
+  assinatura       String   @default("")
+  /// Lista de { situacao, resposta }, sem dado de cliente.
+  exemplos         Json     @default("[]")
+  /// Padrão inicial para testar, ainda não validado com o dono.
+  padrao           Boolean  @default(false)
+  nota             String   @default("")
+  publicadaEm      DateTime @default(now())
+  publicadaPorId   String?
+  publicadaPorNome String   @default("")
+
+  @@map("perfil_empresa")
+}
+
+/// Pergunta que o SAC precisa ver respondida. `regras` é a lista de { familias, causaIds, causaCategorias }:
+/// a pergunta vale se alguma regra bate, e uma regra bate quando todos os filtros preenchidos batem.
+model PerguntaObrigatoria {
+  id           String       @id @default(cuid())
+  chave        String       @unique
+  categoria    String       @default("")
+  texto        String
+  tipo         PerguntaTipo @default(texto)
+  opcoes       String[]     @default([])
+  obrigatoria  Boolean      @default(true)
+  exemplo      String       @default("")
+  ordem        Int          @default(0)
+  ativa        Boolean      @default(true)
+  regras       Json         @default("[]")
+  padrao       Boolean      @default(false)
+  atualizadaEm DateTime     @updatedAt
+
+  respostas ReclamacaoResposta[]
+
+  @@map("perguntas_obrigatorias")
+}
+
+/// Resposta dada a uma pergunta na ficha. O texto da pergunta fica copiado: mudar a pergunta depois não muda o histórico.
+model ReclamacaoResposta {
+  id                String   @id @default(cuid())
+  reclamacaoId      String
+  perguntaId        String?
+  chave             String
+  textoPergunta     String
+  valor             String   @default("")
+  /// atendente, ia_confirmada ou canal.
+  origem            String   @default("atendente")
+  dispensada        Boolean  @default(false)
+  motivo            String   @default("")
+  registradaPorId   String?
+  registradaPorNome String   @default("")
+  registradaEm      DateTime @default(now())
+
+  reclamacao Reclamacao           @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+  pergunta   PerguntaObrigatoria? @relation(fields: [perguntaId], references: [id], onDelete: SetNull)
+
+  @@unique([reclamacaoId, chave])
+  @@map("reclamacao_respostas")
 }
 
 // ---------- Acesso e apoio ----------

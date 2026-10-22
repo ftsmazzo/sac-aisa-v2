@@ -60,6 +60,18 @@ Perfil: Operação
 Telas: nova reclamação, conferência do rascunho, detalhe da reclamação.
 Exceção: se a IA estiver fora do ar, o formulário funciona sem sugestão, com as regras de causa e setor do sistema.
 
+**Triagem por IA na ficha (fatia 1, `docs/IA.md` seção 10).** Na ficha, no bloco Triagem, o painel "Triagem por IA" segue estes passos, sempre com a pessoa decidindo:
+
+1. A pessoa clica em **Analisar**. A IA lê o texto da reclamação, o produto e o SKU, sem nome, e-mail, telefone, endereço nem pedido.
+2. O painel mostra a síntese de uma frase, a **causa** e o **setor** sugeridos (o setor vem da regra da causa) e a confiança. Um seletor deixa **aceitar, trocar a causa ou ignorar**; a escolha vira dado de aceite. Quem pode analisar também pode **aceitar e gravar na ficha**, pelo mesmo caminho da edição normal.
+3. Abaixo, "O que falta perguntar": as perguntas obrigatórias do tipo de produto e de causa, com o selo **Falta**, **Respondida**, **Dispensada** (com motivo) ou **A IA achou no texto** (só vale quando a pessoa confirma). A pessoa registra o que o cliente respondeu.
+4. Se falta algo, a IA redige **uma mensagem curta** no tom da empresa. A atendente edita se quiser e clica **Copiar** (aparece "Copiado ✓"); cola no chat do marketplace. O botão não envia nada. Depois de registrar respostas, **Gerar nova mensagem** pede só o que ainda falta.
+5. A IA não muda causa, setor nem estado da reclamação. Os estados seguem a jornada acima.
+
+Sem chave, o painel mostra "IA não configurada" e a ficha segue como sempre; se a IA falhar, estourar o tempo, devolver saída inválida ou atingir o limite do dia, o painel mostra o aviso e a sugestão das regras do sistema.
+
+Telas do padrão: `/admin/ia` (administrador e gestor): perfil da empresa e perguntas obrigatórias, com simulador. O consumo do dia aparece em `/admin/integracoes`.
+
 ### Jornada 2: Captura automática do marketplace
 
 Perfil: Operação (recebe), Gestor (é avisado)

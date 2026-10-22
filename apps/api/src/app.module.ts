@@ -9,6 +9,7 @@ import {
 import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
+import { ControladorIa, ControladorIaAdmin } from "./ia/ia.controller";
 import { ControladorImportacao } from "./importacao.controller";
 import { ServicoIntegracoes } from "./integracoes";
 import {
@@ -32,6 +33,8 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorImportacao,
     ControladorReclamacoes,
     ControladorJornada,
+    ControladorIa,
+    ControladorIaAdmin,
     ControladorIntegracoes,
     ControladorUsuarios,
     ControladorWebhooks,

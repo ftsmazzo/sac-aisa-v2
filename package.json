@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "test": "vitest run",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "ia:avaliar": "tsx apps/api/src/ia-avaliar.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
