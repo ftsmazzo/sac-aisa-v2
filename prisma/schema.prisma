@@ -1,0 +1,620 @@
+// Esquema v2 do SAC AISA. Fonte: docs/ESQUEMA-BACKEND.md.
+// Datas são datas reais e dinheiro é Decimal. Setor, bancada, marca e canal são tabelas.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  administrador
+  gestor
+  operacao
+  responsavel_setor
+}
+
+enum Situacao {
+  aguardando
+  tratativa
+  resolvida
+}
+
+enum Devolucao {
+  NA
+  AGUARDANDO
+  RECEBIDO
+}
+
+enum OrigemCausa {
+  montagem
+  componente_lote
+  projeto
+  embalagem
+  transporte
+  venda
+}
+
+enum CanalTipo {
+  interno
+  marketplace
+}
+
+enum CapturaStatus {
+  pendente
+  aceito
+  descartado
+}
+
+enum PlanoStatus {
+  aberto
+  em_andamento
+  concluido
+  cancelado
+}
+
+enum PlanoOrigem {
+  kpi
+  manual
+  recorrencia
+}
+
+enum AlertTipo {
+  AGUARDANDO_DIAS
+  TRATATIVA_META
+  CUSTO_ALTO
+  CAUSA_OUTROS
+  RASCUNHO_PENDENTE
+}
+
+enum AlertStatus {
+  aberto
+  enviado
+  resolvido
+  ignorado
+}
+
+enum IaTipo {
+  preenchimento
+  classificacao
+}
+
+enum IaAceite {
+  aceita
+  alterada
+  recusada
+}
+
+// ---------- Cadastros ----------
+
+model Marca {
+  id    String  @id @default(cuid())
+  nome  String  @unique
+  cor   String?
+  logo  String?
+  ativa Boolean @default(true)
+
+  reclamacoes Reclamacao[]
+
+  @@map("marcas")
+}
+
+model Canal {
+  id    String    @id @default(cuid())
+  nome  String    @unique
+  tipo  CanalTipo @default(interno)
+  ativo Boolean   @default(true)
+
+  reclamacoes Reclamacao[]
+  capturas    CapturaCanal[]
+  integracao  IntegracaoCanal?
+
+  @@map("canais")
+}
+
+/// Bancada de montagem de onde o produto saiu (00 a 08, ADMIN, USINAGEM).
+model Bancada {
+  id     String  @id @default(cuid())
+  codigo String  @unique
+  nome   String  @default("")
+  ativa  Boolean @default(true)
+
+  reclamacoes Reclamacao[]
+  planos      PlanoAcao[]
+
+  @@map("bancadas")
+}
+
+/// Setor responsável pela tratativa (Solda, Logística, Embalagem / Expedição...).
+model Setor {
+  id    String  @id @default(cuid())
+  nome  String  @unique
+  ativo Boolean @default(true)
+
+  causas        Causa[]
+  reclamacoes   Reclamacao[]
+  usuarios      UsuarioSetor[]
+  analises      AnaliseSetor[]
+  planos        PlanoAcao[]
+  clickupConfig ClickupConfig?
+  regras        RegraDirecionamento[]
+
+  @@map("setores")
+}
+
+model Produto {
+  id        String   @id @default(cuid())
+  codigo    String   @unique
+  nome      String
+  familia   String   @default("")
+  categoria String   @default("")
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  reclamacoes Reclamacao[]
+  planos      PlanoAcao[]
+
+  @@map("produtos")
+}
+
+model SkuDepara {
+  id         String @id @default(cuid())
+  skuOrigem  String @unique
+  skuDestino String
+
+  @@map("sku_depara")
+}
+
+model Causa {
+  id        String       @id
+  categoria String
+  nome      String
+  origem    OrigemCausa?
+  acao      String       @default("")
+  ordem     Int          @default(0)
+  setorId   String
+
+  setor      Setor                @relation(fields: [setorId], references: [id])
+  principais Reclamacao[]
+  extras     ReclamacaoCausa[]
+  regra      RegraDirecionamento?
+  planos     PlanoAcao[]
+
+  @@index([setorId])
+  @@map("causas")
+}
+
+/// Troca manual do setor ou da ação sugerida de uma causa.
+model RegraDirecionamento {
+  id      String  @id @default(cuid())
+  causaId String  @unique
+  setorId String?
+  acao    String?
+
+  causa Causa  @relation(fields: [causaId], references: [id], onDelete: Cascade)
+  setor Setor? @relation(fields: [setorId], references: [id])
+
+  @@map("regras_direcionamento")
+}
+
+// ---------- Reclamação e tratativa ----------
+
+model Reclamacao {
+  id               String    @id @default(cuid())
+  numero           Int       @unique @default(autoincrement())
+  protocoloExterno String?
+  marcaId          String?
+  canalId          String
+  produtoId        String?
+  bancadaId        String?
+  causaId          String?
+  setorRespId      String?
+  setorRespManual  Boolean   @default(false)
+  causaManual      Boolean   @default(false)
+  situacao         Situacao  @default(tratativa)
+  devolucao        Devolucao @default(NA)
+  dataAbertura     DateTime  @db.Date
+  dataAcao         DateTime? @db.Date
+  dataRecebimento  DateTime? @db.Date
+  descricao        String    @default("")
+  laudo            String    @default("")
+  procedencia      String    @default("")
+  solucao          String    @default("")
+  observacao       String    @default("")
+  garantia         String    @default("")
+  pedido           String    @default("")
+  clienteNome      String    @default("")
+  cidade           String    @default("")
+  uf               String    @default("")
+  transportadora   String    @default("")
+  peca             String    @default("")
+  rascunho         Boolean   @default(false)
+  origemRegistro   String    @default("web")
+  criadoEm         DateTime  @default(now())
+  criadoPorId      String?
+  alteradoEm       DateTime  @updatedAt
+  alteradoPorId    String?
+
+  marca     Marca?   @relation(fields: [marcaId], references: [id])
+  canal     Canal    @relation(fields: [canalId], references: [id])
+  produto   Produto? @relation(fields: [produtoId], references: [id])
+  bancada   Bancada? @relation(fields: [bancadaId], references: [id])
+  causa     Causa?   @relation(fields: [causaId], references: [id])
+  setorResp Setor?   @relation(fields: [setorRespId], references: [id])
+
+  custo    Custo?
+  causas   ReclamacaoCausa[]
+  fotos    ReclamacaoFoto[]
+  analises AnaliseSetor[]
+  alertas  Alerta[]
+  planos   PlanoReclamacao[]
+  captura  CapturaCanal?
+  card     ClickupCard?
+  ia       IaRegistro[]
+
+  @@index([situacao])
+  @@index([dataAbertura])
+  @@index([marcaId])
+  @@index([canalId])
+  @@index([bancadaId])
+  @@index([setorRespId])
+  @@index([causaId])
+  @@index([produtoId])
+  @@map("reclamacoes")
+}
+
+model Custo {
+  reclamacaoId String  @id
+  freteEnvio   Decimal @default(0) @db.Decimal(12, 2)
+  freteRetorno Decimal @default(0) @db.Decimal(12, 2)
+  valorPeca    Decimal @default(0) @db.Decimal(12, 2)
+  estorno      Decimal @default(0) @db.Decimal(12, 2)
+  desconto     Decimal @default(0) @db.Decimal(12, 2)
+  guia         Decimal @default(0) @db.Decimal(12, 2)
+
+  reclamacao Reclamacao @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+
+  @@map("custos")
+}
+
+/// Motivos adicionais além da causa principal. Até 5 por reclamação.
+model ReclamacaoCausa {
+  id           String  @id @default(cuid())
+  reclamacaoId String
+  causaId      String
+  primaria     Boolean @default(false)
+  ordem        Int     @default(0)
+
+  reclamacao Reclamacao @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+  causa      Causa      @relation(fields: [causaId], references: [id])
+
+  @@unique([reclamacaoId, causaId])
+  @@index([causaId])
+  @@map("reclamacao_causas")
+}
+
+model ReclamacaoFoto {
+  id           String   @id @default(cuid())
+  reclamacaoId String
+  nome         String
+  caminho      String
+  miniatura    String?
+  largura      Int?
+  altura       Int?
+  kb           Int?
+  descricaoIa  String?
+  criadoEm     DateTime @default(now())
+  criadoPorId  String?
+
+  reclamacao Reclamacao @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+
+  @@index([reclamacaoId])
+  @@map("reclamacao_fotos")
+}
+
+/// Estágio 1: o setor decide se o produto volta e analisa antes de finalizar.
+model AnaliseSetor {
+  id                   String    @id @default(cuid())
+  reclamacaoId         String
+  setorId              String
+  produtoPrecisaVoltar Boolean   @default(false)
+  produtoRecebidoEm    DateTime? @db.Date
+  conclusao            String    @default("")
+  resultado            String    @default("")
+  analisadoPorId       String?
+  criadoEm             DateTime  @default(now())
+
+  reclamacao Reclamacao @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+  setor      Setor      @relation(fields: [setorId], references: [id])
+
+  @@index([reclamacaoId])
+  @@map("analises_setor")
+}
+
+// ---------- Melhoria (estágio 2) ----------
+
+model PlanoAcao {
+  id             String      @id @default(cuid())
+  titulo         String
+  descricao      String      @default("")
+  produtoId      String?
+  causaId        String?
+  bancadaId      String?
+  setorRespId    String?
+  status         PlanoStatus @default(aberto)
+  prioridade     String      @default("media")
+  responsavel    String      @default("")
+  prazo          DateTime?   @db.Date
+  origem         PlanoOrigem @default(manual)
+  baselineInicio DateTime?   @db.Date
+  baselineFim    DateTime?   @db.Date
+  criadoEm       DateTime    @default(now())
+  criadoPorId    String?
+  alteradoEm     DateTime    @updatedAt
+  alteradoPorId  String?
+
+  produto   Produto? @relation(fields: [produtoId], references: [id])
+  causa     Causa?   @relation(fields: [causaId], references: [id])
+  bancada   Bancada? @relation(fields: [bancadaId], references: [id])
+  setorResp Setor?   @relation(fields: [setorRespId], references: [id])
+
+  reclamacoes PlanoReclamacao[]
+  efeitos     PlanoEfeito[]
+  card        ClickupCard?
+
+  @@index([status])
+  @@index([produtoId])
+  @@map("planos_acao")
+}
+
+model PlanoReclamacao {
+  planoId      String
+  reclamacaoId String
+
+  plano      PlanoAcao  @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  reclamacao Reclamacao @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+
+  @@id([planoId, reclamacaoId])
+  @@map("plano_reclamacoes")
+}
+
+/// Mede se a ocorrência caiu depois da ação.
+model PlanoEfeito {
+  id                String   @id @default(cuid())
+  planoId           String
+  antesInicio       DateTime @db.Date
+  antesFim          DateTime @db.Date
+  depoisInicio      DateTime @db.Date
+  depoisFim         DateTime @db.Date
+  ocorrenciasAntes  Int
+  ocorrenciasDepois Int
+  quedaPercentual   Decimal  @db.Decimal(6, 2)
+  resultado         String   @default("")
+  calculadoEm       DateTime @default(now())
+
+  plano PlanoAcao @relation(fields: [planoId], references: [id], onDelete: Cascade)
+
+  @@index([planoId])
+  @@map("plano_efeitos")
+}
+
+// ---------- Integrações e IA ----------
+
+/// Rascunho vindo de um canal externo antes do registro.
+model CapturaCanal {
+  id             String        @id @default(cuid())
+  canalId        String
+  idExterno      String
+  payload        Json
+  sugestaoIa     Json?
+  status         CapturaStatus @default(pendente)
+  motivoDescarte String?
+  reclamacaoId   String?       @unique
+  capturadoEm    DateTime      @default(now())
+  limiteEm       DateTime?
+
+  canal      Canal       @relation(fields: [canalId], references: [id])
+  reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id])
+
+  @@unique([canalId, idExterno])
+  @@index([status])
+  @@map("capturas_canal")
+}
+
+/// Estado do acesso a cada canal. Os segredos ficam em variável de ambiente.
+model IntegracaoCanal {
+  canalId    String    @id
+  tipoAuth   String    @default("")
+  expiraEm   DateTime?
+  ativa      Boolean   @default(false)
+  ultimoErro String?
+  alteradoEm DateTime  @updatedAt
+
+  canal Canal @relation(fields: [canalId], references: [id], onDelete: Cascade)
+
+  @@map("integracoes_canal")
+}
+
+model ClickupConfig {
+  setorId     String  @id
+  listaId     String
+  listaPadrao Boolean @default(false)
+  mapaStatus  Json?
+
+  setor Setor @relation(fields: [setorId], references: [id], onDelete: Cascade)
+
+  @@map("clickup_config")
+}
+
+model ClickupCard {
+  id             String    @id @default(cuid())
+  reclamacaoId   String?   @unique
+  planoId        String?   @unique
+  taskId         String?   @unique
+  listaId        String?
+  statusExterno  String?
+  sincronizadoEm DateTime?
+  tentativas     Int       @default(0)
+  ultimoErro     String?
+  criadoEm       DateTime  @default(now())
+
+  reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+  plano      PlanoAcao?  @relation(fields: [planoId], references: [id], onDelete: Cascade)
+
+  @@map("clickup_cards")
+}
+
+model ClickupEvento {
+  id           String    @id @default(cuid())
+  taskId       String
+  tipo         String
+  payload      Json
+  recebidoEm   DateTime  @default(now())
+  processadoEm DateTime?
+
+  @@index([taskId])
+  @@map("clickup_eventos")
+}
+
+/// O que a IA sugeriu e se a pessoa aceitou. Alimenta a taxa de aceite.
+model IaRegistro {
+  id           String    @id @default(cuid())
+  reclamacaoId String?
+  capturaId    String?
+  tipo         IaTipo
+  sugestao     Json
+  confianca    Decimal?  @db.Decimal(4, 3)
+  aceite       IaAceite?
+  modelo       String    @default("")
+  criadoEm     DateTime  @default(now())
+
+  reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id], onDelete: SetNull)
+
+  @@index([reclamacaoId])
+  @@map("ia_registros")
+}
+
+// ---------- Acesso e apoio ----------
+
+model Usuario {
+  id          String   @id @default(cuid())
+  login       String   @unique
+  nome        String
+  perfil      Perfil
+  senhaHash   String
+  ativo       Boolean  @default(true)
+  telefone    String?
+  criadoEm    DateTime @default(now())
+  criadoPorId String?
+  alteradoEm  DateTime @updatedAt
+
+  setores    UsuarioSetor[]
+  permissoes PermissaoUsuario[]
+  sessoes    Sessao[]
+
+  @@map("usuarios")
+}
+
+model UsuarioSetor {
+  usuarioId String
+  setorId   String
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  setor   Setor   @relation(fields: [setorId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, setorId])
+  @@map("usuario_setores")
+}
+
+model PermissaoUsuario {
+  id        String  @id @default(cuid())
+  usuarioId String
+  chave     String
+  permitido Boolean
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, chave])
+  @@map("permissoes_usuario")
+}
+
+model Sessao {
+  id        String   @id
+  usuarioId String
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+  @@map("sessoes")
+}
+
+model Auditoria {
+  id           String   @id @default(cuid())
+  quando       DateTime @default(now())
+  usuarioId    String?
+  usuarioNome  String   @default("")
+  acao         String
+  alvo         String   @default("")
+  detalhe      String   @default("")
+  reclamacaoId String?
+  extra        Json?
+
+  @@index([quando])
+  @@index([reclamacaoId])
+  @@map("auditoria")
+}
+
+model Alerta {
+  id           String      @id @default(cuid())
+  tipo         AlertTipo
+  status       AlertStatus @default(aberto)
+  titulo       String
+  mensagem     String
+  reclamacaoId String?
+  chaveDedupe  String      @unique
+  setor        String?
+  enviadoEm    DateTime?
+  resolvidoEm  DateTime?
+  criadoEm     DateTime    @default(now())
+
+  reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id], onDelete: SetNull)
+
+  @@index([status, tipo])
+  @@map("alertas")
+}
+
+model AlertaDestino {
+  id       String  @id @default(cuid())
+  setor    String  @default("")
+  perfil   String  @default("")
+  telefone String
+  nome     String  @default("")
+  ativo    Boolean @default(true)
+
+  @@map("alerta_destinos")
+}
+
+model VendaDia {
+  id         String   @id @default(cuid())
+  sku        String
+  descricao  String   @default("")
+  data       DateTime @db.Date
+  quantidade Int      @default(0)
+
+  @@unique([sku, data])
+  @@index([data])
+  @@map("vendas_dia")
+}
+
+model Config {
+  chave String @id
+  valor String
+
+  @@map("config")
+}
