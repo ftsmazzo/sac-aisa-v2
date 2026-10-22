@@ -101,6 +101,13 @@ export function ConteudoFicha({
           </div>
         </div>
         <div className="ficha__acoes">
+          <Link
+            href={`/reclamacoes/${encodeURIComponent(ficha.id)}/imprimir`}
+            target="_blank"
+            className="botao botao--secundario ficha__fechar"
+          >
+            Imprimir
+          </Link>
           {hrefEditar && (
             <Link
               href={hrefEditar}

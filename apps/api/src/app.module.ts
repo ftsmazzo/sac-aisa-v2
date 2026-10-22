@@ -10,6 +10,7 @@ import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
 import { ControladorImportacao } from "./importacao.controller";
 import { ControladorReclamacoes } from "./reclamacoes.controller";
+import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
 
 @Module({
@@ -20,6 +21,7 @@ import { RepositorioPrisma } from "./repositorio-prisma";
     ControladorReclamacoes,
     ControladorAnalise,
     ControladorFilaAlertas,
+    ControladorRelatorios,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },
