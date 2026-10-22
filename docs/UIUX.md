@@ -6,7 +6,7 @@
 
 **Data**: 21/10/2026
 
-Estado geral: **rascunho**. A identidade das marcas espera as logos. O resto foi aprovado como sugestão ("gostei das sugestões").
+Estado geral: **rascunho**. As logos das marcas já entraram. O resto foi aprovado como sugestão ("gostei das sugestões").
 
 ## 1. Referências e tom
 
@@ -31,7 +31,7 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
 - Proposta: **tema por marca com tokens de cor**. Uma base neutra (cinza e branco) igual para todas, e cada marca troca só a cor de destaque e o cabeçalho. Assim o sistema parece uma coisa só, sem mistura de paletas na mesma tela.
   - Cabeçalho dedicado por marca, com a logo e a cor da marca, e seletor de marca ou "todas" no painel.
   - Cores de estado fixas e independentes da marca: verde resolvido, laranja atenção, vermelho atrasado ou custo alto.
-  - Enquanto as logos não chegam, valem azul `#004fea` (herdado do sistema atual) e um rosa e cinza provisórios, a trocar.
+  - **Logos recebidas** (imagens do cliente, isoladas e redesenhadas com fundo transparente em `public/marcas/`, registradas em `lib/marcas.ts`). Cores oficiais medidas: AISA `#0052f3`, ARTMAQ `#da12b6`, ARAUCA `#161616`. O destaque da interface usa versões ajustadas para contraste em `app/globals.css`, claro e escuro. Se o cliente enviar os arquivos vetoriais, trocam-se os PNG sem mexer no código.
 - Modo escuro opcional.
 
 ### Tipografia

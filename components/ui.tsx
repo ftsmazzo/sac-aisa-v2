@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { MARCAS, type MarcaId } from "@/lib/marcas";
 
 function juntar(...partes: (string | false | undefined)[]) {
   return partes.filter(Boolean).join(" ");
@@ -88,5 +89,30 @@ export function Marca({
         <span className="marca__legenda">{legenda}</span>
       </span>
     </span>
+  );
+}
+
+/** Logo oficial de uma marca (PNG com fundo transparente em `public/marcas`). */
+export function LogoMarca({
+  marca,
+  altura = 40,
+  className,
+}: {
+  marca: MarcaId;
+  altura?: number;
+  className?: string;
+}) {
+  const m = MARCAS.find((x) => x.id === marca);
+  if (!m) return null;
+  return (
+    // biome-ignore lint/performance/noImgElement: logo estática pequena, sem otimização de imagem do Next
+    <img
+      src={m.logo}
+      alt={m.nome}
+      height={altura}
+      width={Math.round((altura * m.largura) / m.altura)}
+      className={juntar("logo-marca", className)}
+      decoding="async"
+    />
   );
 }

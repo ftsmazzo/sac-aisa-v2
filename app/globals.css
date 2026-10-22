@@ -28,9 +28,9 @@
   --cor-info: #1f3f9e;
   --cor-info-fundo: #e7edfc;
 
-  /* Marca padrão (provisória até as logos chegarem) */
-  --marca: #004fea;
-  --marca-forte: #0041c4;
+  /* Marca padrão: AISA. Cores medidas das logos oficiais. */
+  --marca: #0052f3;
+  --marca-forte: #0043c9;
   --marca-texto: #0047d6;
   --marca-suave: #e8effe;
   --marca-sobre: #ffffff;
@@ -46,26 +46,31 @@
   --suave: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/*
+  Cores oficiais medidas das logos: AISA #0052f3, ARTMAQ #da12b6, ARAUCA #161616
+  com contorno prata #a3a3a4. Aqui entram versões ajustadas para o texto branco
+  passar no contraste AA (o magenta exato fica só na logo).
+*/
 :root[data-marca="aisa"] {
-  --marca: #004fea;
-  --marca-forte: #0041c4;
+  --marca: #0052f3;
+  --marca-forte: #0043c9;
   --marca-texto: #0047d6;
   --marca-suave: #e8effe;
   --marca-casca: #0c1f4f;
 }
 :root[data-marca="artmaq"] {
-  --marca: #c2255c;
-  --marca-forte: #a31d4c;
-  --marca-texto: #b21f54;
-  --marca-suave: #fdebf1;
-  --marca-casca: #430d24;
+  --marca: #c10ea2;
+  --marca-forte: #9d0b85;
+  --marca-texto: #a60d8c;
+  --marca-suave: #fcebf8;
+  --marca-casca: #3d0a35;
 }
 :root[data-marca="arauca"] {
-  --marca: #3f4d63;
-  --marca-forte: #313c4e;
-  --marca-texto: #3a475c;
-  --marca-suave: #e9edf3;
-  --marca-casca: #1d2532;
+  --marca: #1d1d20;
+  --marca-forte: #0e0e10;
+  --marca-texto: #2b2b30;
+  --marca-suave: #eeeeef;
+  --marca-casca: #141416;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -95,18 +100,19 @@
     --marca-casca: #0a1636;
   }
   :root[data-marca="artmaq"] {
-    --marca: #d0346c;
-    --marca-forte: #b82a5f;
-    --marca-texto: #ff93b6;
-    --marca-suave: #3a1526;
-    --marca-casca: #2e0c1a;
+    --marca: #c42aa6;
+    --marca-forte: #a8228d;
+    --marca-texto: #f27ad8;
+    --marca-suave: #3a1433;
+    --marca-casca: #26091f;
   }
   :root[data-marca="arauca"] {
-    --marca: #5d7194;
-    --marca-forte: #4e6182;
-    --marca-texto: #aebfdc;
-    --marca-suave: #1e2635;
-    --marca-casca: #141a25;
+    --marca: #c7c7cc;
+    --marca-forte: #b0b0b6;
+    --marca-sobre: #161616;
+    --marca-texto: #d4d4d8;
+    --marca-suave: #25252a;
+    --marca-casca: #121214;
   }
 }
 
@@ -370,6 +376,27 @@ button {
   color: var(--cor-suave);
 }
 
+/* ---------- Logos das marcas ---------- */
+.logo-marca {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  border-radius: 7px;
+}
+.marcas-faixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+.marcas-faixa__titulo {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* ---------- Login ---------- */
 .login {
   min-height: 100dvh;
@@ -452,6 +479,21 @@ button {
   font-size: 0.875rem;
   color: var(--cor-suave);
 }
+.login__painel .marcas-faixa__titulo {
+  color: rgba(255, 255, 255, 0.62);
+}
+.login__painel .logo-marca {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 8px 22px rgba(0, 0, 0, 0.28);
+}
+.login__logos-mobile {
+  padding-top: 20px;
+  border-top: 1px solid var(--cor-borda);
+}
+.login__logos-mobile .marcas-faixa__titulo {
+  color: var(--cor-suave);
+}
 
 @media (min-width: 900px) {
   .login {
@@ -460,7 +502,8 @@ button {
   .login__painel {
     display: flex;
   }
-  .login__mobile-marca {
+  .login__mobile-marca,
+  .login__logos-mobile {
     display: none;
   }
 }
