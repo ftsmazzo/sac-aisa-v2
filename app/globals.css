@@ -1333,3 +1333,96 @@ a.chip:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Cadastro e edição na ficha ---------- */
+.pagina__cab--acao {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pagina__cab-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.pagina__cab--acao .botao {
+  text-decoration: none;
+}
+.ficha__acoes {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+.campo--largo {
+  grid-column: 1 / -1;
+}
+.campo__entrada select,
+.campo__entrada textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--raio-m);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.campo__entrada select {
+  min-height: 46px;
+}
+.campo__entrada textarea {
+  padding: 12px 14px;
+  resize: vertical;
+}
+.campo__entrada select:focus-visible,
+.campo__entrada textarea:focus-visible {
+  outline: none;
+}
+.ficha-form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.ficha-form__grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ficha-form__grupo legend {
+  padding: 0;
+  margin-bottom: 12px;
+}
+.ficha-form__grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+.ficha-form__rodape {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 28px;
+  border-top: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+}
+.ficha-form__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .ficha-form__grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ficha-form__rodape {
+    padding: 12px 16px;
+  }
+}

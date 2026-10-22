@@ -55,7 +55,7 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 |---|---|
 | Usuario | id, login, nome, perfil, ativo, telefone, setorIds, hash de senha |
 | PermissaoUsuario | usuarioId, chave, permitido |
-| Auditoria | quando, usuário, ação, alvo, detalhe, reclamaçãoId, extra |
+| Auditoria | quando, usuário, ação, alvo, detalhe, reclamaçãoId, extra. Cada criação e edição de reclamação grava `reclamacao.criar` ou `reclamacao.editar` na mesma transação do dado, com `extra.mudancas` (campo, de, para). Texto livre (descrição, laudo, solução, observação, cliente, pedido, cidade e afins) entra só como "alterado", sem copiar o conteúdo, por causa da LGPD |
 | Alerta, AlertaDestino | tipo, status, título, mensagem, reclamaçãoId, chave de deduplicação, setor, destino |
 | VendaDia | sku, data, quantidade. Base para taxa de reclamação por venda |
 | Config | chave, valor. Limites de alerta e metas |
@@ -76,10 +76,10 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 | `/health` | GET | Não | Não consulta banco nem devolve dado do negócio |
 | `/auth/login`, `/auth/logout` | POST | Não / Sim | Limite de tentativas; cookie httpOnly |
 | `/reclamacoes` | GET | `reclamacoes.ver` | Filtros `de`, `ate` (abertura), `marca`, `canal`, `setor`, `causa` (principal ou extra), `situacao`, `busca` (número, pedido, cliente, produto, descrição, laudo); `pagina` e `porPagina` (máx. 100). Situação e custo calculados pelo domínio. Escopo por perfil. Valor inválido é 400. Produto e bancada entram depois |
-| `/reclamacoes/filtros` | GET | `reclamacoes.ver` | Marcas, canais, setores e causas para os chips; o responsável de setor recebe só os seus setores |
+| `/reclamacoes/filtros` | GET | `reclamacoes.ver` | Marcas, canais, setores, causas e bancadas para os chips e o formulário; o responsável de setor recebe só os seus setores |
 | `/reclamacoes/:id` | GET | `reclamacoes.ver` | Ficha completa (custos, causas extras, análises, nº de fotos). Fora do escopo do usuário devolve 404, igual a inexistente |
-| `/reclamacoes` | POST | Operação+ | Cria. Define setor responsável pela causa e enfileira o card no ClickUp |
-| `/reclamacoes/:id` | PATCH | Sim | Edição com auditoria (próxima fatia). Troca de setor só por gestor ou administrador |
+| `/reclamacoes` | POST | `reclamacoes.criar` | Cria. Exige `canalId` e `descricao`; `dataAbertura` vale hoje (Brasília) se omitida e não pode ser futura. Causa (pelas palavras do texto) e setor (pela causa, com a regra manual de `RegraDirecionamento`) saem do servidor. `situacao` não é aceita: vem do domínio. Campo desconhecido, tipo errado ou valor fora do limite é 400. Devolve `{ id, numero }`. O card no ClickUp entra na fase 3 |
+| `/reclamacoes/:id` | PATCH | `reclamacoes.editar` | Edição parcial; só os campos enviados mudam. `causaId` escolhido trava a causa (`causaManual`), `null` volta ao cálculo. `setorRespId` exige `reclamacoes.trocar_setor` (gestor e administrador) e marca a troca como manual; `null` volta ao setor da causa. Fora do escopo do usuário é 404. Data de ação com devolução ainda aguardando é 400. Sem mudança real, nada é gravado nem auditado. Devolve `{ id, numero, alterou }` |
 | `/reclamacoes/:id/analise` | POST | Responsável de setor | Registra a decisão de retorno do produto; sem ela não finaliza |
 | `/reclamacoes/:id/fotos` | POST | Sim | Tipo e tamanho conferidos; arquivo no volume, caminho no banco |
 | `/ia/rascunho` | POST | Operação+ | A IA sugere produto, bancada, causa e origem; **nunca grava**. Registra em `IaRegistro` |

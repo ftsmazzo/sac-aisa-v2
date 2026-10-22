@@ -271,6 +271,7 @@ const OPCOES: OpcoesFiltro = {
     { id: "s2", nome: "Solda" },
   ],
   causas: [],
+  bancadas: [],
 };
 
 function repoFalso() {
