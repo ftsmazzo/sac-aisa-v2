@@ -1566,3 +1566,242 @@ a.chip:hover {
   line-height: 1.4;
   text-align: center;
 }
+
+/* ---------- Relatório e folha de impressão ---------- */
+.so-impressao {
+  display: none;
+}
+.relatorio,
+.folha {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-g);
+  background: var(--cor-superficie);
+  box-shadow: var(--sombra);
+}
+.folha {
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto;
+  gap: 16px;
+}
+.relatorio__cab,
+.folha__cab {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--marca);
+}
+.folha__cab {
+  justify-content: space-between;
+}
+.relatorio__titulo {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.relatorio__sub {
+  color: var(--cor-suave);
+  font-size: 0.875rem;
+}
+.relatorio__aviso {
+  padding: 10px 14px;
+  border-radius: var(--raio-m);
+  background: var(--cor-atencao-fundo);
+  color: var(--cor-atencao);
+  font-size: 0.9375rem;
+}
+.relatorio__bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  break-inside: avoid;
+}
+.relatorio__totais {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+.relatorio__totais div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-m);
+}
+.relatorio__totais dt {
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+}
+.relatorio__totais dd {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.relatorio__tabela th,
+.relatorio__tabela td {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.relatorio__tabela th:last-child,
+.relatorio__tabela td:last-child {
+  text-align: left;
+}
+.relatorio__nota {
+  color: var(--cor-suave);
+  font-size: 0.8125rem;
+  max-width: 80ch;
+}
+.folha__marca {
+  font-size: 1.5rem;
+}
+.folha__titulo-bloco {
+  text-align: right;
+}
+.folha__numero {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.folha__protocolo {
+  color: var(--cor-suave);
+  font-size: 0.9375rem;
+}
+.folha__grade {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+.folha__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.folha__campo--largo {
+  grid-column: 1 / -1;
+}
+.folha__campo dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cor-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.folha__campo dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.folha__bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  break-inside: avoid;
+}
+.folha__subtitulo {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--cor-borda);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.folha__texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.folha__analises {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.folha__linha {
+  height: 26px;
+  border-bottom: 1px solid var(--cor-borda-forte);
+}
+.folha__assinatura {
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+.folha__rodape {
+  margin-top: 4px;
+  color: var(--cor-suave);
+  font-size: 0.75rem;
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .relatorio,
+  .folha {
+    padding: 18px;
+  }
+  .folha__grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Impressão: A4, fundo branco, sem menu nem botões, sempre em tema claro. */
+@page {
+  size: A4;
+  margin: 14mm;
+}
+@media print {
+  :root,
+  :root[data-marca] {
+    color-scheme: light;
+    --cor-fundo: #fff;
+    --cor-superficie: #fff;
+    --cor-borda: #d5dbe6;
+    --cor-borda-forte: #9aa6bb;
+    --cor-texto: #111827;
+    --cor-suave: #4b5563;
+    --cor-atencao: #8a4100;
+    --cor-atencao-fundo: #fff0dc;
+  }
+  html,
+  body {
+    background: #fff;
+    color: #111827;
+    font-size: 11pt;
+  }
+  .casca__topo,
+  .sem-impressao {
+    display: none;
+  }
+  .so-impressao {
+    display: block;
+  }
+  .casca__conteudo {
+    max-width: none;
+    padding: 0;
+    gap: 0;
+  }
+  .relatorio,
+  .folha {
+    max-width: none;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+  }
+  .tabela-caixa {
+    overflow: visible;
+  }
+  .relatorio__tabela,
+  .folha__analises li {
+    break-inside: avoid;
+  }
+  .relatorio__totais div {
+    break-inside: avoid;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}

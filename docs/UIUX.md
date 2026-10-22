@@ -63,6 +63,10 @@ O cliente prevê que, com muitas tags, a tela fica impossível de escolher. Deci
 - Cor nunca sozinha: estado sempre com texto ou ícone.
 - Sem requisito legal ou de público específico informado.
 
+### Impressão
+
+A folha da reclamação e o relatório saem em A4 por CSS de impressão (`@media print` e `@page` em `app/globals.css`), sem biblioteca. Na impressão somem o menu, os filtros e os botões (`.sem-impressao`), o fundo vira branco e o tema claro vale mesmo com o sistema no escuro. A folha leva a logo da marca, o protocolo, produto e bancada, causas, descrição, laudo, solução, situação, datas e prazos, a análise do setor e um espaço para o retorno do setor assinar. Dado pessoal fica no mínimo já exibido na ficha: pedido e cidade, sem nome do cliente.
+
 ## 5. Telas principais
 
 | Tela | Jornada relacionada | Estado |
@@ -76,7 +80,8 @@ O cliente prevê que, com muitas tags, a tela fica impossível de escolher. Deci
 | Ficha da reclamação (cadastro e edição) | 1, 3 | rascunho |
 | Fila do setor | 3 | rascunho |
 | Planos de ação e efeito | 4 | rascunho |
-| Relatórios (bancada × ocorrência) | 5 | rascunho |
+| Relatórios (bancada × ocorrência) | 5 | `/relatorios` pronto: filtros, impressão A4 e CSV |
+| Folha de impressão da reclamação | 3 | `/reclamacoes/:id/imprimir` pronto, aberto pelo botão Imprimir da ficha |
 | Integrações (ClickUp e marketplaces) | 2, 3 | rascunho |
 | Cadastros: setores, bancadas, causas, marcas, usuários | todas | rascunho |
 

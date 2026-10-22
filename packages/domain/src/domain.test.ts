@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ALERT_CONFIG_PADRAO,
+  atribuivelABancada,
   avaliarAlertasReclamacao,
   CAUSA_POR_ID,
   CAUSAS,
@@ -217,6 +218,36 @@ describe("permissões e escopo de setor", () => {
     const resp = mesclarPermissoes("responsavel_setor", []);
     expect(temPermissao(resp, "reclamacoes.analisar")).toBe(true);
     expect(temPermissao(resp, "reclamacoes.criar")).toBe(false);
+  });
+
+  it("relatórios: gestor e responsável de setor veem; operação não", () => {
+    expect(
+      temPermissao(mesclarPermissoes("gestor", []), "relatorios.ver"),
+    ).toBe(true);
+    expect(
+      temPermissao(
+        mesclarPermissoes("responsavel_setor", []),
+        "relatorios.ver",
+      ),
+    ).toBe(true);
+    expect(
+      temPermissao(mesclarPermissoes("operacao", []), "relatorios.ver"),
+    ).toBe(false);
+  });
+
+  it("só causa de origem montagem é atribuída à bancada", () => {
+    expect(atribuivelABancada("montagem")).toBe(true);
+    for (const o of [
+      "componente_lote",
+      "projeto",
+      "embalagem",
+      "transporte",
+      "venda",
+      null,
+      undefined,
+    ]) {
+      expect(atribuivelABancada(o)).toBe(false);
+    }
   });
 
   it("responsável de setor só vê o próprio setor", () => {

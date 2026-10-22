@@ -85,6 +85,7 @@ Perfil: Gestor (e dono, em leitura)
 5. O sistema envia alertas pendentes ao gestor (painel e WhatsApp).
 
 Telas: painel, relatórios, detalhe, planos de ação.
+Relatórios (`/relatorios`, permissão `relatorios.ver`): filtro por período, marca, setor e causa; totais, tempo médio por etapa, ocorrências por setor e por produto e bancada × tipo de ocorrência; botões Imprimir (A4) e Baixar CSV. Responsável de setor vê só o próprio setor. A ficha da reclamação tem o botão Imprimir, que abre a folha em A4.
 Exceção: se faltar dado de bancada ou de causa, o painel mostra a reclamação como "sem bancada" ou "a classificar", sem escondê-la.
 
 ## 3. Diagrama
