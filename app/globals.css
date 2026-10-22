@@ -1545,16 +1545,19 @@ a.chip:hover {
   padding: 10px 12px;
   border-radius: var(--raio-p);
   background: var(--cor-superficie);
-  border-left: 4px solid var(--cor-borda-forte);
+  border: 1px solid var(--cor-borda);
 }
-.assistente__passo.is-ok {
-  border-left-color: var(--cor-ok);
+.assistente__passo.is-ok .assistente__estado {
+  color: var(--cor-ok);
 }
 .assistente__passo.is-erro {
-  border-left-color: var(--cor-perigo);
+  border-color: var(--cor-perigo);
 }
-.assistente__passo.is-aviso {
-  border-left-color: var(--cor-atencao);
+.assistente__passo.is-erro .assistente__estado {
+  color: var(--cor-perigo);
+}
+.assistente__passo.is-aviso .assistente__estado {
+  color: var(--cor-atencao);
 }
 .assistente__estado {
   font-size: 0.8125rem;
