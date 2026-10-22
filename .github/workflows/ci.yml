@@ -15,6 +15,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run db:generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
