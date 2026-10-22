@@ -57,6 +57,9 @@ export default async function LayoutProtegido({
                 )}
               </NavLink>
             )}
+            {usuario.permissoes.includes("relatorios.ver") && (
+              <NavLink href="/relatorios">Relatórios</NavLink>
+            )}
             {usuario.permissoes.includes("dados.importar") && (
               <NavLink href="/admin/importacao">Importação</NavLink>
             )}

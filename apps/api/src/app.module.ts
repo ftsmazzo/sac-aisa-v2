@@ -19,6 +19,7 @@ import {
   RepositorioIntegracoesPrisma,
 } from "./integracoes.controller";
 import { ControladorReclamacoes } from "./reclamacoes.controller";
+import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
 import { lerChave } from "./segredos";
 
@@ -32,6 +33,7 @@ import { lerChave } from "./segredos";
     ControladorWebhooks,
     ControladorAnalise,
     ControladorFilaAlertas,
+    ControladorRelatorios,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },

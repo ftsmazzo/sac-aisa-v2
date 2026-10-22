@@ -31,7 +31,10 @@ O produto gera valor quando uma reclamação é registrada, vai ao setor certo, 
 | 3. ClickUp | Card automático ao registrar, mapa setor → lista, webhook de movimentação, sincronização de status com nova tentativa e erro registrado | Alta | Fase 2; token do ClickUp e a lista de espaços e listas por setor |
 | 4. Painel de indicadores | Filtro cruzado, bancada × ocorrência, tempo por setor, setores e produtos com mais reclamação, custo, atrasadas, relatórios | Alta | Fases 2 e 3; KPIs e metas aprovados pelo dono |
 | 5. IA no registro | Jornada guiada, rascunho com produto, bancada, causa e origem, sugestões com confiança, `IaRegistro` e taxa de aceite; falha da IA cai nas regras | Média | Fase 2; chave do OpenRouter |
-| 6. Marketplaces | Primeiro estudo da API de cada canal. Depois Mercado Livre e Shopee: captura, rascunho pré-tratado pela IA, fila de pendentes e alerta de atraso. Magalu fica para depois | Média | Fases 2 e 5; acesso às APIs aprovado |
+| 5a. Triagem por IA | Com os dados que vêm da API do canal (texto, pedido, SKU), a IA aponta o que falta para a reclamação ficar correta e propõe as perguntas, cada uma com botão "Copiar" para o atendente; sugere causa, setor, produto e bancada com a confiança; a pessoa confirma, a IA nunca grava | Alta | Fase 5; chave do OpenRouter |
+| 5b. Conhecimento da empresa (RAG) | Base de conhecimento a partir do histórico importado, laudos, soluções e do modo de responder da empresa; busca por similaridade; resposta sugerida ao cliente em tom humanizado e dentro do padrão da empresa, para a pessoa revisar e copiar; aviso de reclamação repetida; resumo da ficha; resumo semanal ao gestor | Alta | Fase 5a; histórico importado; exemplos de resposta aprovados pela empresa |
+| 5c. Padrões e fotos | Padrões de bancada × ocorrência destacados pela IA (sem culpar quem montou), descrição do defeito pela foto e sugestão do tipo de ocorrência | Média | Fases 4, 5b e fotos |
+| 6. Marketplaces | Primeiro estudo da API de cada canal (levantamento do cliente de 22/10/2026). Depois Mercado Livre e Shopee: captura, rascunho pré-tratado pela IA, dados do comprador preenchidos pela API, fila de pendentes e alerta de atraso. Magalu fica para depois | Média | Fases 2 e 5; acesso às APIs aprovado |
 | 7. Melhoria contínua | Plano de ação ligado às reclamações, card no ClickUp e acompanhamento do efeito (a ocorrência caiu depois da ação?) | Média | Fases 3 e 4 |
 | 8. Virada | Execução em paralelo com o sac-renato, conferência dos números, migração final, congelar o sistema atual e desligá-lo | Alta ao final | Fases 1 a 7 e validação do gestor |
 | Depois | WhatsApp (cliente e gestor), Magalu, PWA instalável, resposta automática de volta ao marketplace | Baixa | A definir com o cliente |
@@ -63,6 +66,15 @@ Fases 3 e 5 podem andar em paralelo depois da 2, assim como o front e o back den
 - **Fase 8:** dois ciclos completos em paralelo sem divergência de números; usuários treinados; o sac-renato fica somente leitura e depois é desligado.
 
 ---
+
+## Regras da IA e dos dados do comprador (decididas em 22/10/2026)
+
+- **Dados do comprador vindos da API.** Nome, e-mail e telefone que o canal entregar entram no registro da reclamação, preenchidos pela captura, para reduzir erro de digitação. O que o canal mascarar (a Shopee mascara o e-mail) fica mascarado, e o sistema não tenta reconstituir. Acesso a esses campos segue o perfil, e a retenção segue a decisão de LGPD pendente.
+- **Esses dados não vão para o modelo.** O prompt recebe texto da reclamação, SKU, produto e histórico; nome, e-mail e telefone ficam de fora. Na resposta sugerida ao cliente, o nome entra por troca de campo depois da IA, no servidor.
+- **A IA propõe, a pessoa decide.** Nenhuma sugestão grava estoque, situação, causa ou resposta sozinha. Falha ou ausência da IA cai nas regras e no formulário normal.
+- **Segredos.** Chave do OpenRouter e credenciais de ferramentas entram por variável de ambiente ou pela tela de integrações do administrador (criptografadas, com `INTEGRACOES_CHAVE` no ambiente); nunca no Git, em log ou em resposta da API.
+- **Conhecimento da empresa.** A base do RAG usa só texto aprovado pela empresa (histórico, laudos, soluções, exemplos de resposta), sem dado pessoal do comprador, e cada sugestão mostra de quais casos ela veio.
+- **Custo.** Cada chamada grava em `IaRegistro` (modelo, tokens, custo e aceite), com limite diário configurável.
 
 ## Riscos do plano
 
