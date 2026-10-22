@@ -9,12 +9,15 @@ import {
 import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
+import { ServicoAssistenteClickup } from "./clickup-assistente";
 import { ControladorImportacao } from "./importacao.controller";
 import { ServicoIntegracoes } from "./integracoes";
 import {
+  ControladorAssistenteClickup,
   ControladorIntegracoes,
   ControladorWebhooks,
   FilaClickup,
+  RepositorioAssistentePrisma,
   RepositorioClickupPrisma,
   RepositorioIntegracoesPrisma,
 } from "./integracoes.controller";
@@ -33,6 +36,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorReclamacoes,
     ControladorJornada,
     ControladorIntegracoes,
+    ControladorAssistenteClickup,
     ControladorUsuarios,
     ControladorWebhooks,
     ControladorAnalise,
@@ -70,6 +74,16 @@ import { ControladorUsuarios } from "./usuarios.controller";
           (reclamacaoId) => clickup.sincronizarEstado(reclamacaoId),
         ),
       inject: [PrismaClient, ServicoIntegracoes, ServicoClickup],
+    },
+    {
+      provide: ServicoAssistenteClickup,
+      useFactory: (prisma: PrismaClient, integr: ServicoIntegracoes) =>
+        new ServicoAssistenteClickup(
+          integr,
+          new RepositorioIntegracoesPrisma(prisma),
+          new RepositorioAssistentePrisma(prisma),
+        ),
+      inject: [PrismaClient, ServicoIntegracoes],
     },
     FilaClickup,
     {

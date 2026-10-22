@@ -27,8 +27,27 @@ export interface Integracao {
     /** Status do ClickUp que cada estado usa hoje. */
     mapaEstados: Record<Estado, string>;
     padraoEstados: Record<Estado, string>;
+    assistente: {
+      workspaceId: string;
+      spaceId: string;
+      webhookAtivo: boolean;
+    };
   };
 }
+
+export interface PassoAssistente {
+  id: string;
+  rotulo: string;
+  estado: "ok" | "erro" | "aviso" | "pulado";
+  mensagem: string;
+}
+
+export const ROTULO_PASSO: Record<PassoAssistente["estado"], string> = {
+  ok: "ok",
+  erro: "erro",
+  aviso: "atenção",
+  pulado: "não rodou",
+};
 
 export interface PainelIntegracoes {
   gravacaoLiberada: boolean;

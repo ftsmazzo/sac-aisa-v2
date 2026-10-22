@@ -42,6 +42,7 @@ const CLICKUP: Integracao = {
     },
   ],
   clickup: {
+    assistente: { workspaceId: "", spaceId: "", webhookAtivo: false },
     setores: [{ id: "s1", nome: "Solda", listaId: "111" }],
     mapaEstados: {
       triagem: "triagem",
