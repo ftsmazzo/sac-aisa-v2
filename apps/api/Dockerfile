@@ -29,6 +29,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/packages/importacao/dados ./dados
 COPY apps/api/entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' entrypoint.sh \
   && chmod +x entrypoint.sh \
