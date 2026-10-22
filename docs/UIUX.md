@@ -55,6 +55,13 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
 - **Conversa guiada da IA.** Para registrar, a pessoa conversa e a IA preenche a ficha ao lado, campo a campo, com destaque no que foi sugerido.
 - **Mapa de calor bancada × ocorrência**, barras por setor, tempo de resposta e linha do tempo da reclamação.
 
+### Triagem enxuta e jornada na ficha
+
+- **Cadastro e edição** (`Nova reclamação`, `Editar triagem`) têm quatro grupos curtos: Entrada, Consumidor, O caso e, só para quem troca setor, Encaminhamento (setor e motivo). Não há campo de causa, devolução, laudo, solução nem custo.
+- **Aba "Ficha"**: abre com a **Jornada da reclamação** (seis etapas: entrada, triagem, encaminhamento, análise do setor, produto, resolução; cada uma feita, agora, a fazer ou dispensada; mais o "próximo passo") e a linha do tempo com autor e data. Abaixo vêm Triagem, Encaminhamento (setor e causa, dizendo se vieram da regra ou de troca manual) e Setor responsável.
+- **Aba "Análise e solução"**: a análise (o produto volta?) e, na mesma rolagem, a solução e o encerramento (causa final, procedência, garantia, peça, data de ação, laudo, solução e o custo recolhido).
+- Estados nunca só por cor: cada etapa tem texto (feita, agora, a fazer, dispensada).
+
 ### Como preencher sem 200 tags
 
 O cliente prevê que, com muitas tags, a tela fica impossível de escolher. Decisão proposta para a ficha:

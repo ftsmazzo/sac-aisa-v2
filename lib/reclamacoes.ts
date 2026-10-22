@@ -42,6 +42,8 @@ export interface Ficha extends ItemLista {
   transportadora: string;
   peca: string;
   setorRespManual: boolean;
+  /** Setor que a causa atual indica; pode diferir do responsável se alguém o trocou. */
+  setorSugerido: { id: string; nome: string } | null;
   causaManual: boolean;
   rascunho: boolean;
   origemRegistro: string;
@@ -67,6 +69,37 @@ export interface Ficha extends ItemLista {
     criadoEm: string;
   }[];
   fotos: number;
+}
+
+export interface EventoLinha {
+  id: string;
+  tipo:
+    | "entrada"
+    | "triagem"
+    | "encaminhamento"
+    | "causa"
+    | "analise"
+    | "recebimento"
+    | "solucao"
+    | "resolucao";
+  quando: string;
+  data: string | null;
+  titulo: string;
+  detalhe: string;
+  autor: string | null;
+}
+
+export interface EtapaJornada {
+  chave: string;
+  rotulo: string;
+  estado: "feita" | "atual" | "pendente" | "dispensada";
+}
+
+/** A jornada da reclamação: etapas, o passo seguinte e os eventos, do mais antigo ao mais novo. */
+export interface LinhaDoTempo {
+  eventos: EventoLinha[];
+  etapas: EtapaJornada[];
+  proximo: string | null;
 }
 
 export interface OpcoesFiltro {

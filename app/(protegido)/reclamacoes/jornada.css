@@ -1,0 +1,157 @@
+/* Jornada da reclamação: etapas e linha do tempo na ficha. Usa só os tokens do sistema. */
+.jornada {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.jornada__etapas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jornada__etapa {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+  overflow-wrap: anywhere;
+}
+.jornada__etapa::before {
+  content: "";
+  height: 6px;
+  border-radius: 3px;
+  background: var(--cor-borda);
+}
+.jornada__etapa[data-estado="feita"]::before {
+  background: var(--cor-ok);
+}
+.jornada__etapa[data-estado="atual"]::before {
+  background: var(--marca);
+}
+.jornada__etapa[data-estado="dispensada"]::before {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--cor-borda-forte) 0 4px,
+    transparent 4px 8px
+  );
+}
+.jornada__etapa[data-estado="atual"] {
+  color: var(--marca-texto);
+  font-weight: 700;
+}
+.jornada__etapa[data-estado="feita"] {
+  color: var(--cor-texto);
+}
+.jornada__estado {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--cor-suave);
+}
+.jornada__proximo {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--raio-p);
+  background: var(--marca-suave);
+  color: var(--cor-texto);
+  font-size: 0.9375rem;
+}
+.jornada__proximo strong {
+  color: var(--marca-texto);
+}
+.linha {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.linha__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 0 12px;
+  padding-bottom: 16px;
+}
+.linha__item:last-child {
+  padding-bottom: 0;
+}
+.linha__item::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: -2px;
+  left: 10px;
+  width: 2px;
+  background: var(--cor-borda);
+}
+.linha__item:last-child::before {
+  display: none;
+}
+.linha__marca {
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 3px solid var(--marca);
+  background: var(--cor-superficie);
+}
+.linha__item[data-tipo="encaminhamento"] .linha__marca,
+.linha__item[data-tipo="causa"] .linha__marca {
+  border-color: var(--cor-atencao);
+}
+.linha__item[data-tipo="resolucao"] .linha__marca {
+  border-color: var(--cor-ok);
+  background: var(--cor-ok);
+}
+.linha__item[data-tipo="entrada"] .linha__marca {
+  border-color: var(--cor-borda-forte);
+}
+.linha__titulo {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.linha__meta {
+  font-size: 0.8125rem;
+  color: var(--cor-suave);
+  font-variant-numeric: tabular-nums;
+}
+.linha__detalhe {
+  margin: 2px 0 0;
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+.ficha__custos-form summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px 0;
+}
+.ficha__custos-form[open] summary {
+  margin-bottom: 10px;
+}
+.ficha-form--secao {
+  flex: none;
+  border-top: 1px solid var(--cor-borda);
+}
+.ficha__corpo--secao {
+  flex: none;
+  overflow: visible;
+  padding-bottom: 24px;
+}
+.ficha__rolagem {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.ficha__rolagem .ficha-form,
+.ficha__rolagem .ficha__corpo {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}

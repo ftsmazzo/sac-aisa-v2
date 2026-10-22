@@ -17,6 +17,11 @@ import type { Situacao } from "@sac-aisa/domain";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
 import { ServicoClickup } from "./clickup";
 import {
+  type DadosDaLinha,
+  type RepositorioLinha,
+  ServicoLinhaDoTempo,
+} from "./linha-do-tempo";
+import {
   type Escopo,
   lerConsulta,
   type OpcoesFiltro,
@@ -45,6 +50,15 @@ const LISTA = {
 
 const FICHA = {
   ...LISTA,
+  causa: {
+    select: {
+      id: true,
+      nome: true,
+      categoria: true,
+      setor: { select: { id: true, nome: true } },
+      regra: { select: { setor: { select: { id: true, nome: true } } } },
+    },
+  },
   bancada: { select: { id: true, codigo: true, nome: true } },
   causas: {
     orderBy: { ordem: "asc" },
@@ -324,6 +338,71 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
   }
 }
 
+const ACOES_DA_LINHA = [
+  "reclamacao.criar",
+  "reclamacao.editar",
+  "analise.criar",
+  "analise.editar",
+];
+
+/** Lê a reclamação, a auditoria dela e os nomes de setor e causa para escrever a linha do tempo. */
+export class RepositorioLinhaPrisma implements RepositorioLinha {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async obter(
+    where: Prisma.ReclamacaoWhereInput,
+  ): Promise<DadosDaLinha | null> {
+    const r = await this.prisma.reclamacao.findFirst({
+      where,
+      select: {
+        id: true,
+        dataAbertura: true,
+        dataAcao: true,
+        dataRecebimento: true,
+        devolucao: true,
+        setorRespId: true,
+        canal: { select: { nome: true } },
+        setorResp: { select: { nome: true } },
+        analises: { select: { setorId: true } },
+      },
+    });
+    if (!r) return null;
+    const [auditorias, setores, causas] = await Promise.all([
+      this.prisma.auditoria.findMany({
+        where: { reclamacaoId: r.id, acao: { in: ACOES_DA_LINHA } },
+        orderBy: { quando: "asc" },
+        select: {
+          id: true,
+          quando: true,
+          usuarioNome: true,
+          acao: true,
+          extra: true,
+        },
+      }),
+      this.prisma.setor.findMany({ select: { id: true, nome: true } }),
+      this.prisma.causa.findMany({ select: { id: true, nome: true } }),
+    ]);
+    const nomes = (l: { id: string; nome: string }[]) =>
+      Object.fromEntries(l.map((x) => [x.id, x.nome]));
+    return {
+      id: r.id,
+      dataAbertura: ISO(r.dataAbertura) as string,
+      canalNome: r.canal.nome,
+      devolucao: r.devolucao,
+      dataRecebimento: ISO(r.dataRecebimento),
+      dataAcao: ISO(r.dataAcao),
+      setorRespId: r.setorRespId,
+      setorRespNome: r.setorResp?.nome ?? null,
+      analiseDoSetor:
+        r.setorRespId !== null &&
+        r.analises.some((a) => a.setorId === r.setorRespId),
+      auditorias,
+      setores: nomes(setores),
+      causas: nomes(causas),
+    };
+  }
+}
+
 function usuarioDe(req: PedidoComUsuario) {
   if (!req.usuario) throw new BadRequestException("Sessão ausente.");
   return req.usuario;
@@ -342,6 +421,7 @@ function escopoDe(req: PedidoComUsuario): Escopo {
 export class ControladorReclamacoes {
   private readonly servico: ServicoReclamacoes;
   private readonly escrita: ServicoEscrita;
+  private readonly linha: ServicoLinhaDoTempo;
 
   constructor(
     @Inject(PrismaClient) prisma: PrismaClient,
@@ -351,6 +431,7 @@ export class ControladorReclamacoes {
       new RepositorioReclamacoesPrisma(prisma),
     );
     this.escrita = new ServicoEscrita(new RepositorioEscritaPrisma(prisma));
+    this.linha = new ServicoLinhaDoTempo(new RepositorioLinhaPrisma(prisma));
   }
 
   @Requer("reclamacoes.ver")
@@ -380,6 +461,18 @@ export class ControladorReclamacoes {
     const ficha = await this.servico.obter(id, escopoDe(req));
     if (!ficha) throw new NotFoundException("Reclamação não encontrada.");
     return ficha;
+  }
+
+  /** A jornada da reclamação, da entrada à resolução. Mesmo escopo da ficha. */
+  @Requer("reclamacoes.ver")
+  @Get(":id/linha-do-tempo")
+  async linhaDoTempo(@Param("id") id: string, @Req() req: PedidoComUsuario) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+      throw new NotFoundException("Reclamação não encontrada.");
+    }
+    const r = await this.linha.obter(id, escopoDe(req));
+    if (!r) throw new NotFoundException("Reclamação não encontrada.");
+    return r;
   }
 
   @Requer("reclamacoes.criar")

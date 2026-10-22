@@ -10,6 +10,7 @@ import {
   ROTULO_SITUACAO,
   tomDaSituacao,
 } from "@/lib/reclamacoes-formato";
+import { JornadaDaFicha } from "./linha-do-tempo";
 
 function Campo({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   return (
@@ -39,7 +40,7 @@ const CUSTOS: [keyof Ficha["custos"], string][] = [
   ["guia", "Guia"],
 ];
 
-/** Abas da ficha: os dados da reclamação e a análise do setor. */
+/** Abas da ficha: a triagem com a jornada e o trabalho do setor (análise e solução). */
 export function AbasFicha({
   atual,
   hrefFicha,
@@ -63,7 +64,7 @@ export function AbasFicha({
         scroll={false}
         aria-current={atual === "analise" ? "page" : undefined}
       >
-        Análise do setor
+        Análise e solução
       </Link>
     </nav>
   );
@@ -137,9 +138,11 @@ export function ConteudoFicha({
       )}
 
       <div className="ficha__corpo">
+        <JornadaDaFicha id={ficha.id} />
+
+        <h3 className="ficha__subtitulo">Triagem</h3>
         <dl className="ficha__grade">
           <Campo rotulo="Abertura">{data(ficha.dataAbertura)}</Campo>
-          <Campo rotulo="Data de ação">{data(ficha.dataAcao)}</Campo>
           <Campo rotulo="Marca">
             {ficha.marca && (
               <MarcaDoCadastro nome={ficha.marca.nome} altura={24} />
@@ -156,18 +159,6 @@ export function ConteudoFicha({
               ? `${ficha.bancada.codigo}${ficha.bancada.nome ? ` · ${ficha.bancada.nome}` : ""}`
               : ""}
           </Campo>
-          <Campo rotulo="Causa">
-            {ficha.causa?.nome}
-            {ficha.causa && ficha.causaManual && " (definida à mão)"}
-          </Campo>
-          <Campo rotulo="Setor responsável">
-            {ficha.setorResp?.nome}
-            {ficha.setorResp && ficha.setorRespManual && " (trocado à mão)"}
-          </Campo>
-          <Campo rotulo="Devolução">{ROTULO_DEVOLUCAO[ficha.devolucao]}</Campo>
-          <Campo rotulo="Produto recebido em">
-            {data(ficha.dataRecebimento)}
-          </Campo>
           <Campo rotulo="Pedido">{ficha.pedido}</Campo>
           <Campo rotulo="Protocolo externo">{ficha.protocoloExterno}</Campo>
           <Campo rotulo="Cliente">{ficha.clienteNome}</Campo>
@@ -175,6 +166,46 @@ export function ConteudoFicha({
             {[ficha.cidade, ficha.uf].filter(Boolean).join(" / ")}
           </Campo>
           <Campo rotulo="Transportadora">{ficha.transportadora}</Campo>
+        </dl>
+
+        <Texto rotulo="O que aconteceu" valor={ficha.descricao} />
+        <Texto rotulo="Observação da triagem" valor={ficha.observacao} />
+
+        <section className="ficha__bloco">
+          <h3 className="ficha__subtitulo">Encaminhamento</h3>
+          <dl className="ficha__grade">
+            <Campo rotulo="Setor responsável">
+              {ficha.setorResp?.nome}
+              {ficha.setorResp &&
+                (ficha.setorRespManual
+                  ? " (trocado à mão)"
+                  : " (sugerido pela regra)")}
+            </Campo>
+            <Campo rotulo="Causa">
+              {ficha.causa?.nome}
+              {ficha.causa &&
+                (ficha.causaManual
+                  ? " (definida pelo setor)"
+                  : " (sugerida pelo texto)")}
+            </Campo>
+          </dl>
+          {ficha.setorResp &&
+            ficha.setorSugerido &&
+            ficha.setorSugerido.id !== ficha.setorResp.id && (
+              <p className="pagina__apoio">
+                A causa indica o setor {ficha.setorSugerido.nome}; a reclamação
+                segue com {ficha.setorResp.nome}.
+              </p>
+            )}
+        </section>
+
+        <h3 className="ficha__subtitulo">Setor responsável</h3>
+        <dl className="ficha__grade">
+          <Campo rotulo="Devolução">{ROTULO_DEVOLUCAO[ficha.devolucao]}</Campo>
+          <Campo rotulo="Produto recebido em">
+            {data(ficha.dataRecebimento)}
+          </Campo>
+          <Campo rotulo="Data de ação">{data(ficha.dataAcao)}</Campo>
           <Campo rotulo="Peça">{ficha.peca}</Campo>
           <Campo rotulo="Garantia">{ficha.garantia}</Campo>
           <Campo rotulo="Procedência">{ficha.procedencia}</Campo>
@@ -193,10 +224,8 @@ export function ConteudoFicha({
           </section>
         )}
 
-        <Texto rotulo="O que aconteceu" valor={ficha.descricao} />
         <Texto rotulo="Laudo" valor={ficha.laudo} />
         <Texto rotulo="Solução" valor={ficha.solucao} />
-        <Texto rotulo="Observação" valor={ficha.observacao} />
 
         <section className="ficha__bloco">
           <h3 className="ficha__subtitulo">Custo</h3>

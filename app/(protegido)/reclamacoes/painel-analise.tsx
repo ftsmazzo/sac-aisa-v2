@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { Selo } from "@/components/ui";
 import { valoresDaAnalise } from "@/lib/analise-form";
-import type { Ficha } from "@/lib/reclamacoes";
+import { buscarNaApi, type Ficha, type OpcoesFiltro } from "@/lib/reclamacoes";
 import {
   data,
   ROTULO_SITUACAO,
   tomDaSituacao,
 } from "@/lib/reclamacoes-formato";
+import { valoresDaSolucao } from "@/lib/solucao-form";
 import { FormularioAnalise } from "./analise";
 import { AbasFicha } from "./ficha";
+import { FormularioSolucao } from "./solucao";
 
 function ResumoAnalise({ a }: { a: Ficha["analises"][number] }) {
   return (
@@ -25,8 +27,11 @@ function ResumoAnalise({ a }: { a: Ficha["analises"][number] }) {
   );
 }
 
-/** Aba de análise da ficha: o formulário do setor atual e, abaixo, o histórico de outros setores. */
-export function PainelAnalise({
+/**
+ * Aba do setor responsável: a análise (o produto volta?), a solução e o encerramento e,
+ * abaixo, o histórico de outros setores.
+ */
+export async function PainelAnalise({
   ficha,
   fechar,
   hrefFicha,
@@ -43,6 +48,10 @@ export function PainelAnalise({
   const doSetor = setor ? ficha.analises.find((a) => a.setor === setor) : null;
   const outras = ficha.analises.filter((a) => a !== doSetor);
   const resolvida = ficha.situacao === "resolvida";
+  const opcoes =
+    podeAnalisar && setor
+      ? await buscarNaApi<OpcoesFiltro>("/reclamacoes/filtros")
+      : null;
 
   return (
     <>
@@ -76,49 +85,65 @@ export function PainelAnalise({
         hrefAnalise={hrefAnalise}
       />
 
-      {!podeAnalisar ? (
-        <div className="ficha__corpo">
-          <p className="pagina__apoio">
-            Seu perfil não registra análise do setor.
-          </p>
-        </div>
-      ) : !setor ? (
-        <div className="ficha__corpo">
-          <p className="pagina__apoio">
-            A reclamação ainda não tem setor responsável. Defina a causa ou
-            troque o setor na edição da ficha.
-          </p>
-        </div>
-      ) : resolvida ? (
-        <div className="ficha__corpo">
-          <p className="pagina__apoio">
-            A reclamação já foi resolvida; a análise não pode mais ser alterada.
-          </p>
-          {doSetor && <ResumoAnalise a={doSetor} />}
-        </div>
-      ) : (
-        <FormularioAnalise
-          key={doSetor?.id ?? "nova"}
-          reclamacaoId={ficha.id}
-          analiseId={doSetor?.id ?? null}
-          setorNome={setor}
-          inicial={valoresDaAnalise(doSetor)}
-          depois={hrefAnalise}
-        />
-      )}
+      <div className="ficha__rolagem">
+        {!podeAnalisar ? (
+          <div className="ficha__corpo">
+            <p className="pagina__apoio">
+              Seu perfil não registra análise do setor.
+            </p>
+          </div>
+        ) : !setor ? (
+          <div className="ficha__corpo">
+            <p className="pagina__apoio">
+              A reclamação ainda não tem setor responsável. Defina a causa ou
+              troque o setor na triagem (Editar).
+            </p>
+          </div>
+        ) : resolvida ? (
+          <div className="ficha__corpo">
+            <p className="pagina__apoio">
+              A reclamação já foi resolvida; a análise não pode mais ser
+              alterada.
+            </p>
+            {doSetor && <ResumoAnalise a={doSetor} />}
+          </div>
+        ) : (
+          <FormularioAnalise
+            key={doSetor?.id ?? "nova"}
+            reclamacaoId={ficha.id}
+            analiseId={doSetor?.id ?? null}
+            setorNome={setor}
+            inicial={valoresDaAnalise(doSetor)}
+            depois={hrefAnalise}
+          />
+        )}
 
-      {outras.length > 0 && (
-        <section className="ficha__bloco ficha__bloco--rodape">
-          <h3 className="ficha__subtitulo">Análises de outros setores</h3>
-          <ul className="ficha__analises">
-            {outras.map((a) => (
-              <li key={a.id}>
-                <ResumoAnalise a={a} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+        {podeAnalisar && setor && opcoes?.ok && (
+          <FormularioSolucao
+            key={`${ficha.id}-${ficha.alteradoEm}`}
+            id={ficha.id}
+            setorNome={setor}
+            causaSugerida={ficha.causa?.nome ?? null}
+            causaManual={ficha.causaManual}
+            causas={opcoes.dados.causas}
+            inicial={valoresDaSolucao(ficha)}
+            depois={hrefAnalise}
+          />
+        )}
+
+        {outras.length > 0 && (
+          <section className="ficha__bloco ficha__bloco--rodape">
+            <h3 className="ficha__subtitulo">Análises de outros setores</h3>
+            <ul className="ficha__analises">
+              {outras.map((a) => (
+                <li key={a.id}>
+                  <ResumoAnalise a={a} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
     </>
   );
 }
