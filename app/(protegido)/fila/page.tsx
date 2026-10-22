@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Selo } from "@/components/ui";
 import { type RespostaFila, ROTULO_ALERTA } from "@/lib/fila-alertas";
+import { consultaDeMarca } from "@/lib/marca-escolhida";
+import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { data, moeda, ROTULO_DEVOLUCAO } from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
@@ -23,7 +25,10 @@ export default async function Fila() {
     );
   }
 
-  const fila = await buscarNaApi<RespostaFila>("/fila");
+  const marca = await marcaAtiva();
+  const fila = await buscarNaApi<RespostaFila>(
+    `/fila${consultaDeMarca(marca.idNoCadastro)}`,
+  );
   if (!fila.ok && fila.status === 401) redirect("/login");
 
   return (

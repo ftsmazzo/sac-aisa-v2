@@ -1,3 +1,5 @@
+import { comMarcaPadrao } from "@/lib/marca-escolhida";
+import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi, type OpcoesFiltro } from "@/lib/reclamacoes";
 import { data } from "@/lib/reclamacoes-formato";
 import {
@@ -22,9 +24,11 @@ export async function GET(req: Request) {
     return new Response("Sem acesso aos relatórios.", { status: 403 });
   }
 
-  const filtros = lerFiltrosUrl(
-    Object.fromEntries(new URL(req.url).searchParams),
-  );
+  const marcaEscolhida = await marcaAtiva();
+  const filtros = comMarcaPadrao(
+    lerFiltrosUrl(Object.fromEntries(new URL(req.url).searchParams)),
+    marcaEscolhida.idNoCadastro,
+  ) as ReturnType<typeof lerFiltrosUrl>;
   const [relatorio, opcoes] = await Promise.all([
     buscarNaApi<RelatorioApi>(`/relatorios?${consultaRelatorio(filtros)}`),
     buscarNaApi<OpcoesFiltro>("/reclamacoes/filtros"),

@@ -34,6 +34,15 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
   - **Logos recebidas** (imagens do cliente, isoladas e redesenhadas com fundo transparente em `public/marcas/`, registradas em `lib/marcas.ts`). Cores oficiais medidas: AISA `#0052f3`, ARTMAQ `#da12b6`, ARAUCA `#161616`. O destaque da interface usa versões ajustadas para contraste em `app/globals.css`, claro e escuro. Se o cliente enviar os arquivos vetoriais, trocam-se os PNG sem mexer no código.
 - Modo escuro opcional.
 
+#### Identidade por marca no sistema logado
+
+- **Seletor no cabeçalho**: Todas, AISA, ARTMAQ e ARAUCA, só com as marcas que o perfil enxerga no cadastro (`/reclamacoes/filtros`). É um grupo de botões com `aria-pressed`, navegável por Tab, com foco visível (contorno branco do cabeçalho).
+- **Cookie `marca`** (`aisa`, `artmaq`, `arauca` ou `todas`): preferência de tela, não sensível, por isso sem `httpOnly` (o seletor a grava no navegador). O `app/layout.tsx` a lê no servidor e já devolve o `<html data-marca>` certo, sem piscar. Valor desconhecido ou marca que o perfil não enxerga vira "todas". "Todas" usa o tema padrão AISA e o símbolo neutro no cabeçalho; com uma marca escolhida, o cabeçalho mostra a logo dela.
+- **Filtro padrão**: a marca escolhida filtra por padrão `/reclamacoes`, a fila, os alertas (e o número do menu). A API de fila e alertas aceita `?marca=<id>` (parametrizado no Prisma, id inválido é recusado). Na lista, a marca na URL manda sobre o padrão e `marca=todas` tira o padrão só naquela consulta. Trocar a marca no seletor limpa o `marca` da URL.
+- **Logo no lugar do texto**: cada linha da lista e a ficha lateral mostram a logo pequena (altura 20 na linha, 24 na ficha) com `alt` igual ao nome. Marca sem logo (ex.: WORK) continua em texto.
+- **Contraste**: no cabeçalho, texto claro sobre `--marca-casca` e item ativo em branco com texto na cor da casca (acima de 12:1 nas três marcas, claro e escuro). Os tokens de cor não mudaram.
+- **Folha impressa e relatórios**: a folha A4 da reclamação usa a logo da marca da reclamação (`marcaVisual`, por nome sem acento). `/relatorios` e o CSV usam a marca escolhida como padrão quando a URL não traz `marca`; "Todos" no filtro envia `marca=todas`.
+
 ### Tipografia
 
 - Figtree (trocou o Inter no refino visual). Amigável, com números tabulares para tabelas, indicadores e gráficos.
