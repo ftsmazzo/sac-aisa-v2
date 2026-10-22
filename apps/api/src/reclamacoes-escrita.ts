@@ -702,7 +702,12 @@ export class ServicoEscrita {
     id: string,
     entrada: EntradaEscrita,
     usuario: UsuarioLogado,
-  ): Promise<{ id: string; numero: number; alterou: boolean }> {
+  ): Promise<{
+    id: string;
+    numero: number;
+    alterou: boolean;
+    devolucaoRecebida: boolean;
+  }> {
     exigir(usuario, "reclamacoes.editar");
     const escopo: Escopo = {
       perfil: usuario.perfil,
@@ -724,7 +729,12 @@ export class ServicoEscrita {
     );
     const mudancas = compararEstados(atual.estado, estado);
     if (mudancas.length === 0) {
-      return { id: atual.id, numero: atual.numero, alterou: false };
+      return {
+        id: atual.id,
+        numero: atual.numero,
+        alterou: false,
+        devolucaoRecebida: false,
+      };
     }
     await this.repo.atualizar({
       id: atual.id,
@@ -750,6 +760,13 @@ export class ServicoEscrita {
         extra: extraAuditoria(mudancas, entrada),
       },
     });
-    return { id: atual.id, numero: atual.numero, alterou: true };
+    return {
+      id: atual.id,
+      numero: atual.numero,
+      alterou: true,
+      devolucaoRecebida:
+        atual.estado.devolucao !== "RECEBIDO" &&
+        estado.devolucao === "RECEBIDO",
+    };
   }
 }

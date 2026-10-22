@@ -69,7 +69,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
           new RepositorioClickupPrisma(prisma),
           integr,
           () => new Date(),
-          (reclamacaoId) => clickup.sincronizarEstado(reclamacaoId),
+          (reclamacaoId) => clickup.reclamacaoMudou(reclamacaoId),
         ),
       inject: [PrismaClient, ServicoIntegracoes, ServicoClickup],
     },

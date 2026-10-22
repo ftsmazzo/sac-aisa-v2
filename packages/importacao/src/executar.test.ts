@@ -117,7 +117,7 @@ describe("execução contra o banco", () => {
           "..",
           "prisma",
           "migrations",
-          "20261024000000_jornada",
+          "20261025000000_jornada",
           "migration.sql",
         ),
         "utf8",

@@ -18,7 +18,11 @@ import {
   type Perfil,
 } from "@sac-aisa/domain";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { type RepositorioClickup, ServicoClickup } from "./clickup";
+import {
+  type DadosCard,
+  type RepositorioClickup,
+  ServicoClickup,
+} from "./clickup";
 import {
   type LinhaAberta,
   type RepositorioFila,
@@ -98,8 +102,9 @@ async function prepararBanco() {
   for (const m of [
     "20261022000000_base_v2",
     "20261023000000_integracoes",
-    "20261024000000_jornada",
-    "20261025000000_treino",
+    "20261024000000_clickup_sincronizacao",
+    "20261025000000_jornada",
+    "20261026000000_treino",
   ]) {
     await db.exec(migracao(m));
   }
@@ -746,20 +751,23 @@ describe("escolha do modo treino por usuário", () => {
 
 const TOKEN = "pk_000111222_TOKEN_DE_TESTE_ZZZZ";
 
-function repoClickup(treinoCard: boolean) {
+function repoClickup(treinoCard: boolean, taskId: string | null = null) {
   const chamadas = {
     criado: 0,
     falhas: 0,
     sincronizado: 0,
     pendentes: [] as (boolean | undefined)[],
-    statusPendentes: [] as (boolean | undefined)[],
   };
   const repo: Partial<RepositorioClickup> = {
-    async carregarCard() {
+    async carregarCard(): Promise<DadosCard> {
       return {
         cardId: "card1",
-        taskId: null,
+        taskId,
+        listaId: taskId ? "L-SOLDA" : null,
+        statusExterno: null,
         tentativas: 0,
+        precisaSync: taskId !== null,
+        comentarios: [],
         reclamacao: {
           id: "t1",
           numero: 1,
@@ -772,18 +780,12 @@ function repoClickup(treinoCard: boolean) {
           causa: "Solda",
           pedido: "1",
           dataAbertura: "2026-10-20",
+          situacao: "tratativa",
+          estado: "recebida",
+          devolucao: "NA",
+          custoTotal: 0,
           treino: treinoCard,
         },
-      };
-    },
-    async carregarSincronia() {
-      return {
-        cardId: "card1",
-        taskId: "t-abc",
-        estado: "recebida" as const,
-        statusExterno: "encaminhada ao setor",
-        statusPendente: true,
-        treino: treinoCard,
       };
     },
     async registrarCriado() {
@@ -792,15 +794,11 @@ function repoClickup(treinoCard: boolean) {
     async registrarFalha() {
       chamadas.falhas++;
     },
-    async registrarStatusSincronizado() {
+    async registrarSincronizado() {
       chamadas.sincronizado++;
     },
-    async pendentes(_a, _l, incluirTreino) {
+    async pendentes(_agora, _limite, incluirTreino) {
       chamadas.pendentes.push(incluirTreino);
-      return [];
-    },
-    async statusPendentes(_a, _l, incluirTreino) {
-      chamadas.statusPendentes.push(incluirTreino);
       return [];
     },
   };
@@ -840,12 +838,27 @@ describe("ClickUp e reclamações de treino", () => {
   });
 
   it("por padrão, reclamação de treino também não atualiza o status do card", async () => {
-    const { repo, chamadas } = repoClickup(true);
+    const { repo, chamadas } = repoClickup(true, "t-abc");
     const h = http();
     const s = new ServicoClickup(repo, integr({}), h.f, () => AGORA);
-    expect(await s.sincronizarEstado("t1")).toBe("treino_bloqueado");
+    expect(await s.sincronizar("t1")).toBe("treino_bloqueado");
     expect(h.chamadas).toHaveLength(0);
     expect(chamadas.sincronizado).toBe(0);
+  });
+
+  it("com a chave ligada, o card de treino também recebe as atualizações", async () => {
+    const { repo, chamadas } = repoClickup(true, "t-abc");
+    const h = http();
+    const s = new ServicoClickup(
+      repo,
+      integr({ criarCardsTreino: true }),
+      h.f,
+      () => AGORA,
+    );
+    expect(await s.sincronizar("t1")).toBe("sincronizado");
+    expect(h.chamadas[0]).toMatchObject({ metodo: "PUT" });
+    expect(h.chamadas[0].url).toContain("/task/t-abc");
+    expect(chamadas.sincronizado).toBe(1);
   });
 
   it("a chave desligada de propósito também bloqueia", async () => {
@@ -894,7 +907,6 @@ describe("ClickUp e reclamações de treino", () => {
       () => AGORA,
     ).processarPendentes();
     expect(desligado.chamadas.pendentes).toEqual([false]);
-    expect(desligado.chamadas.statusPendentes).toEqual([false]);
 
     const ligado = repoClickup(true);
     await new ServicoClickup(
@@ -904,7 +916,6 @@ describe("ClickUp e reclamações de treino", () => {
       () => AGORA,
     ).processarPendentes();
     expect(ligado.chamadas.pendentes).toEqual([true]);
-    expect(ligado.chamadas.statusPendentes).toEqual([true]);
   });
 
   it("a chave só vale no ClickUp e só como verdadeiro ou falso", () => {

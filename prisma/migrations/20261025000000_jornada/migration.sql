@@ -4,18 +4,15 @@
 CREATE TYPE "EstadoJornada" AS ENUM ('triagem', 'aguardando_cliente', 'encaminhada', 'recebida', 'em_tratativa', 'resolvida_setor', 'finalizada');
 
 -- AlterEnum
-ALTER TYPE "AlertTipo" ADD VALUE 'SEM_RECEBIMENTO_SETOR';
-ALTER TYPE "AlertTipo" ADD VALUE 'SOLUCAO_SEM_FINALIZACAO';
-ALTER TYPE "AlertTipo" ADD VALUE 'PRAZO_MARKETPLACE';
+ALTER TYPE "AlertTipo" ADD VALUE IF NOT EXISTS 'SEM_RECEBIMENTO_SETOR';
+ALTER TYPE "AlertTipo" ADD VALUE IF NOT EXISTS 'SOLUCAO_SEM_FINALIZACAO';
+ALTER TYPE "AlertTipo" ADD VALUE IF NOT EXISTS 'PRAZO_MARKETPLACE';
 
 -- AlterTable
 ALTER TABLE "reclamacoes"
     ADD COLUMN "estado" "EstadoJornada" NOT NULL DEFAULT 'triagem',
     ADD COLUMN "estadoDesde" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ADD COLUMN "prazoMarketplace" DATE;
-
--- AlterTable
-ALTER TABLE "clickup_cards" ADD COLUMN "statusPendente" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateTable
 CREATE TABLE "estado_historico" (

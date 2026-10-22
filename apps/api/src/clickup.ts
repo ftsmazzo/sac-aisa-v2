@@ -1,30 +1,52 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   type Devolucao,
-  ESTADOS,
   type Estado,
-  ehEstadoDoSetor,
   ROTULO_ESTADO,
   type Situacao,
   situacao,
-  validarTransicao,
 } from "@sac-aisa/domain";
+import {
+  comentarioAnalise,
+  comentarioDevolucao,
+  decidirStatusExterno,
+  estadoDoStatus,
+  linkFicha,
+  mapaEstadosEfetivo,
+  type OrigemMudanca,
+  prazoDoCard,
+  prioridadeDoCard,
+  ROTULO_SITUACAO,
+  statusDoEstado,
+} from "./clickup-sync";
 import type { Http, ServicoIntegracoes } from "./integracoes";
 import { dataDeAcaoDoEstado } from "./jornada";
 import { removerSegredos } from "./segredos";
+
+export {
+  type DecisaoStatus,
+  decidirStatusExterno,
+  estadoDoStatus,
+  MAPA_ESTADOS_PADRAO,
+  mapaEstadosEfetivo,
+  statusDoEstado,
+} from "./clickup-sync";
 
 // ---------- Card ao registrar ----------
 
 /** Esperas, em minutos, depois de cada falha. Passou da última, a fila para e o erro fica visível. */
 export const ESPERAS_MIN = [1, 5, 15, 60, 180, 720];
 export const MAX_TENTATIVAS = ESPERAS_MIN.length + 1;
-/** Se o status do card não pôde ser atualizado, tenta de novo daqui a tanto. */
-export const ESPERA_STATUS_MIN = 5;
 
 export interface DadosCard {
   cardId: string;
   taskId: string | null;
+  listaId: string | null;
+  statusExterno: string | null;
   tentativas: number;
+  precisaSync: boolean;
+  /** Comentários ainda não postados, do mais antigo ao mais novo. */
+  comentarios: { id: string; texto: string }[];
   reclamacao: {
     id: string;
     numero: number;
@@ -37,9 +59,53 @@ export interface DadosCard {
     causa: string;
     pedido: string;
     dataAbertura: string;
+    situacao: Situacao;
+    /** Estado da jornada: é ele que escolhe o status do card. */
+    estado: Estado;
+    devolucao: Devolucao;
+    custoTotal: number;
     /** Reclamação de treino: só vira card se o administrador liberar. */
     treino?: boolean;
   };
+}
+
+/** O que o webhook muda na reclamação: o(s) estado(s) do setor, a data de ação e a situação. */
+export interface MudancaPorClickup {
+  id: string;
+  /** Estado de onde partiu e passos percorridos, na ordem; o último é o estado novo. */
+  de: Estado;
+  passos: Estado[];
+  dataAcao: string | null;
+  situacao: Situacao;
+}
+
+export interface DadosAnalise {
+  reclamacaoId: string;
+  numero: number;
+  setorNome: string;
+  produtoPrecisaVoltar: boolean;
+  produtoRecebidoEm: string | null;
+  conclusao: string;
+  resultado: string;
+}
+
+export type EstadoFila = "pendente" | "erro" | "esgotado";
+
+export interface ItemFila {
+  cardId: string;
+  /** "Reclamação #12" ou o título do plano. */
+  titulo: string;
+  estado: EstadoFila;
+  taskId: string | null;
+  tentativas: number;
+  ultimoErro: string | null;
+  proximaTentativaEm: string | null;
+  comentariosPendentes: number;
+}
+
+export interface FilaDoClickup {
+  itens: ItemFila[];
+  totais: Record<EstadoFila, number>;
 }
 
 export interface EventoGravado {
@@ -58,26 +124,6 @@ export interface AuditoriaClickup {
   extra: Record<string, unknown>;
 }
 
-/** O que o webhook muda na reclamação: o(s) estado(s) do setor, a data de ação e a situação. */
-export interface MudancaPorClickup {
-  id: string;
-  /** Estado de onde partiu e passos percorridos, na ordem; o último é o estado novo. */
-  de: Estado;
-  passos: Estado[];
-  dataAcao: string | null;
-  situacao: Situacao;
-}
-
-/** O card como está hoje, para saber se o status dele precisa acompanhar o estado. */
-export interface SincroniaCard {
-  cardId: string;
-  taskId: string | null;
-  estado: Estado;
-  statusExterno: string | null;
-  statusPendente: boolean;
-  treino?: boolean;
-}
-
 export interface RepositorioClickup {
   carregarCard(reclamacaoId: string): Promise<DadosCard | null>;
   registrarCriado(args: {
@@ -93,38 +139,43 @@ export interface RepositorioClickup {
     proxima: Date | null;
     contarTentativa: boolean;
   }): Promise<void>;
-  /** Reclamações com card sem task, cuja hora de tentar de novo chegou. */
+  /** Reclamações cujo card tem trabalho na fila (criar, atualizar ou comentar) e cuja hora chegou. */
   pendentes(
     agora: Date,
     limite: number,
     incluirTreino?: boolean,
   ): Promise<string[]>;
-  /** Reclamações cujo card existe mas ainda não recebeu o status do estado atual. */
-  statusPendentes(
-    agora: Date,
-    limite: number,
-    incluirTreino?: boolean,
-  ): Promise<string[]>;
-  carregarSincronia(reclamacaoId: string): Promise<SincroniaCard | null>;
-  registrarStatusSincronizado(args: {
-    cardId: string;
-    statusExterno: string;
+  /** Marca o card para atualizar e, se vier texto, enfileira o comentário. Sem card, não faz nada. */
+  marcarSync(args: {
+    reclamacaoId: string;
+    comentarios: string[];
     agora: Date;
   }): Promise<void>;
-  registrarFalhaStatus(args: {
+  comentarioEnviado(id: string, agora: Date): Promise<void>;
+  /** Card atualizado: limpa a marca, o erro e as tentativas. */
+  registrarSincronizado(args: {
     cardId: string;
-    erro: string;
-    proxima: Date;
+    listaId: string | null;
+    statusExterno: string | null;
+    agora: Date;
   }): Promise<void>;
+  carregarAnalise(analiseId: string): Promise<DadosAnalise | null>;
+  fila(): Promise<FilaDoClickup>;
+  /** Devolve à fila o que está com erro ou esgotado (um card ou todos). Devolve quantos. */
+  reenviar(cardId: string | null, agora: Date): Promise<number>;
+  /** Mesma chave já recebida: conta a repetição e devolve `duplicado`. */
   gravarEvento(e: {
     taskId: string;
     tipo: string;
     payload: unknown;
-  }): Promise<string>;
+    chave: string | null;
+  }): Promise<{ id: string; duplicado: boolean }>;
   obterEvento(id: string): Promise<EventoGravado | null>;
-  cardPorTaskId(
-    taskId: string,
-  ): Promise<{ cardId: string; reclamacaoId: string | null } | null>;
+  cardPorTaskId(taskId: string): Promise<{
+    cardId: string;
+    reclamacaoId: string | null;
+    statusExterno: string | null;
+  } | null>;
   reclamacaoParaStatus(id: string): Promise<{
     numero: number;
     estado: Estado;
@@ -167,6 +218,8 @@ export function montarCard(r: DadosCard["reclamacao"], urlWeb?: string) {
   const detalhes = [
     r.produto && `Produto: ${r.produto}`,
     r.causa && `Causa: ${r.causa}`,
+    `Estado: ${ROTULO_ESTADO[r.estado]}`,
+    `Situação: ${ROTULO_SITUACAO[r.situacao]}`,
     r.setorNome && `Setor responsável: ${r.setorNome}`,
     r.pedido && `Pedido: ${r.pedido}`,
     `Aberta em: ${r.dataAbertura}`,
@@ -179,130 +232,30 @@ export function montarCard(r: DadosCard["reclamacao"], urlWeb?: string) {
   };
 }
 
-// ---------- Mapa de estados ↔ status do card ----------
-
-/**
- * Status do ClickUp que cada estado usa por padrão. O administrador troca na tela de integrações;
- * os nomes precisam existir na lista do ClickUp (o ClickUp recusa status que não conhece).
- */
-export const MAPA_ESTADOS_PADRAO: Record<Estado, string> = {
-  triagem: "triagem",
-  aguardando_cliente: "aguardando cliente",
-  encaminhada: "encaminhada ao setor",
-  recebida: "recebida pelo setor",
-  em_tratativa: "em tratativa",
-  resolvida_setor: "resolvida no setor técnico",
-  finalizada: "finalizada no sac",
-};
-
-/**
- * Nomes que o ClickUp já traz e que significam algo sem configurar nada. "Complete" é a
- * solução devolvida pelo setor técnico, nunca a finalização, que é do SAC.
- */
-const APELIDOS: Record<string, Estado> = {
-  complete: "resolvida_setor",
-  closed: "resolvida_setor",
-  "in progress": "em_tratativa",
-};
-
-function objeto(v: unknown): Record<string, unknown> | null {
-  return typeof v === "object" && v !== null && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : null;
-}
-
-const norm = (s: string) => s.trim().toLowerCase();
-
-/** O mapa em vigor: o padrão com o que o administrador trocou por cima. */
-export function mapaEstadosEfetivo(
-  config: Record<string, unknown>,
-): Record<Estado, string> {
-  const salvo = objeto(config.mapaEstados) ?? {};
-  const r = { ...MAPA_ESTADOS_PADRAO };
-  for (const e of ESTADOS) {
-    const v = salvo[e];
-    if (typeof v === "string" && v.trim() !== "") r[e] = v.trim();
-  }
-  return r;
-}
-
-export function statusDoEstado(
-  estado: Estado,
-  mapa: Record<Estado, string>,
-): string {
-  return mapa[estado];
-}
-
-/** De status do ClickUp para estado: o mapa primeiro, depois os apelidos. Nome desconhecido dá null. */
-export function estadoDoStatus(
-  status: string,
-  mapa: Record<Estado, string>,
-): Estado | null {
-  const s = norm(status);
-  const achado = ESTADOS.find((e) => norm(mapa[e]) === s);
-  return achado ?? APELIDOS[s] ?? null;
-}
-
-/** O caminho que o setor percorre; o ClickUp só anda para a frente por ele. */
-const CAMINHO_DO_SETOR: readonly Estado[] = [
-  "encaminhada",
-  "recebida",
-  "em_tratativa",
-  "resolvida_setor",
-];
-
-export type DecisaoStatus =
-  | { tipo: "ignorar" }
-  | { tipo: "aplicar"; passos: Estado[] }
-  | { tipo: "reverter"; motivo: string };
-
-/**
- * Uma mudança do card no ClickUp só vale para os estados do setor (recebida, em tratativa,
- * resolvida no setor técnico), pelo caminho normal e com as mesmas regras do sistema.
- * Qualquer outra coisa é recusada e o card volta ao status do estado atual.
- */
-export function decidirStatusExterno(
-  atual: { estado: Estado; devolucao: Devolucao; temSetor: boolean },
-  alvo: Estado | null,
-): DecisaoStatus {
-  // Status desconhecido, ou o eco da nossa própria atualização: nada a fazer.
-  if (!alvo || alvo === atual.estado) return { tipo: "ignorar" };
-  const reverter = (motivo: string): DecisaoStatus => ({
-    tipo: "reverter",
-    motivo,
-  });
-  if (!ehEstadoDoSetor(alvo)) {
-    return reverter(
-      `"${ROTULO_ESTADO[alvo]}" é um estado do SAC; o ClickUp só move o card para estados do setor.`,
-    );
-  }
-  const de = CAMINHO_DO_SETOR.indexOf(atual.estado);
-  const para = CAMINHO_DO_SETOR.indexOf(alvo);
-  if (de < 0) {
-    return reverter(
-      `A reclamação está em "${ROTULO_ESTADO[atual.estado]}": o setor ainda não pode mexer nela.`,
-    );
-  }
-  if (para <= de) {
-    return reverter(
-      `O setor não volta de "${ROTULO_ESTADO[atual.estado]}" para "${ROTULO_ESTADO[alvo]}".`,
-    );
-  }
-  const passos: Estado[] = [];
-  let cursor = atual.estado;
-  for (const proximo of CAMINHO_DO_SETOR.slice(de + 1, para + 1)) {
-    const v = validarTransicao({
-      perfil: "responsavel_setor",
-      de: cursor,
-      para: proximo,
-      devolucao: atual.devolucao,
-      temSetor: atual.temSetor,
-    });
-    if (!v.ok) return reverter(v.mensagem);
-    passos.push(proximo);
-    cursor = proximo;
-  }
-  return { tipo: "aplicar", passos };
+/** Corpo do PUT /task/{id}: o estado atual da reclamação. O status só sai se o card ainda não está no status do estado. */
+export function montarAtualizacao(
+  r: DadosCard["reclamacao"],
+  args: {
+    mapa: Record<Estado, string>;
+    statusAtual: string | null;
+    hoje: string;
+    urlWeb?: string;
+  },
+) {
+  const card = montarCard(r, args.urlWeb);
+  const alvo = statusDoEstado(r.estado, args.mapa);
+  const jaNoStatus =
+    args.statusAtual !== null &&
+    args.statusAtual.trim().toLowerCase() === alvo.trim().toLowerCase();
+  const status = jaNoStatus ? null : alvo;
+  return {
+    name: card.name,
+    markdown_content: card.markdown_description,
+    ...(status ? { status } : {}),
+    due_date: prazoDoCard(r).ms,
+    due_date_time: false,
+    priority: prioridadeDoCard(r, args.hoje),
+  };
 }
 
 export type ResultadoTentativa =
@@ -313,15 +266,15 @@ export type ResultadoTentativa =
   | "treino_bloqueado"
   | "falhou";
 
-export type ResultadoSincronia =
-  | "sem_card"
-  | "sem_task"
-  | "sem_pendencia"
+export type ResultadoSync =
+  | "nada"
+  | "sincronizado"
   | "treino_bloqueado"
   | "sem_token"
-  | "em_dia"
-  | "atualizado"
+  | "sem_workspace"
   | "falhou";
+
+const API = "https://api.clickup.com/api";
 
 export class ServicoClickup {
   constructor(
@@ -401,8 +354,6 @@ export class ServicoClickup {
           typeof json.status?.status === "string" ? json.status.status : null,
         agora,
       });
-      // O card nasce no status padrão da lista; o do estado atual vem logo em seguida.
-      await this.sincronizarEstado(reclamacaoId).catch(() => undefined);
       return "criado";
     } catch (e) {
       const bruto =
@@ -410,72 +361,6 @@ export class ServicoClickup {
           ? e.message
           : "Sem resposta do ClickUp.";
       await this.registrarFalha(dados.cardId, dados.tentativas, bruto, token);
-      return "falhou";
-    }
-  }
-
-  /**
-   * Põe no card o status do estado atual da reclamação. Só age quando o card está marcado como
-   * pendente (a gravação do estado marca) e já tem task. Nunca lança: falha vira erro registrado
-   * no card e nova tentativa em alguns minutos, sem derrubar quem mudou o estado.
-   */
-  async sincronizarEstado(reclamacaoId: string): Promise<ResultadoSincronia> {
-    const c = await this.repo.carregarSincronia(reclamacaoId);
-    if (!c) return "sem_card";
-    if (!c.taskId) return "sem_task";
-    if (!c.statusPendente) return "sem_pendencia";
-    if (c.treino && !(await this.treinoLiberado())) return "treino_bloqueado";
-
-    const token = await this.integr.segredo("clickup", "token");
-    if (!token) return "sem_token";
-
-    const agora = this.agora();
-    const mapa = mapaEstadosEfetivo(await this.integr.config("clickup"));
-    const status = statusDoEstado(c.estado, mapa);
-    if (c.statusExterno && norm(c.statusExterno) === norm(status)) {
-      await this.repo.registrarStatusSincronizado({
-        cardId: c.cardId,
-        statusExterno: c.statusExterno,
-        agora,
-      });
-      return "em_dia";
-    }
-
-    try {
-      const r = await this.http(
-        `https://api.clickup.com/api/v2/task/${encodeURIComponent(c.taskId)}`,
-        {
-          method: "PUT",
-          headers: { Authorization: token, "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-          signal: AbortSignal.timeout(10_000),
-        },
-      );
-      if (r.status !== 200) {
-        const json = (await r.json().catch(() => null)) as {
-          err?: unknown;
-        } | null;
-        const detalhe = typeof json?.err === "string" ? `: ${json.err}` : "";
-        throw new Error(
-          `O ClickUp não aceitou o status "${status}" (${r.status}${detalhe}). Confira o nome do status na lista.`,
-        );
-      }
-      await this.repo.registrarStatusSincronizado({
-        cardId: c.cardId,
-        statusExterno: status,
-        agora,
-      });
-      return "atualizado";
-    } catch (e) {
-      const bruto =
-        e instanceof Error && e.message.startsWith("O ClickUp não aceitou")
-          ? e.message
-          : "Sem resposta do ClickUp ao atualizar o status.";
-      await this.repo.registrarFalhaStatus({
-        cardId: c.cardId,
-        erro: corte(removerSegredos(bruto, [token]), 300),
-        proxima: new Date(agora.getTime() + ESPERA_STATUS_MIN * 60_000),
-      });
       return "falhou";
     }
   }
@@ -498,19 +383,207 @@ export class ServicoClickup {
     });
   }
 
-  /** Passada da fila: tenta os cards cuja hora chegou e atualiza o status dos que ficaram para trás. */
+  /** Passada da fila: tenta os cards cuja hora chegou. */
   async processarPendentes(limite = 20): Promise<number> {
-    const agora = this.agora();
-    const incluirTreino = await this.treinoLiberado();
-    const ids = await this.repo.pendentes(agora, limite, incluirTreino);
-    for (const id of ids) await this.tentarCard(id);
-    const status = await this.repo.statusPendentes(
-      agora,
+    const ids = await this.repo.pendentes(
+      this.agora(),
       limite,
-      incluirTreino,
+      await this.treinoLiberado(),
     );
-    for (const id of status) await this.sincronizarEstado(id);
-    return ids.length + status.length;
+    for (const id of ids) await this.trabalhar(id).catch(() => undefined);
+    return ids.length;
+  }
+
+  /** Cria o card se ainda não existe; com o card criado, manda o que mudou no SAC. */
+  async trabalhar(
+    reclamacaoId: string,
+  ): Promise<ResultadoTentativa | ResultadoSync> {
+    const r = await this.tentarCard(reclamacaoId);
+    return r === "criado" ? this.sincronizar(reclamacaoId) : r;
+  }
+
+  // ---------- Atualização do card ----------
+
+  /**
+   * A reclamação mudou no SAC: marca o card para atualizar e já tenta enviar. Nunca lança.
+   * Mudança que veio do próprio ClickUp (`origem: "clickup"`) não volta para lá: evita o laço.
+   */
+  async reclamacaoMudou(
+    reclamacaoId: string,
+    opcoes: { origem?: OrigemMudanca; comentarios?: string[] } = {},
+  ): Promise<void> {
+    if (opcoes.origem === "clickup") return;
+    try {
+      await this.repo.marcarSync({
+        reclamacaoId,
+        comentarios: opcoes.comentarios ?? [],
+        agora: this.agora(),
+      });
+      await this.trabalhar(reclamacaoId);
+    } catch {
+      // A gravação do SAC já está feita; a fila tenta de novo.
+    }
+  }
+
+  /** Depois de editar a reclamação: atualiza o card e, se o produto chegou, comenta a devolução. */
+  async aposEdicao(
+    reclamacaoId: string,
+    r: { numero: number; devolucaoRecebida: boolean },
+  ): Promise<void> {
+    await this.reclamacaoMudou(reclamacaoId, {
+      comentarios: r.devolucaoRecebida
+        ? [comentarioDevolucao(r.numero, linkFicha(reclamacaoId, this.urlWeb))]
+        : [],
+    });
+  }
+
+  /** Depois da análise do setor: comenta a análise (com a decisão de retorno) e a devolução recebida. */
+  async aposAnalise(
+    reclamacaoId: string,
+    r: { id: string; criando: boolean; devolucaoRecebida: boolean },
+  ): Promise<void> {
+    const comentarios: string[] = [];
+    try {
+      const a = await this.repo.carregarAnalise(r.id);
+      const link = linkFicha(reclamacaoId, this.urlWeb);
+      if (a) comentarios.push(comentarioAnalise(a, r.criando, link));
+      if (a && r.devolucaoRecebida) {
+        comentarios.push(comentarioDevolucao(a.numero, link));
+      }
+    } catch {
+      // Sem o texto, ainda atualiza o card.
+    }
+    await this.reclamacaoMudou(reclamacaoId, { comentarios });
+  }
+
+  private async enviar(
+    token: string,
+    metodo: "PUT" | "POST",
+    url: string,
+    corpo: unknown,
+  ): Promise<{ status?: { status?: unknown } } | null> {
+    const r = await this.http(url, {
+      method: metodo,
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const json = (await r.json().catch(() => null)) as {
+      err?: unknown;
+      status?: { status?: unknown };
+    } | null;
+    if (r.status !== 200) {
+      const detalhe = typeof json?.err === "string" ? `: ${json.err}` : "";
+      throw new Error(`O ClickUp respondeu ${r.status}${detalhe}`);
+    }
+    return json;
+  }
+
+  /**
+   * Manda ao card o estado atual: lista do setor (se mudou), título, descrição, status, prazo e
+   * prioridade, e depois os comentários na ordem. Falha vira `ultimoErro` e nova tentativa.
+   */
+  async sincronizar(reclamacaoId: string): Promise<ResultadoSync> {
+    const dados = await this.repo.carregarCard(reclamacaoId);
+    if (!dados?.taskId) return "nada";
+    if (!dados.precisaSync && dados.comentarios.length === 0) return "nada";
+    if (dados.reclamacao.treino && !(await this.treinoLiberado())) {
+      return "treino_bloqueado";
+    }
+    const token = await this.integr.segredo("clickup", "token");
+    if (!token) return "sem_token";
+
+    const agora = this.agora();
+    const cfg = await this.integr.config("clickup");
+    const listas = await this.integr.listasClickup();
+    const mapa = mapaEstadosEfetivo(cfg);
+    const padrao =
+      typeof cfg.listaPadraoId === "string" ? cfg.listaPadraoId : "";
+    const alvoLista =
+      (dados.reclamacao.setorRespId && listas[dados.reclamacao.setorRespId]) ||
+      padrao;
+    const workspace =
+      typeof cfg.workspaceId === "string" ? cfg.workspaceId.trim() : "";
+    const taskId = encodeURIComponent(dados.taskId);
+    let listaAtual = dados.listaId;
+    let statusExterno: string | null = null;
+    let semWorkspace = false;
+
+    try {
+      if (dados.precisaSync) {
+        // Mover primeiro: o status é o da lista nova.
+        if (alvoLista && listaAtual && alvoLista !== listaAtual) {
+          if (!workspace) {
+            semWorkspace = true;
+          } else {
+            await this.enviar(
+              token,
+              "PUT",
+              `${API}/v3/workspaces/${encodeURIComponent(workspace)}/tasks/${taskId}/home_list/${encodeURIComponent(alvoLista)}`,
+              {},
+            );
+            listaAtual = alvoLista;
+          }
+        }
+        const j = await this.enviar(
+          token,
+          "PUT",
+          `${API}/v2/task/${taskId}`,
+          montarAtualizacao(dados.reclamacao, {
+            mapa,
+            statusAtual: dados.statusExterno,
+            hoje: hojeEmSaoPaulo(agora),
+            urlWeb: this.urlWeb,
+          }),
+        );
+        if (typeof j?.status?.status === "string") {
+          statusExterno = j.status.status;
+        }
+      }
+      for (const c of dados.comentarios) {
+        await this.enviar(token, "POST", `${API}/v2/task/${taskId}/comment`, {
+          comment_text: c.texto,
+          notify_all: false,
+        });
+        await this.repo.comentarioEnviado(c.id, agora);
+      }
+      if (semWorkspace) {
+        await this.repo.registrarFalha({
+          cardId: dados.cardId,
+          erro: "Informe o ID do workspace do ClickUp nas integrações para mover o card de lista.",
+          proxima: new Date(agora.getTime() + 60 * 60_000),
+          contarTentativa: false,
+        });
+        return "sem_workspace";
+      }
+      await this.repo.registrarSincronizado({
+        cardId: dados.cardId,
+        listaId: listaAtual,
+        statusExterno,
+        agora,
+      });
+      return "sincronizado";
+    } catch (e) {
+      const bruto =
+        e instanceof Error && e.message.startsWith("O ClickUp respondeu")
+          ? e.message
+          : "Sem resposta do ClickUp.";
+      await this.registrarFalha(dados.cardId, dados.tentativas, bruto, token);
+      return "falhou";
+    }
+  }
+
+  // ---------- Fila (tela do administrador) ----------
+
+  fila(): Promise<FilaDoClickup> {
+    return this.repo.fila();
+  }
+
+  /** "Tentar de novo": devolve à fila o que está com erro ou esgotado e já processa. */
+  async reenviar(cardId: string | null): Promise<number> {
+    const n = await this.repo.reenviar(cardId, this.agora());
+    void this.processarPendentes().catch(() => undefined);
+    return n;
   }
 }
 
@@ -559,6 +632,12 @@ export function assinaturaValida(
   );
 }
 
+function objeto(v: unknown): Record<string, unknown> | null {
+  return typeof v === "object" && v !== null && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
+}
+
 /** O status novo vem em `history_items[].after`, como texto ou como `{ status }`. */
 export function statusNovo(payload: unknown): string | null {
   const itens = objeto(payload)?.history_items;
@@ -580,8 +659,8 @@ export interface MudancaDeStatus {
 }
 
 /**
- * Regra antiga, mantida para quem ainda a usa: resolver põe a data de ação de hoje e reabrir a
- * limpa. O webhook agora decide por estado (`decidirStatusExterno`).
+ * Traduz o status do ClickUp pelas regras do domínio: a situação continua saindo de
+ * `dataAcao` e da devolução. Resolver no ClickUp põe a data de ação de hoje; reabrir limpa.
  */
 export function aplicarStatusExterno(
   atual: { dataAcao: string | null; devolucao: Devolucao },
@@ -621,6 +700,17 @@ export function aplicarStatusExterno(
   );
 }
 
+/** `{webhook_id}:{history_item_id}`: identifica a entrega, que o ClickUp pode repetir. Sem os dois, sem chave. */
+export function chaveDoEvento(payload: unknown): string | null {
+  const o = objeto(payload);
+  const webhook = o?.webhook_id;
+  const itens = o?.history_items;
+  const item = Array.isArray(itens) ? objeto(itens[0])?.id : undefined;
+  const ok = (v: unknown): v is string | number =>
+    (typeof v === "string" && v !== "") || typeof v === "number";
+  return ok(webhook) && ok(item) ? `${webhook}:${item}`.slice(0, 200) : null;
+}
+
 export class ServicoWebhookClickup {
   constructor(
     private readonly repo: RepositorioClickup,
@@ -634,7 +724,7 @@ export class ServicoWebhookClickup {
   async receber(
     bruto: Buffer | undefined,
     assinatura: string | undefined,
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; duplicado: boolean }> {
     const segredo = await this.integr.segredo("clickup", "segredoWebhook");
     if (!bruto || !segredo || !assinaturaValida(bruto, segredo, assinatura)) {
       throw new ErroWebhook(401, "Assinatura inválida.");
@@ -656,8 +746,13 @@ export class ServicoWebhookClickup {
     ) {
       throw new ErroWebhook(400, "Evento inválido.");
     }
-    const id = await this.repo.gravarEvento({ taskId, tipo, payload });
-    return { id };
+    const r = await this.repo.gravarEvento({
+      taskId,
+      tipo,
+      payload,
+      chave: chaveDoEvento(payload),
+    });
+    return r;
   }
 
   async processar(eventoId: string): Promise<void> {
@@ -668,7 +763,13 @@ export class ServicoWebhookClickup {
     const status =
       ev.tipo === "taskStatusUpdated" ? statusNovo(ev.payload) : null;
 
-    if (!card || !status) {
+    // Eco do que o próprio SAC acabou de mandar ao card: não há o que aplicar de volta.
+    const eco =
+      card?.statusExterno &&
+      status &&
+      card.statusExterno.trim().toLowerCase() === status.trim().toLowerCase();
+
+    if (!card || !status || eco) {
       await this.repo.aplicarStatus({
         eventoId,
         cardId: card?.cardId ?? null,
@@ -682,8 +783,7 @@ export class ServicoWebhookClickup {
     }
 
     const cfg = await this.integr.config("clickup");
-    const mapa = mapaEstadosEfetivo(cfg);
-    const alvo = estadoDoStatus(status, mapa);
+    const alvo = estadoDoStatus(status, mapaEstadosEfetivo(cfg));
     let reclamacao: MudancaPorClickup | null = null;
     let auditoria: AuditoriaClickup | null = null;
     let corrigirCard = false;

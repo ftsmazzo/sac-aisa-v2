@@ -27,7 +27,7 @@ Fonte: código atual. Stack de preferência da empresa não foi informada.
 
 | Integração | Finalidade | Observações |
 |---|---|---|
-| ClickUp (API e webhooks) | Criar o card ao registrar e receber a movimentação e a resolução | Novo. Precisa do mapa entre setor responsável e lista ou espaço do ClickUp. Token da empresa, fora do Git |
+| ClickUp (API e webhooks) | O SAC é a origem: cria o card ao registrar e o atualiza a cada movimento da reclamação (status, setor, prazo, comentários); recebe a movimentação e a resolução por webhook, sem devolver o que veio de lá | Novo. Precisa do mapa entre setor responsável e lista ou espaço do ClickUp. Token da empresa, fora do Git |
 | Mercado Livre (API de pós-venda) | Capturar reclamações e mensagens do comprador | Novo. MVP. Verificar na documentação oficial o escopo de reclamações e a autorização OAuth |
 | Shopee (Open Platform) | Capturar devoluções e reclamações | Novo. MVP. Verificar o que a API expõe e o processo de aprovação do app |
 | Magalu | Idem | Fase posterior (5 de 402 reclamações) |
