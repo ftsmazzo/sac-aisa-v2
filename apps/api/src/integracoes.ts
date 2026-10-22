@@ -39,7 +39,7 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
     nome: "ClickUp",
     resumo: "Cria o card da reclamação na lista do setor e acompanha o status.",
     passos: [
-      "No ClickUp, abra Configurações › Apps e gere um token pessoal (começa com pk_).",
+      "No ClickUp, abra Configurações › Apps e gere um token pessoal (começa com pk_). Use um usuário de serviço, não uma pessoa: o token e o webhook ficam atrelados a esse usuário e param se ele for desativado.",
       "Informe o ID da lista de cada setor. O ID aparece na URL da lista. A lista padrão recebe o que não tiver setor ou lista.",
       "Crie o webhook do ClickUp apontando para /api/webhooks/clickup deste sistema e cole aqui o segredo que o ClickUp devolve.",
       "No mapa de status, diga a que situação cada status do ClickUp corresponde.",
