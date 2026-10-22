@@ -6,7 +6,7 @@ import {
   situacao,
   temPermissao,
 } from "@sac-aisa/domain";
-import { type Escopo, filtroDeEscopo } from "./reclamacoes";
+import { type Escopo, filtroPorId } from "./reclamacoes";
 import { dataValida, ErroEscrita } from "./reclamacoes-escrita";
 
 const LONGO_MAX = 5000;
@@ -174,11 +174,9 @@ export class ServicoAnalise {
       perfil: usuario.perfil,
       setores: usuario.setores,
       marcas: usuario.marcas,
+      treino: usuario.modoTreino,
     };
-    const doEscopo = filtroDeEscopo(escopo);
-    const where: Prisma.ReclamacaoWhereInput = doEscopo
-      ? { AND: [{ id }, doEscopo] }
-      : { id };
+    const where = filtroPorId(id, escopo);
     // Fora do escopo é igual a não existir.
     const r = await this.repo.obterReclamacao(where);
     if (!r) throw new ErroEscrita(404, "Reclamação não encontrada.");

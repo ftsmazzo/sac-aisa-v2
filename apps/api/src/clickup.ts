@@ -37,6 +37,8 @@ export interface DadosCard {
     causa: string;
     pedido: string;
     dataAbertura: string;
+    /** Reclamação de treino: só vira card se o administrador liberar. */
+    treino?: boolean;
   };
 }
 
@@ -73,6 +75,7 @@ export interface SincroniaCard {
   estado: Estado;
   statusExterno: string | null;
   statusPendente: boolean;
+  treino?: boolean;
 }
 
 export interface RepositorioClickup {
@@ -91,9 +94,17 @@ export interface RepositorioClickup {
     contarTentativa: boolean;
   }): Promise<void>;
   /** Reclamações com card sem task, cuja hora de tentar de novo chegou. */
-  pendentes(agora: Date, limite: number): Promise<string[]>;
+  pendentes(
+    agora: Date,
+    limite: number,
+    incluirTreino?: boolean,
+  ): Promise<string[]>;
   /** Reclamações cujo card existe mas ainda não recebeu o status do estado atual. */
-  statusPendentes(agora: Date, limite: number): Promise<string[]>;
+  statusPendentes(
+    agora: Date,
+    limite: number,
+    incluirTreino?: boolean,
+  ): Promise<string[]>;
   carregarSincronia(reclamacaoId: string): Promise<SincroniaCard | null>;
   registrarStatusSincronizado(args: {
     cardId: string;
@@ -299,12 +310,14 @@ export type ResultadoTentativa =
   | "criado"
   | "sem_token"
   | "sem_lista"
+  | "treino_bloqueado"
   | "falhou";
 
 export type ResultadoSincronia =
   | "sem_card"
   | "sem_task"
   | "sem_pendencia"
+  | "treino_bloqueado"
   | "sem_token"
   | "em_dia"
   | "atualizado"
@@ -322,6 +335,12 @@ export class ServicoClickup {
     private readonly urlWeb: string | undefined = process.env.WEB_BASE_URL,
   ) {}
 
+  /** Reclamação de treino só chega ao ClickUp com "Criar cards para reclamações de treino" ligado. */
+  private async treinoLiberado(): Promise<boolean> {
+    const cfg = await this.integr.config("clickup");
+    return cfg.criarCardsTreino === true;
+  }
+
   /**
    * Tenta criar o card. Nunca lança: sem token o card só fica pendente, e qualquer falha
    * do ClickUp vira erro registrado em `ClickupCard`, com nova tentativa mais tarde.
@@ -330,6 +349,9 @@ export class ServicoClickup {
     const dados = await this.repo.carregarCard(reclamacaoId);
     if (!dados) return "sem_card";
     if (dados.taskId) return "criado";
+    if (dados.reclamacao.treino && !(await this.treinoLiberado())) {
+      return "treino_bloqueado";
+    }
 
     const token = await this.integr.segredo("clickup", "token");
     if (!token) return "sem_token";
@@ -402,6 +424,7 @@ export class ServicoClickup {
     if (!c) return "sem_card";
     if (!c.taskId) return "sem_task";
     if (!c.statusPendente) return "sem_pendencia";
+    if (c.treino && !(await this.treinoLiberado())) return "treino_bloqueado";
 
     const token = await this.integr.segredo("clickup", "token");
     if (!token) return "sem_token";
@@ -478,9 +501,14 @@ export class ServicoClickup {
   /** Passada da fila: tenta os cards cuja hora chegou e atualiza o status dos que ficaram para trás. */
   async processarPendentes(limite = 20): Promise<number> {
     const agora = this.agora();
-    const ids = await this.repo.pendentes(agora, limite);
+    const incluirTreino = await this.treinoLiberado();
+    const ids = await this.repo.pendentes(agora, limite, incluirTreino);
     for (const id of ids) await this.tentarCard(id);
-    const status = await this.repo.statusPendentes(agora, limite);
+    const status = await this.repo.statusPendentes(
+      agora,
+      limite,
+      incluirTreino,
+    );
     for (const id of status) await this.sincronizarEstado(id);
     return ids.length + status.length;
   }

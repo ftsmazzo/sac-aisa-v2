@@ -258,6 +258,28 @@ function CartaoIntegracao({
                 </div>
               ))}
             </div>
+
+            <h3 className="integracao__sub">Reclamações de treino</h3>
+            <label className="campo__rotulo" htmlFor={`${idBase}-treino`}>
+              <input
+                id={`${idBase}-treino`}
+                type="checkbox"
+                checked={rascunho.criarCardsTreino}
+                onChange={(ev) =>
+                  setRascunho((r) => ({
+                    ...r,
+                    criarCardsTreino: ev.target.checked,
+                  }))
+                }
+                disabled={!gravacaoLiberada}
+              />{" "}
+              Criar cards para reclamações de treino
+            </label>
+            <p className="campo__ajuda">
+              Desligado por padrão: o modo treino não toca no ClickUp. Ligado,
+              as reclamações fictícias de treino viram cards reais no ClickUp
+              configurado aqui e vão aparecer lá.
+            </p>
           </>
         )}
 

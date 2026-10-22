@@ -27,6 +27,8 @@ export interface Integracao {
     /** Status do ClickUp que cada estado usa hoje. */
     mapaEstados: Record<Estado, string>;
     padraoEstados: Record<Estado, string>;
+    /** Reclamações de treino viram cards no ClickUp configurado. */
+    criarCardsTreino?: boolean;
   };
 }
 
@@ -50,6 +52,7 @@ export interface RascunhoIntegracao {
   listas: Record<string, string>;
   /** Status do ClickUp por estado. Vazio = usar o padrão. */
   estados: Record<Estado, string>;
+  criarCardsTreino: boolean;
 }
 
 export function rascunhoInicial(i: Integracao): RascunhoIntegracao {
@@ -60,6 +63,7 @@ export function rascunhoInicial(i: Integracao): RascunhoIntegracao {
     listas: Object.fromEntries(
       (i.clickup?.setores ?? []).map((s) => [s.id, s.listaId]),
     ),
+    criarCardsTreino: i.clickup?.criarCardsTreino === true,
     estados: Object.fromEntries(
       ESTADOS.map((e) => {
         const atual = i.clickup?.mapaEstados?.[e] ?? "";
@@ -77,8 +81,10 @@ export function montarEntrada(i: Integracao, r: RascunhoIntegracao) {
     campos: Record<string, string>;
     listas?: Record<string, string>;
     mapaEstados?: Record<string, string>;
+    criarCardsTreino?: boolean;
   } = { campos: { ...r.campos } };
   if (i.chave === "clickup") {
+    corpo.criarCardsTreino = r.criarCardsTreino;
     corpo.listas = r.listas;
     corpo.mapaEstados = Object.fromEntries(
       ESTADOS.map((e) => [e, (r.estados[e] ?? "").trim()]),

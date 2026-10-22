@@ -1,0 +1,179 @@
+/* Modo treino: a faixa, o alternador do topo e as telas de treino e de roteiro. */
+
+.faixa-treino {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 14px;
+  padding: 10px 16px;
+  background: var(--cor-atencao-fundo);
+  color: var(--cor-atencao);
+  border-bottom: 3px solid var(--cor-atencao);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.faixa-treino__apoio {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+@media print {
+  .faixa-treino {
+    position: static;
+  }
+}
+
+.alternar-treino {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.alternar-treino__botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.alternar-treino__botao:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.alternar-treino__botao:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.alternar-treino__botao:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.alternar-treino__trilho {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  transition: background 0.2s var(--suave);
+}
+.alternar-treino__trilho::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s var(--suave);
+}
+.alternar-treino__botao[aria-checked="true"] {
+  border-color: #ffb347;
+}
+.alternar-treino__botao[aria-checked="true"] .alternar-treino__trilho {
+  background: #ffb347;
+}
+.alternar-treino__botao[aria-checked="true"] .alternar-treino__trilho::after {
+  transform: translateX(14px);
+}
+.alternar-treino__erro {
+  font-size: 0.8125rem;
+  color: #ffd9d6;
+}
+
+.treino {
+  display: grid;
+  gap: 20px;
+}
+.treino__cartao {
+  padding: 20px 24px;
+  display: grid;
+  gap: 12px;
+}
+.treino__titulo {
+  margin: 0;
+  font-size: 1.125rem;
+}
+.treino__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.treino__ajuda {
+  margin: 0;
+  color: var(--cor-suave);
+  font-size: 0.9375rem;
+}
+.treino__aviso {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--raio-m);
+  background: var(--cor-atencao-fundo);
+  color: var(--cor-atencao);
+  font-size: 0.9375rem;
+}
+
+.roteiro {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: passo;
+}
+.roteiro__passo {
+  counter-increment: passo;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 4px 16px;
+  padding: 18px 22px;
+}
+.roteiro__passo::before {
+  content: counter(passo);
+  grid-row: span 4;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--marca-suave);
+  color: var(--marca-texto);
+  font-weight: 800;
+}
+.roteiro__titulo {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+.roteiro__tempo {
+  color: var(--cor-suave);
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-left: 8px;
+}
+.roteiro__texto {
+  margin: 0;
+  color: var(--cor-texto);
+}
+.roteiro__dizer {
+  margin: 0;
+  color: var(--cor-suave);
+  font-style: italic;
+}
+.roteiro__link {
+  justify-self: start;
+  margin-top: 6px;
+  color: var(--marca-texto);
+  font-weight: 700;
+}

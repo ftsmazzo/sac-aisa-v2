@@ -177,6 +177,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
             canal: { select: { nome: true } },
             produto: { select: { codigo: true, nome: true } },
             causa: { select: { nome: true } },
+            treino: true,
           },
         },
       },
@@ -199,6 +200,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
         causa: r.causa?.nome ?? "",
         pedido: r.pedido,
         dataAbertura: ISO(r.dataAbertura) ?? "",
+        treino: r.treino,
       },
     };
   }
@@ -222,9 +224,10 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     });
   }
 
-  async statusPendentes(agora: Date, limite: number) {
+  async statusPendentes(agora: Date, limite: number, incluirTreino = false) {
     const l = await this.prisma.clickupCard.findMany({
       where: {
+        ...(incluirTreino ? {} : { reclamacao: { treino: false } }),
         taskId: { not: null },
         reclamacaoId: { not: null },
         statusPendente: true,
@@ -248,7 +251,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
         taskId: true,
         statusExterno: true,
         statusPendente: true,
-        reclamacao: { select: { estado: true } },
+        reclamacao: { select: { estado: true, treino: true } },
       },
     });
     if (!c?.reclamacao) return null;
@@ -256,6 +259,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
       cardId: c.id,
       taskId: c.taskId,
       estado: c.reclamacao.estado,
+      treino: c.reclamacao.treino,
       statusExterno: c.statusExterno,
       statusPendente: c.statusPendente,
     };
@@ -298,9 +302,10 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     });
   }
 
-  async pendentes(agora: Date, limite: number) {
+  async pendentes(agora: Date, limite: number, incluirTreino = false) {
     const l = await this.prisma.clickupCard.findMany({
       where: {
+        ...(incluirTreino ? {} : { reclamacao: { treino: false } }),
         taskId: null,
         reclamacaoId: { not: null },
         proximaTentativaEm: { lte: agora },

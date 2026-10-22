@@ -18,6 +18,8 @@ export interface UsuarioRegistro {
   setores: string[];
   /** Marcas que o responsável de setor enxerga (nomes). Vazia = todas. */
   marcas?: string[];
+  /** Escolha de visão do usuário; só vale para administrador e gestor. */
+  modoTreino?: boolean;
   permissoes: { chave: string; permitido: boolean }[];
 }
 
@@ -43,6 +45,8 @@ export interface UsuarioLogado {
   perfil: Perfil;
   setores: string[];
   marcas?: string[];
+  /** Vê só os dados de treino. Só administrador e gestor podem ligar. */
+  modoTreino?: boolean;
   permissoes: string[];
 }
 
@@ -73,6 +77,9 @@ function paraLogado(u: UsuarioRegistro): UsuarioLogado {
     perfil: u.perfil,
     setores: u.setores,
     marcas: u.marcas ?? [],
+    modoTreino:
+      (u.perfil === "administrador" || u.perfil === "gestor") &&
+      u.modoTreino === true,
     permissoes: mesclarPermissoes(u.perfil, u.permissoes),
   };
 }

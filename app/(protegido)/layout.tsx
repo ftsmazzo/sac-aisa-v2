@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { AlternarTreino } from "@/components/alternar-treino";
 import { BotaoSair } from "@/components/botao-sair";
 import { NavLink } from "@/components/nav-link";
 import { SeletorMarca } from "@/components/seletor-marca";
@@ -9,6 +10,8 @@ import { consultaDeMarca, TODAS } from "@/lib/marca-escolhida";
 import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { obterUsuario } from "@/lib/sessao";
+import { TEXTO_FAIXA_TREINO } from "@/lib/treino";
+import "./treino.css";
 
 const PERFIL: Record<string, string> = {
   administrador: "Administrador",
@@ -36,8 +39,19 @@ export default async function LayoutProtegido({
     : null;
   const totalAlertas = alertas?.ok ? alertas.dados.total : 0;
 
+  const conduzTreino =
+    usuario.perfil === "administrador" || usuario.perfil === "gestor";
+
   return (
     <>
+      {usuario.modoTreino && (
+        <div className="faixa-treino" role="status">
+          <span>{TEXTO_FAIXA_TREINO}</span>
+          <span className="faixa-treino__apoio">
+            Nada do que aparece aqui é real e nada vai ao ClickUp
+          </span>
+        </div>
+      )}
       <header className="casca__topo">
         <div className="casca__topo-interno">
           {marca.escolha === TODAS ? (
@@ -78,6 +92,7 @@ export default async function LayoutProtegido({
             {usuario.permissoes.includes("relatorios.ver") && (
               <NavLink href="/relatorios">Relatórios</NavLink>
             )}
+            {conduzTreino && <NavLink href="/admin/treino">Treino</NavLink>}
             {usuario.permissoes.includes("dados.importar") && (
               <NavLink href="/admin/importacao">Importação</NavLink>
             )}
@@ -91,6 +106,9 @@ export default async function LayoutProtegido({
               )}
           </nav>
           <span className="casca__espaco" />
+          {conduzTreino && (
+            <AlternarTreino ativo={usuario.modoTreino === true} />
+          )}
           <SeletorMarca oferecidas={marca.oferecidas} escolha={marca.escolha} />
           <div className="casca__usuario">
             <span>{usuario.nome}</span>

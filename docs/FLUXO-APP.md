@@ -44,6 +44,17 @@ A regra mora no domínio (`packages/domain/src/jornada.ts`) e o servidor a confe
 
 **Escopo**: SAC, gestor e administrador veem tudo. O responsável de setor vê só os setores do seu cadastro e, se o cadastro tiver marcas, só essas marcas (lista de marcas vazia = todas). O seletor de marca oferece só as marcas permitidas. O administrador define setores e marcas na tela de usuários.
 
+## 1.2 Modo treino
+
+Para ensaiar e apresentar o sistema sem sujar os dados reais, os indicadores nem o ClickUp. Só **administrador e gestor** usam; a escolha vale **por usuário**.
+
+- **Alternador "Modo treino"** no topo. Ligado, a faixa laranja "MODO TREINO: dados fictícios" aparece em todas as telas e a visão mostra **somente** dados de treino (lista, ficha, fila, alertas e relatórios). Desligado, o treino some de todas as telas e indicadores. Reclamação registrada com o modo ligado nasce como treino.
+- **Tela Treino** (`/admin/treino`): "Carregar dados de demonstração" (administrador; cerca de 18 reclamações fictícias nas três marcas e nos sete estados, com relógios, atrasos, uma perto do prazo do marketplace e uma reaberta; rodar de novo não duplica), "Apagar dados de treino" (administrador, com confirmação; apaga só treino) e os simuladores "Simular reclamação do Mercado Livre" e "Simular devolução da Shopee" (criam uma reclamação de treino em Triagem a partir de uma carga fictícia no formato da API do canal, com pedido, SKU, texto, prazo do marketplace e comprador; a Shopee com e-mail mascarado).
+- **ClickUp:** reclamação de treino não cria nem atualiza card. O administrador pode ligar "Criar cards para reclamações de treino" em Integrações (padrão desligado, com aviso de que o treino vai aparecer no ClickUp configurado).
+- **Roteiro** (`/admin/roteiro-treino`): passo a passo de 10 minutos para apresentar ao dono, cada passo com link direto para a tela certa.
+
+Os dados de treino só têm gente inventada: nome "Fictício", e-mail `.invalid` e telefone com DDD 00.
+
 ## 2. Jornadas principais
 
 ### Jornada 1: Registro assistido pelo site
