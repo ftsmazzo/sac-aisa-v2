@@ -4,6 +4,13 @@ set -e
 
 node_modules/.bin/prisma migrate deploy
 
+# Redefinir senha: com RESET_LOGIN e RESET_SENHA definidos, troca a senha desse usuário
+# (que precisa existir) e encerra as sessões dele. Depois de usar, remova RESET_SENHA
+# das variáveis do serviço.
+if [ -n "$RESET_LOGIN" ] && [ -n "$RESET_SENHA" ]; then
+  node apps/api/dist/redefinir-senha.js || true
+fi
+
 # Primeiro acesso: com ADMIN_LOGIN e ADMIN_SENHA definidos e nenhum administrador
 # no banco, cria o administrador. Se já existir, não altera nada. Depois do primeiro
 # login, remova ADMIN_SENHA das variáveis do serviço.
