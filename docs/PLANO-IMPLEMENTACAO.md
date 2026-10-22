@@ -12,6 +12,7 @@ A ordem das fases é **sugestão**, não decisão. Prazo e orçamento ficaram pa
 - Pasta, repositório privado `ftsmazzo/sac-aisa-v2` e projeto `sac-aisa-v2` no EasyPanel (Postgres, Redis e app web).
 - Aplicação mínima no ar, com `GET /health` respondendo ok, CI de tipo, lint, teste e build, e `CLAUDE.md` com as regras.
 - PRD, TRD, Fluxo, UI/UX, Esquema e protótipo visual do painel e da ficha.
+- Fase 2, fatia 1 (leitura): lista de reclamações com filtros, busca e paginação e ficha lateral somente leitura, sobre os dados importados. Faltam a edição e a criação com auditoria, a análise do setor, a fila e os alertas.
 - Pendente da base: GlitchTip (erros) e Uptime Kuma (monitor em `/health`, 60 s).
 
 ## 1. MVP

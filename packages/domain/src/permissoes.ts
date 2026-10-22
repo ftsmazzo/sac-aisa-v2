@@ -92,10 +92,14 @@ export const PERMISSOES_PADRAO: Record<Perfil, PermissaoChave[]> = {
   responsavel_setor: RESPONSAVEL_SETOR,
 };
 
-/** Perfis que enxergam todos os setores. Os demais ficam restritos ao(s) seu(s) setor(es). */
+/**
+ * Perfis que enxergam todos os setores. Só o responsável de setor fica restrito
+ * ao(s) seu(s) setor(es); a operação registra reclamação de qualquer setor.
+ */
 export const PERFIS_TODOS_OS_SETORES: readonly Perfil[] = [
   "administrador",
   "gestor",
+  "operacao",
 ];
 
 export function veTodosOsSetores(perfil: Perfil): boolean {

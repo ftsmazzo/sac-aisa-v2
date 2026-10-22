@@ -225,5 +225,6 @@ describe("permissões e escopo de setor", () => {
       false,
     );
     expect(podeVerSetor("gestor", [], "Logística")).toBe(true);
+    expect(podeVerSetor("operacao", [], "Logística")).toBe(true);
   });
 });
