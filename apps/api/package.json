@@ -1,0 +1,26 @@
+{
+  "name": "@sac-aisa/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --format=cjs --outfile=dist/main.js --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express",
+    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts",
+    "admin:criar": "tsx src/criar-admin.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@prisma/client": "^6.19.3",
+    "@sac-aisa/auth": "*",
+    "@sac-aisa/domain": "*",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@sac-aisa/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@sac-aisa/domain": "*",
+    "hash-wasm": "^4.12.0"
+  }
+}
