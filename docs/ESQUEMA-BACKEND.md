@@ -80,7 +80,9 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 | `/reclamacoes/:id` | GET | `reclamacoes.ver` | Ficha completa (custos, causas extras, análises, nº de fotos). Fora do escopo do usuário devolve 404, igual a inexistente |
 | `/reclamacoes` | POST | `reclamacoes.criar` | Cria. Exige `canalId` e `descricao`; `dataAbertura` vale hoje (Brasília) se omitida e não pode ser futura. Causa (pelas palavras do texto) e setor (pela causa, com a regra manual de `RegraDirecionamento`) saem do servidor. `situacao` não é aceita: vem do domínio. Campo desconhecido, tipo errado ou valor fora do limite é 400. Devolve `{ id, numero }`. O card no ClickUp entra na fase 3 |
 | `/reclamacoes/:id` | PATCH | `reclamacoes.editar` | Edição parcial; só os campos enviados mudam. `causaId` escolhido trava a causa (`causaManual`), `null` volta ao cálculo. `setorRespId` exige `reclamacoes.trocar_setor` (gestor e administrador) e marca a troca como manual; `null` volta ao setor da causa. Fora do escopo do usuário é 404. Data de ação com devolução ainda aguardando é 400. Sem mudança real, nada é gravado nem auditado. Devolve `{ id, numero, alterou }` |
-| `/reclamacoes/:id/analise` | POST | Responsável de setor | Registra a decisão de retorno do produto; sem ela não finaliza |
+| `/reclamacoes/:id/analise` | POST | `reclamacoes.analisar` | Registra a decisão de retorno do produto. O setor vem da reclamação, nunca do corpo; um registro por setor; reclamação resolvida ou sem setor é recusada. Precisa voltar e não chegou = devolução aguardando; com `produtoRecebidoEm` = recebido; não volta = sem devolução. Análise, ajuste da reclamação e auditoria na mesma transação |
+| `/reclamacoes/:id/analise/:analiseId` | PATCH | `reclamacoes.analisar` | Edita só a análise do setor atual (a de outro setor é 404). Sem mudança não grava nem audita. Texto livre não vai para a auditoria |
+| `/fila` | GET | `reclamacoes.analisar` | Reclamações em aberto, com setor responsável, sem análise desse setor, por urgência (alertas, dias em aberto, custo). Escopo por setor |
 | `/reclamacoes/:id/fotos` | POST | Sim | Tipo e tamanho conferidos; arquivo no volume, caminho no banco |
 | `/ia/rascunho` | POST | Operação+ | A IA sugere produto, bancada, causa e origem; **nunca grava**. Registra em `IaRegistro` |
 | `/capturas` | GET | Operação+ | Fila de rascunhos pendentes do marketplace |
@@ -88,7 +90,7 @@ Tudo aqui é **sugestão aprovada com "ok"**, sem validação do dono. Nomes e c
 | `/planos` | GET, POST, PATCH | Responsável, gestor | Plano de melhoria. Conclusão dispara a janela de efeito |
 | `/planos/:id/efeito` | GET | Gestor | Ocorrência antes e depois da ação |
 | `/painel/resumo`, `/painel/cruzamento` | GET | Gestor | Indicadores; bancada × ocorrência; tempo por setor |
-| `/alertas` | GET, PATCH | Gestor | Lista e resolve alertas |
+| `/alertas` | GET, PATCH | `alertas.ver` (lista); gestor (resolver, ainda não feito) | Lista alertas calculados na hora pelas regras de `alertas.ts` sobre o que está em aberto, com contagem por tipo e escopo por setor. Nesta fatia não grava em `alertas`; o PATCH vem com a varredura e o envio |
 | `/webhooks/clickup` | POST | Por segredo | Valida assinatura; grava `ClickupEvento`; atualiza situação |
 | `/cadastros/*` (marcas, canais, bancadas, setores, causas, produtos) | CRUD | Administrador | Lista controlada; sem duplicata |
 | `/usuarios`, `/integracoes`, `/config` | CRUD | Administrador | Limites de alerta, mapa setor → lista do ClickUp |

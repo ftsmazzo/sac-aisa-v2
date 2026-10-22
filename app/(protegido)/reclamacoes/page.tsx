@@ -24,6 +24,7 @@ import {
 import { obterUsuario } from "@/lib/sessao";
 import { ConteudoFicha } from "./ficha";
 import { FormularioReclamacao } from "./formulario";
+import { PainelAnalise } from "./painel-analise";
 import { PainelFicha } from "./painel-ficha";
 
 /** Hoje no fuso de Brasília, que é o dia que a API usa para recusar data futura. */
@@ -310,6 +311,8 @@ export default async function Reclamacoes({
   const podeTrocarSetor = usuario.permissoes.includes(
     "reclamacoes.trocar_setor",
   );
+  const podeAnalisar = usuario.permissoes.includes("reclamacoes.analisar");
+  const analisando = estado.acao === "analise" && podeAnalisar;
   const cadastrando = estado.acao === "nova" && podeCriar;
   const editando = estado.acao === "editar" && podeEditar;
   const painelAberto = cadastrando || !!estado.ficha;
@@ -478,12 +481,26 @@ export default async function Reclamacoes({
               cancelar={montarHref(estado, { acao: null })}
               depois={montarHref(estado, { acao: null })}
             />
+          ) : ficha?.ok && analisando ? (
+            <PainelAnalise
+              ficha={ficha.dados}
+              fechar={fechar}
+              hrefFicha={montarHref(estado, { acao: null })}
+              hrefAnalise={montarHref(estado, { acao: "analise" })}
+              podeAnalisar={podeAnalisar}
+            />
           ) : ficha?.ok ? (
             <ConteudoFicha
               ficha={ficha.dados}
               fechar={fechar}
               hrefEditar={
                 podeEditar ? montarHref(estado, { acao: "editar" }) : undefined
+              }
+              hrefFicha={montarHref(estado, { acao: null })}
+              hrefAnalise={
+                podeAnalisar
+                  ? montarHref(estado, { acao: "analise" })
+                  : undefined
               }
             />
           ) : (

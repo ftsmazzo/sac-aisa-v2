@@ -13,7 +13,8 @@ A ordem das fases é **sugestão**, não decisão. Prazo e orçamento ficaram pa
 - Aplicação mínima no ar, com `GET /health` respondendo ok, CI de tipo, lint, teste e build, e `CLAUDE.md` com as regras.
 - PRD, TRD, Fluxo, UI/UX, Esquema e protótipo visual do painel e da ficha.
 - Fase 2, fatia 1 (leitura): lista de reclamações com filtros, busca e paginação e ficha lateral somente leitura, sobre os dados importados.
-- Fase 2, fatia 2 (escrita): cadastro e edição de reclamação na ficha lateral (`POST` e `PATCH /reclamacoes`), com causa, setor e situação calculados pelo servidor e auditoria de quem mudou o quê. Faltam a análise do setor, a fila, as fotos e os alertas.
+- Fase 2, fatia 2 (escrita): cadastro e edição de reclamação na ficha lateral (`POST` e `PATCH /reclamacoes`), com causa, setor e situação calculados pelo servidor e auditoria de quem mudou o quê.
+- Fase 2, fatia 3 (análise, fila e alertas): análise do setor na aba da ficha (`POST /reclamacoes/:id/analise` e `PATCH /reclamacoes/:id/analise/:analiseId`), com a decisão de retorno do produto comandando a devolução e a situação, setor tirado da reclamação e auditoria na mesma transação. Fila do setor (`GET /fila`, tela `/fila`) por urgência e alertas calculados na hora pelas regras do domínio (`GET /alertas`, tela `/alertas`, contagem no menu). Alerta ainda não é gravado em `alertas` nem enviado por WhatsApp ou ClickUp; o alerta de rascunho parado espera as capturas. Faltam as fotos.
 - Pendente da base: GlitchTip (erros) e Uptime Kuma (monitor em `/health`, 60 s).
 
 ## 1. MVP
