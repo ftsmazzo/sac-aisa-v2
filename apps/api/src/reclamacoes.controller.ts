@@ -276,6 +276,8 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
           criadoPorId: args.usuarioId,
           alteradoPorId: args.usuarioId,
           custo: { create: args.estado.custos },
+          // O card do ClickUp nasce pendente junto do registro; a fila cria o card lá.
+          card: { create: { proximaTentativaEm: new Date() } },
           causas: args.estado.causaId
             ? { create: { causaId: args.estado.causaId, primaria: true } }
             : undefined,
@@ -407,9 +409,14 @@ export class ControladorReclamacoes {
     }
     const r = lerEntrada(corpo, "editar");
     if (!r.ok) throw new BadRequestException(r.mensagem);
-    return this.comErros(() =>
+    const editada = await this.comErros(() =>
       this.escrita.editar(id, r.entrada, usuarioDe(req)),
     );
+    // Depois de gravar: o card acompanha a mudança, sem segurar a resposta nem falhar por ela.
+    if (editada.alterou) {
+      void this.clickup.aposEdicao(editada.id, editada).catch(() => undefined);
+    }
+    return editada;
   }
 
   private async comErros<T>(f: () => Promise<T>): Promise<T> {

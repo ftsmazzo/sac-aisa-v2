@@ -1,5 +1,15 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { type Devolucao, type Situacao, situacao } from "@sac-aisa/domain";
+import {
+  comentarioAnalise,
+  comentarioDevolucao,
+  linkFicha,
+  type OrigemMudanca,
+  prazoDoCard,
+  prioridadeDoCard,
+  ROTULO_SITUACAO,
+  statusDaSituacao,
+} from "./clickup-sync";
 import type { Http, ServicoIntegracoes } from "./integracoes";
 import { removerSegredos } from "./segredos";
 
@@ -12,7 +22,12 @@ export const MAX_TENTATIVAS = ESPERAS_MIN.length + 1;
 export interface DadosCard {
   cardId: string;
   taskId: string | null;
+  listaId: string | null;
+  statusExterno: string | null;
   tentativas: number;
+  precisaSync: boolean;
+  /** Comentários ainda não postados, do mais antigo ao mais novo. */
+  comentarios: { id: string; texto: string }[];
   reclamacao: {
     id: string;
     numero: number;
@@ -25,7 +40,39 @@ export interface DadosCard {
     causa: string;
     pedido: string;
     dataAbertura: string;
+    situacao: Situacao;
+    devolucao: Devolucao;
+    custoTotal: number;
   };
+}
+
+export interface DadosAnalise {
+  reclamacaoId: string;
+  numero: number;
+  setorNome: string;
+  produtoPrecisaVoltar: boolean;
+  produtoRecebidoEm: string | null;
+  conclusao: string;
+  resultado: string;
+}
+
+export type EstadoFila = "pendente" | "erro" | "esgotado";
+
+export interface ItemFila {
+  cardId: string;
+  /** "Reclamação #12" ou o título do plano. */
+  titulo: string;
+  estado: EstadoFila;
+  taskId: string | null;
+  tentativas: number;
+  ultimoErro: string | null;
+  proximaTentativaEm: string | null;
+  comentariosPendentes: number;
+}
+
+export interface FilaDoClickup {
+  itens: ItemFila[];
+  totais: Record<EstadoFila, number>;
 }
 
 export interface EventoGravado {
@@ -59,17 +106,39 @@ export interface RepositorioClickup {
     proxima: Date | null;
     contarTentativa: boolean;
   }): Promise<void>;
-  /** Reclamações com card sem task, cuja hora de tentar de novo chegou. */
+  /** Reclamações cujo card tem trabalho na fila (criar, atualizar ou comentar) e cuja hora chegou. */
   pendentes(agora: Date, limite: number): Promise<string[]>;
+  /** Marca o card para atualizar e, se vier texto, enfileira o comentário. Sem card, não faz nada. */
+  marcarSync(args: {
+    reclamacaoId: string;
+    comentarios: string[];
+    agora: Date;
+  }): Promise<void>;
+  comentarioEnviado(id: string, agora: Date): Promise<void>;
+  /** Card atualizado: limpa a marca, o erro e as tentativas. */
+  registrarSincronizado(args: {
+    cardId: string;
+    listaId: string | null;
+    statusExterno: string | null;
+    agora: Date;
+  }): Promise<void>;
+  carregarAnalise(analiseId: string): Promise<DadosAnalise | null>;
+  fila(): Promise<FilaDoClickup>;
+  /** Devolve à fila o que está com erro ou esgotado (um card ou todos). Devolve quantos. */
+  reenviar(cardId: string | null, agora: Date): Promise<number>;
+  /** Mesma chave já recebida: conta a repetição e devolve `duplicado`. */
   gravarEvento(e: {
     taskId: string;
     tipo: string;
     payload: unknown;
-  }): Promise<string>;
+    chave: string | null;
+  }): Promise<{ id: string; duplicado: boolean }>;
   obterEvento(id: string): Promise<EventoGravado | null>;
-  cardPorTaskId(
-    taskId: string,
-  ): Promise<{ cardId: string; reclamacaoId: string | null } | null>;
+  cardPorTaskId(taskId: string): Promise<{
+    cardId: string;
+    reclamacaoId: string | null;
+    statusExterno: string | null;
+  } | null>;
   reclamacaoParaStatus(id: string): Promise<{
     numero: number;
     dataAcao: string | null;
@@ -108,6 +177,7 @@ export function montarCard(r: DadosCard["reclamacao"], urlWeb?: string) {
   const detalhes = [
     r.produto && `Produto: ${r.produto}`,
     r.causa && `Causa: ${r.causa}`,
+    `Situação: ${ROTULO_SITUACAO[r.situacao]}`,
     r.setorNome && `Setor responsável: ${r.setorNome}`,
     r.pedido && `Pedido: ${r.pedido}`,
     `Aberta em: ${r.dataAbertura}`,
@@ -120,12 +190,46 @@ export function montarCard(r: DadosCard["reclamacao"], urlWeb?: string) {
   };
 }
 
+/** Corpo do PUT /task/{id}: o estado atual da reclamação. O status só sai se o card ainda não está num status da mesma situação. */
+export function montarAtualizacao(
+  r: DadosCard["reclamacao"],
+  args: {
+    mapa: Record<string, unknown>;
+    statusAtual: string | null;
+    hoje: string;
+    urlWeb?: string;
+  },
+) {
+  const card = montarCard(r, args.urlWeb);
+  const jaNaSituacao =
+    args.statusAtual !== null &&
+    args.mapa[args.statusAtual.trim().toLowerCase()] === r.situacao;
+  const status = jaNaSituacao ? null : statusDaSituacao(args.mapa, r.situacao);
+  return {
+    name: card.name,
+    markdown_content: card.markdown_description,
+    ...(status ? { status } : {}),
+    due_date: prazoDoCard(r).ms,
+    due_date_time: false,
+    priority: prioridadeDoCard(r, args.hoje),
+  };
+}
+
 export type ResultadoTentativa =
   | "sem_card"
   | "criado"
   | "sem_token"
   | "sem_lista"
   | "falhou";
+
+export type ResultadoSync =
+  | "nada"
+  | "sincronizado"
+  | "sem_token"
+  | "sem_workspace"
+  | "falhou";
+
+const API = "https://api.clickup.com/api";
 
 export class ServicoClickup {
   constructor(
@@ -228,8 +332,197 @@ export class ServicoClickup {
   /** Passada da fila: tenta os cards cuja hora chegou. */
   async processarPendentes(limite = 20): Promise<number> {
     const ids = await this.repo.pendentes(this.agora(), limite);
-    for (const id of ids) await this.tentarCard(id);
+    for (const id of ids) await this.trabalhar(id).catch(() => undefined);
     return ids.length;
+  }
+
+  /** Cria o card se ainda não existe; com o card criado, manda o que mudou no SAC. */
+  async trabalhar(
+    reclamacaoId: string,
+  ): Promise<ResultadoTentativa | ResultadoSync> {
+    const r = await this.tentarCard(reclamacaoId);
+    return r === "criado" ? this.sincronizar(reclamacaoId) : r;
+  }
+
+  // ---------- Atualização do card ----------
+
+  /**
+   * A reclamação mudou no SAC: marca o card para atualizar e já tenta enviar. Nunca lança.
+   * Mudança que veio do próprio ClickUp (`origem: "clickup"`) não volta para lá: evita o laço.
+   */
+  async reclamacaoMudou(
+    reclamacaoId: string,
+    opcoes: { origem?: OrigemMudanca; comentarios?: string[] } = {},
+  ): Promise<void> {
+    if (opcoes.origem === "clickup") return;
+    try {
+      await this.repo.marcarSync({
+        reclamacaoId,
+        comentarios: opcoes.comentarios ?? [],
+        agora: this.agora(),
+      });
+      await this.trabalhar(reclamacaoId);
+    } catch {
+      // A gravação do SAC já está feita; a fila tenta de novo.
+    }
+  }
+
+  /** Depois de editar a reclamação: atualiza o card e, se o produto chegou, comenta a devolução. */
+  async aposEdicao(
+    reclamacaoId: string,
+    r: { numero: number; devolucaoRecebida: boolean },
+  ): Promise<void> {
+    await this.reclamacaoMudou(reclamacaoId, {
+      comentarios: r.devolucaoRecebida
+        ? [comentarioDevolucao(r.numero, linkFicha(reclamacaoId, this.urlWeb))]
+        : [],
+    });
+  }
+
+  /** Depois da análise do setor: comenta a análise (com a decisão de retorno) e a devolução recebida. */
+  async aposAnalise(
+    reclamacaoId: string,
+    r: { id: string; criando: boolean; devolucaoRecebida: boolean },
+  ): Promise<void> {
+    const comentarios: string[] = [];
+    try {
+      const a = await this.repo.carregarAnalise(r.id);
+      const link = linkFicha(reclamacaoId, this.urlWeb);
+      if (a) comentarios.push(comentarioAnalise(a, r.criando, link));
+      if (a && r.devolucaoRecebida) {
+        comentarios.push(comentarioDevolucao(a.numero, link));
+      }
+    } catch {
+      // Sem o texto, ainda atualiza o card.
+    }
+    await this.reclamacaoMudou(reclamacaoId, { comentarios });
+  }
+
+  private async enviar(
+    token: string,
+    metodo: "PUT" | "POST",
+    url: string,
+    corpo: unknown,
+  ): Promise<{ status?: { status?: unknown } } | null> {
+    const r = await this.http(url, {
+      method: metodo,
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const json = (await r.json().catch(() => null)) as {
+      err?: unknown;
+      status?: { status?: unknown };
+    } | null;
+    if (r.status !== 200) {
+      const detalhe = typeof json?.err === "string" ? `: ${json.err}` : "";
+      throw new Error(`O ClickUp respondeu ${r.status}${detalhe}`);
+    }
+    return json;
+  }
+
+  /**
+   * Manda ao card o estado atual: lista do setor (se mudou), título, descrição, status, prazo e
+   * prioridade, e depois os comentários na ordem. Falha vira `ultimoErro` e nova tentativa.
+   */
+  async sincronizar(reclamacaoId: string): Promise<ResultadoSync> {
+    const dados = await this.repo.carregarCard(reclamacaoId);
+    if (!dados?.taskId) return "nada";
+    if (!dados.precisaSync && dados.comentarios.length === 0) return "nada";
+    const token = await this.integr.segredo("clickup", "token");
+    if (!token) return "sem_token";
+
+    const agora = this.agora();
+    const cfg = await this.integr.config("clickup");
+    const listas = await this.integr.listasClickup();
+    const mapa = objeto(cfg.mapaStatus) ?? {};
+    const padrao =
+      typeof cfg.listaPadraoId === "string" ? cfg.listaPadraoId : "";
+    const alvoLista =
+      (dados.reclamacao.setorRespId && listas[dados.reclamacao.setorRespId]) ||
+      padrao;
+    const workspace =
+      typeof cfg.workspaceId === "string" ? cfg.workspaceId.trim() : "";
+    const taskId = encodeURIComponent(dados.taskId);
+    let listaAtual = dados.listaId;
+    let statusExterno: string | null = null;
+    let semWorkspace = false;
+
+    try {
+      if (dados.precisaSync) {
+        // Mover primeiro: o status é o da lista nova.
+        if (alvoLista && listaAtual && alvoLista !== listaAtual) {
+          if (!workspace) {
+            semWorkspace = true;
+          } else {
+            await this.enviar(
+              token,
+              "PUT",
+              `${API}/v3/workspaces/${encodeURIComponent(workspace)}/tasks/${taskId}/home_list/${encodeURIComponent(alvoLista)}`,
+              {},
+            );
+            listaAtual = alvoLista;
+          }
+        }
+        const j = await this.enviar(
+          token,
+          "PUT",
+          `${API}/v2/task/${taskId}`,
+          montarAtualizacao(dados.reclamacao, {
+            mapa,
+            statusAtual: dados.statusExterno,
+            hoje: hojeEmSaoPaulo(agora),
+            urlWeb: this.urlWeb,
+          }),
+        );
+        if (typeof j?.status?.status === "string") {
+          statusExterno = j.status.status;
+        }
+      }
+      for (const c of dados.comentarios) {
+        await this.enviar(token, "POST", `${API}/v2/task/${taskId}/comment`, {
+          comment_text: c.texto,
+          notify_all: false,
+        });
+        await this.repo.comentarioEnviado(c.id, agora);
+      }
+      if (semWorkspace) {
+        await this.repo.registrarFalha({
+          cardId: dados.cardId,
+          erro: "Informe o ID do workspace do ClickUp nas integrações para mover o card de lista.",
+          proxima: new Date(agora.getTime() + 60 * 60_000),
+          contarTentativa: false,
+        });
+        return "sem_workspace";
+      }
+      await this.repo.registrarSincronizado({
+        cardId: dados.cardId,
+        listaId: listaAtual,
+        statusExterno,
+        agora,
+      });
+      return "sincronizado";
+    } catch (e) {
+      const bruto =
+        e instanceof Error && e.message.startsWith("O ClickUp respondeu")
+          ? e.message
+          : "Sem resposta do ClickUp.";
+      await this.registrarFalha(dados.cardId, dados.tentativas, bruto, token);
+      return "falhou";
+    }
+  }
+
+  // ---------- Fila (tela do administrador) ----------
+
+  fila(): Promise<FilaDoClickup> {
+    return this.repo.fila();
+  }
+
+  /** "Tentar de novo": devolve à fila o que está com erro ou esgotado e já processa. */
+  async reenviar(cardId: string | null): Promise<number> {
+    const n = await this.repo.reenviar(cardId, this.agora());
+    void this.processarPendentes().catch(() => undefined);
+    return n;
   }
 }
 
@@ -346,6 +639,17 @@ export function aplicarStatusExterno(
   );
 }
 
+/** `{webhook_id}:{history_item_id}`: identifica a entrega, que o ClickUp pode repetir. Sem os dois, sem chave. */
+export function chaveDoEvento(payload: unknown): string | null {
+  const o = objeto(payload);
+  const webhook = o?.webhook_id;
+  const itens = o?.history_items;
+  const item = Array.isArray(itens) ? objeto(itens[0])?.id : undefined;
+  const ok = (v: unknown): v is string | number =>
+    (typeof v === "string" && v !== "") || typeof v === "number";
+  return ok(webhook) && ok(item) ? `${webhook}:${item}`.slice(0, 200) : null;
+}
+
 export class ServicoWebhookClickup {
   constructor(
     private readonly repo: RepositorioClickup,
@@ -357,7 +661,7 @@ export class ServicoWebhookClickup {
   async receber(
     bruto: Buffer | undefined,
     assinatura: string | undefined,
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; duplicado: boolean }> {
     const segredo = await this.integr.segredo("clickup", "segredoWebhook");
     if (!bruto || !segredo || !assinaturaValida(bruto, segredo, assinatura)) {
       throw new ErroWebhook(401, "Assinatura inválida.");
@@ -379,8 +683,13 @@ export class ServicoWebhookClickup {
     ) {
       throw new ErroWebhook(400, "Evento inválido.");
     }
-    const id = await this.repo.gravarEvento({ taskId, tipo, payload });
-    return { id };
+    const r = await this.repo.gravarEvento({
+      taskId,
+      tipo,
+      payload,
+      chave: chaveDoEvento(payload),
+    });
+    return r;
   }
 
   async processar(eventoId: string): Promise<void> {
@@ -391,7 +700,13 @@ export class ServicoWebhookClickup {
     const status =
       ev.tipo === "taskStatusUpdated" ? statusNovo(ev.payload) : null;
 
-    if (!card || !status) {
+    // Eco do que o próprio SAC acabou de mandar ao card: não há o que aplicar de volta.
+    const eco =
+      card?.statusExterno &&
+      status &&
+      card.statusExterno.trim().toLowerCase() === status.trim().toLowerCase();
+
+    if (!card || !status || eco) {
       await this.repo.aplicarStatus({
         eventoId,
         cardId: card?.cardId ?? null,

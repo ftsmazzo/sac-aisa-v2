@@ -103,3 +103,52 @@ export function formatarQuando(iso: string | null): string {
     minute: "2-digit",
   });
 }
+
+/** Fila de envio ao ClickUp, como a API devolve em GET /admin/integracoes/clickup/fila. */
+export type EstadoFila = "pendente" | "erro" | "esgotado";
+
+export interface ItemFilaClickup {
+  cardId: string;
+  titulo: string;
+  estado: EstadoFila;
+  taskId: string | null;
+  tentativas: number;
+  ultimoErro: string | null;
+  proximaTentativaEm: string | null;
+  comentariosPendentes: number;
+}
+
+export interface FilaClickup {
+  itens: ItemFilaClickup[];
+  totais: Record<EstadoFila, number>;
+}
+
+export const FILA_SELO: Record<
+  EstadoFila,
+  { rotulo: string; tom: "ok" | "atencao" | "perigo" | "info" }
+> = {
+  pendente: { rotulo: "Pendente", tom: "info" },
+  erro: { rotulo: "Com erro", tom: "atencao" },
+  esgotado: { rotulo: "Esgotado", tom: "perigo" },
+};
+
+/** Uma frase sobre o que o item espera: criar o card, atualizar ou comentar. */
+export function oQueFalta(i: ItemFilaClickup): string {
+  const partes: string[] = [];
+  if (!i.taskId) partes.push("criar o card");
+  else partes.push("atualizar o card");
+  if (i.comentariosPendentes > 0) {
+    partes.push(
+      i.comentariosPendentes === 1
+        ? "1 comentário"
+        : `${i.comentariosPendentes} comentários`,
+    );
+  }
+  return partes.join(" e ");
+}
+
+export function proximaTentativa(i: ItemFilaClickup): string {
+  if (i.estado === "esgotado") return "parou: use Tentar de novo";
+  if (!i.proximaTentativaEm) return "na próxima passada";
+  return formatarQuando(i.proximaTentativaEm);
+}

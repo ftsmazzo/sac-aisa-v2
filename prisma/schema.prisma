@@ -466,26 +466,42 @@ model ClickupConfig {
 }
 
 model ClickupCard {
-  id             String    @id @default(cuid())
-  reclamacaoId   String?   @unique
-  planoId        String?   @unique
-  taskId         String?   @unique
-  listaId        String?
-  statusExterno  String?
-  sincronizadoEm DateTime?
-  tentativas     Int       @default(0)
-  ultimoErro     String?
+  id                 String    @id @default(cuid())
+  reclamacaoId       String?   @unique
+  planoId            String?   @unique
+  taskId             String?   @unique
+  listaId            String?
+  statusExterno      String?
+  sincronizadoEm     DateTime?
+  tentativas         Int       @default(0)
+  ultimoErro         String?
   /// Quando a fila tenta de novo. Nulo com `taskId` vazio = parou de tentar (esgotou).
   proximaTentativaEm DateTime?
-  criadoEm       DateTime  @default(now())
+  /// O SAC mudou desde o último envio: a fila manda o estado atual ao card (título, descrição, status, prazo, prioridade, lista).
+  precisaSync        Boolean   @default(false)
+  criadoEm           DateTime  @default(now())
 
-  reclamacao Reclamacao? @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
-  plano      PlanoAcao?  @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  reclamacao  Reclamacao?         @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+  plano       PlanoAcao?          @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  comentarios ClickupComentario[]
 
   @@index([taskId])
   @@index([proximaTentativaEm])
-
   @@map("clickup_cards")
+}
+
+/// Comentário a postar no card. Sai pela mesma fila do card; `enviadoEm` nulo = pendente.
+model ClickupComentario {
+  id        String    @id @default(cuid())
+  cardId    String
+  texto     String
+  criadoEm  DateTime  @default(now())
+  enviadoEm DateTime?
+
+  card ClickupCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, enviadoEm])
+  @@map("clickup_comentarios")
 }
 
 model ClickupEvento {
@@ -493,6 +509,10 @@ model ClickupEvento {
   taskId       String
   tipo         String
   payload      Json
+  /// `{webhook_id}:{history_item_id}`: o ClickUp repete entregas; a mesma chave só vale uma vez.
+  chave        String?   @unique
+  /// Quantas vezes a mesma entrega chegou de novo e foi ignorada.
+  repeticoes   Int       @default(0)
   recebidoEm   DateTime  @default(now())
   processadoEm DateTime?
 

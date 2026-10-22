@@ -5,8 +5,11 @@ import { describe, expect, it } from "vitest";
 import {
   formatarQuando,
   type Integracao,
+  type ItemFilaClickup,
   mensagemIntegracao,
   montarEntrada,
+  oQueFalta,
+  proximaTentativa,
   rascunhoInicial,
 } from "../lib/integracoes";
 
@@ -103,5 +106,37 @@ describe("migração de integrações", () => {
     );
     expect(col.rows).toHaveLength(1);
     await db.close();
+  });
+});
+
+describe("fila de envio ao ClickUp na tela", () => {
+  const item = (extra: Partial<ItemFilaClickup> = {}): ItemFilaClickup => ({
+    cardId: "c1",
+    titulo: "Reclamação #12",
+    estado: "erro",
+    taskId: null,
+    tentativas: 2,
+    ultimoErro: "O ClickUp respondeu 500",
+    proximaTentativaEm: "2026-10-22T15:05:00Z",
+    comentariosPendentes: 0,
+    ...extra,
+  });
+
+  it("diz o que falta: criar o card, atualizar e comentar", () => {
+    expect(oQueFalta(item())).toBe("criar o card");
+    expect(oQueFalta(item({ taskId: "t1" }))).toBe("atualizar o card");
+    expect(oQueFalta(item({ taskId: "t1", comentariosPendentes: 1 }))).toBe(
+      "atualizar o card e 1 comentário",
+    );
+    expect(oQueFalta(item({ taskId: "t1", comentariosPendentes: 3 }))).toBe(
+      "atualizar o card e 3 comentários",
+    );
+  });
+
+  it("esgotado não tem próxima tentativa: pede o botão", () => {
+    expect(
+      proximaTentativa(item({ estado: "esgotado", proximaTentativaEm: null })),
+    ).toContain("Tentar de novo");
+    expect(proximaTentativa(item())).not.toContain("Tentar de novo");
   });
 });
