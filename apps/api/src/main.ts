@@ -3,9 +3,16 @@ import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { COOKIE_SESSAO, lerCookie, ServicoAuth } from "@sac-aisa/auth";
 import { temPermissao } from "@sac-aisa/domain";
-import { json, type NextFunction, type Request, type Response } from "express";
+import {
+  json,
+  type NextFunction,
+  type Request,
+  type Response,
+  urlencoded,
+} from "express";
 import { ModuloApp } from "./app.module";
 import { origensPermitidas } from "./auth.guard";
+import { manipuladorSimulado, ServicoCanais } from "./canais.controller";
 
 async function iniciar() {
   const app = await NestFactory.create<NestExpressApplication>(ModuloApp);
@@ -45,6 +52,27 @@ async function iniciar() {
         (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
       },
     }),
+  );
+
+  // Avisos dos canais: o Mercado Livre e a Shopee assinam o corpo cru.
+  for (const rota of ["/webhooks/mercadolivre", "/webhooks/shopee"]) {
+    app.use(
+      rota,
+      json({
+        limit: "200kb",
+        verify: (req, _res, buf) => {
+          (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+        },
+      }),
+    );
+  }
+
+  // Marketplace simulado (só responde com o modo ligado). Aceita o formulário do OAuth do Mercado Livre.
+  app.use(
+    "/simulado",
+    urlencoded({ extended: false, limit: "100kb" }),
+    json({ limit: "100kb" }),
+    manipuladorSimulado(app.get(ServicoCanais)),
   );
 
   app.useBodyParser("json", { limit: "100kb" });

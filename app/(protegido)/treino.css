@@ -177,3 +177,49 @@
   color: var(--marca-texto);
   font-weight: 700;
 }
+
+.simulacao__canais {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 20px;
+}
+.simulacao__falta {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.simulacao__falta li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.simulacao__marca {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+.simulacao__marca--ok {
+  background: var(--cor-ok-fundo);
+  color: var(--cor-ok);
+}
+.simulacao__marca--falta {
+  background: var(--cor-perigo-fundo);
+  color: var(--cor-perigo);
+}
+.simulacao__marca--ver {
+  background: var(--cor-info-fundo);
+  color: var(--cor-info);
+}
+.simulacao__tabela {
+  overflow-x: auto;
+}
+.simulacao__falha td {
+  color: var(--cor-perigo);
+}

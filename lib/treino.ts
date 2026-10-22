@@ -58,14 +58,14 @@ export const ROTEIRO: readonly PassoRoteiro[] = [
     rotulo: "Abrir a lista",
   },
   {
-    titulo: "Uma reclamação chega do marketplace",
-    minutos: 1,
+    titulo: "Os canais consumidos de ponta a ponta",
+    minutos: 2,
     fazer:
-      "Na tela de treino, clique em “Simular reclamação do Mercado Livre” (e depois a devolução da Shopee). Abra a nova em Triagem.",
+      "Em Simulação de canais, ligue o marketplace simulado e clique em “Novo caso do Mercado Livre”. Acompanhe o registro: aviso, busca do caso, do detalhe e do pedido, mapeamento e a reclamação em Triagem. Repita com a Shopee e mostre o aviso duplicado e o aviso perdido. Ao lado, leia “O que falta para funcionar de verdade”.",
     dizer:
-      "É assim que a reclamação entra sozinha: pedido, produto, texto do cliente e prazo do marketplace já vêm preenchidos.",
-    href: "/admin/treino",
-    rotulo: "Abrir os simuladores",
+      "É o mesmo código que vai ler as contas reais: trocar para o canal de verdade é configurar a URL e as credenciais. O que falta está na lista: aplicativo criado, conta autorizando, URL pública e a aprovação da Shopee.",
+    href: "/admin/simulacao-canais",
+    rotulo: "Abrir a simulação de canais",
   },
   {
     titulo: "Ficha e jornada",
@@ -76,16 +76,6 @@ export const ROTEIRO: readonly PassoRoteiro[] = [
       "O relógio pausa quando esperamos o cliente. O prazo do marketplace corre à parte.",
     href: "/reclamacoes?estado=encaminhada",
     rotulo: "Ver encaminhadas",
-  },
-  {
-    titulo: "Triagem e encaminhamento",
-    minutos: 1,
-    fazer:
-      "Em uma reclamação em Triagem, mostre que a causa define o setor e que o gestor pode trocar, com registro.",
-    dizer:
-      "O sistema sugere o setor. Quem decide é a regra, e toda troca manual fica guardada.",
-    href: "/reclamacoes?estado=triagem",
-    rotulo: "Ver a triagem",
   },
   {
     titulo: "Fila do setor",

@@ -255,6 +255,8 @@ model Reclamacao {
   origemRegistro   String    @default("web")
   /// Dado fictício de demonstração. Fica fora de lista, fila, alertas e relatórios (salvo no modo treino).
   treino           Boolean   @default(false)
+  /// Campos que vieram do canal (marketplace). Editar um deles exige motivo.
+  camposCanal      Json      @default("[]")
   criadoEm         DateTime  @default(now())
   criadoPorId      String?
   alteradoEm       DateTime  @updatedAt

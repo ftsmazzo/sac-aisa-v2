@@ -4,6 +4,7 @@ import {
   montarEntrada,
   rascunhoInicial,
 } from "../lib/integracoes";
+import { botoesDoCanal, formatarMs, simboloDoItem } from "../lib/simulacao";
 import {
   MINUTOS_DO_ROTEIRO,
   mensagemTreino,
@@ -16,8 +17,8 @@ describe("faixa e roteiro do modo treino", () => {
     expect(TEXTO_FAIXA_TREINO).toBe("MODO TREINO: dados fictícios");
   });
 
-  it("o roteiro tem 10 passos que somam 10 minutos", () => {
-    expect(ROTEIRO).toHaveLength(10);
+  it("o roteiro tem 9 passos que somam 10 minutos", () => {
+    expect(ROTEIRO).toHaveLength(9);
     expect(MINUTOS_DO_ROTEIRO).toBe(10);
   });
 
@@ -29,6 +30,7 @@ describe("faixa e roteiro do modo treino", () => {
       "/alertas",
       "/relatorios",
       "/admin/treino",
+      "/admin/simulacao-canais",
     ];
     for (const p of ROTEIRO) {
       expect(p.titulo.length).toBeGreaterThan(0);
@@ -41,9 +43,14 @@ describe("faixa e roteiro do modo treino", () => {
     expect(new Set(ROTEIRO.map((p) => p.titulo)).size).toBe(ROTEIRO.length);
   });
 
-  it("o roteiro passa pelos simuladores, pela fila, pelos alertas e pelos relatórios", () => {
+  it("o roteiro passa pela simulação de canais, pela fila, pelos alertas e pelos relatórios", () => {
     const hrefs = ROTEIRO.map((p) => p.href);
-    for (const h of ["/admin/treino", "/fila", "/alertas", "/relatorios"]) {
+    for (const h of [
+      "/admin/simulacao-canais",
+      "/fila",
+      "/alertas",
+      "/relatorios",
+    ]) {
       expect(hrefs).toContain(h);
     }
   });
@@ -95,5 +102,33 @@ describe("integração com o ClickUp: cards de treino", () => {
     expect(
       "criarCardsTreino" in montarEntrada(shopee, rascunhoInicial(shopee)),
     ).toBe(false);
+  });
+});
+
+describe("tela de simulação de canais", () => {
+  it("cada canal tem os cenários pedidos, com o texto certo no primeiro", () => {
+    const ml = botoesDoCanal("mercadolivre");
+    const sp = botoesDoCanal("shopee");
+    expect(ml.map((b) => b.cenario)).toEqual([
+      "novo_caso",
+      "atualizacao",
+      "aviso_duplicado",
+      "aviso_perdido",
+      "busca",
+    ]);
+    expect(ml[0].rotulo).toBe("Novo caso do Mercado Livre");
+    expect(sp[0].rotulo).toBe("Nova devolução da Shopee");
+  });
+
+  it("o item da lista 'o que falta' mostra feito, falta ou conferir no painel", () => {
+    expect(simboloDoItem(true).texto).toBe("✓");
+    expect(simboloDoItem(false).texto).toBe("✗");
+    expect(simboloDoItem(null).rotulo).toContain("painel do canal");
+  });
+
+  it("o tempo aparece em ms ou segundos, e vazio para marco sem duração", () => {
+    expect(formatarMs(42)).toBe("42 ms");
+    expect(formatarMs(1500)).toBe("1.5 s");
+    expect(formatarMs(null)).toBe("—");
   });
 });
