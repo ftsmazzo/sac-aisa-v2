@@ -26,6 +26,7 @@ import { ControladorReclamacoes } from "./reclamacoes.controller";
 import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
 import { lerChave } from "./segredos";
+import { ControladorTreino } from "./treino.controller";
 import { ControladorUsuarios } from "./usuarios.controller";
 
 @Module({
@@ -42,6 +43,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorAnalise,
     ControladorFilaAlertas,
     ControladorRelatorios,
+    ControladorTreino,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },

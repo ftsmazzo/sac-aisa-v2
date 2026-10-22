@@ -8,6 +8,8 @@ export interface UsuarioSessao {
   nome: string;
   perfil: "administrador" | "gestor" | "operacao" | "responsavel_setor";
   setores: string[];
+  /** Vê só os dados de treino (só administrador e gestor). */
+  modoTreino?: boolean;
   permissoes: string[];
 }
 

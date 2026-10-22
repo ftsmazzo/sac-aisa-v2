@@ -468,7 +468,10 @@ describe("editar", () => {
       usuario("responsavel_setor", ["Logística"]),
     );
     expect(gravado.buscas[0]).toEqual({
-      AND: [{ id: "r1" }, { setorResp: { nome: { in: ["Logística"] } } }],
+      AND: [
+        { id: "r1", treino: false },
+        { setorResp: { nome: { in: ["Logística"] } } },
+      ],
     });
     expect(gravado.atualizados).toHaveLength(1);
   });
@@ -484,7 +487,7 @@ describe("editar", () => {
         { observacao: "Conferido com o cliente." },
         usuario(perfil),
       );
-      expect(gravado.buscas[0]).toEqual({ id: "r1" });
+      expect(gravado.buscas[0]).toEqual({ id: "r1", treino: false });
       expect(gravado.atualizados).toHaveLength(1);
     }
   });

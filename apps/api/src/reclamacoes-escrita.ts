@@ -10,7 +10,7 @@ import {
   temPermissao,
   validarTransicao,
 } from "@sac-aisa/domain";
-import { type Escopo, filtroDeEscopo } from "./reclamacoes";
+import { type Escopo, filtroPorId } from "./reclamacoes";
 
 // ---------- Estado e entrada ----------
 
@@ -354,6 +354,8 @@ export interface RepositorioEscrita {
     situacao: Situacao;
     usuarioId: string;
     usuarioNome: string;
+    /** Registrada no modo treino: nasce como dado de treino. */
+    treino: boolean;
     auditar: (r: { id: string; numero: number }) => AuditoriaNova;
   }): Promise<{ id: string; numero: number }>;
   atualizar(args: {
@@ -683,6 +685,7 @@ export class ServicoEscrita {
       situacao: situacaoDe(estado),
       usuarioId: usuario.id,
       usuarioNome: usuario.nome,
+      treino: usuario.modoTreino === true,
       auditar: (r) => ({
         usuarioId: usuario.id,
         usuarioNome: usuario.nome,
@@ -710,11 +713,9 @@ export class ServicoEscrita {
       perfil: usuario.perfil,
       setores: usuario.setores,
       marcas: usuario.marcas,
+      treino: usuario.modoTreino,
     };
-    const doEscopo = filtroDeEscopo(escopo);
-    const where: Prisma.ReclamacaoWhereInput = doEscopo
-      ? { AND: [{ id }, doEscopo] }
-      : { id };
+    const where = filtroPorId(id, escopo);
     // Fora do escopo é igual a não existir, como na leitura.
     const atual = await this.repo.obterAtual(where);
     if (!atual) throw new ErroEscrita(404, "Reclamação não encontrada.");

@@ -315,7 +315,7 @@ describe("ServicoLinhaDoTempo", () => {
       setores: [],
     });
     expect(r?.eventos.length).toBeGreaterThan(0);
-    expect(buscas[0]).toEqual({ id: "r1" });
+    expect(buscas[0]).toEqual({ id: "r1", treino: false });
   });
 
   it("responsável de outro setor recebe null, como se não existisse", async () => {
@@ -334,7 +334,10 @@ describe("ServicoLinhaDoTempo", () => {
       setores: ["Logística"],
     });
     expect(buscas[0]).toEqual({
-      AND: [{ id: "r1" }, { setorResp: { nome: { in: ["Logística"] } } }],
+      AND: [
+        { id: "r1", treino: false },
+        { setorResp: { nome: { in: ["Logística"] } } },
+      ],
     });
   });
 });

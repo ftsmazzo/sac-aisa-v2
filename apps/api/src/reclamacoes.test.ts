@@ -154,6 +154,7 @@ describe("escopo e filtro", () => {
     );
     expect(w).toEqual({
       AND: [
+        { treino: false },
         { setorResp: { nome: { in: ["Solda"] } } },
         { setorRespId: "outro-setor" },
       ],
@@ -166,7 +167,7 @@ describe("escopo e filtro", () => {
         { pagina: 1, porPagina: 25 },
         { perfil: "gestor", setores: [] },
       ),
-    ).toEqual({});
+    ).toEqual({ AND: [{ treino: false }] });
   });
 
   it("período vira intervalo de datas", () => {
@@ -176,6 +177,7 @@ describe("escopo e filtro", () => {
     );
     expect(w).toEqual({
       AND: [
+        { treino: false },
         {
           dataAbertura: { gte: dia("2026-01-01"), lte: dia("2026-01-31") },
         },
@@ -188,7 +190,7 @@ describe("escopo e filtro", () => {
       { pagina: 1, porPagina: 25, busca: "#42" },
       { perfil: "gestor", setores: [] },
     ) as { AND: { OR: unknown[] }[] };
-    expect(w.AND[0].OR).toContainEqual({ numero: 42 });
+    expect(w.AND[1].OR).toContainEqual({ numero: 42 });
   });
 
   it("texto de busca é só valor: aspas e símbolos não viram consulta", () => {
@@ -197,7 +199,7 @@ describe("escopo e filtro", () => {
       { pagina: 1, porPagina: 25, busca: b },
       { perfil: "gestor", setores: [] },
     ) as { AND: { OR: Record<string, unknown>[] }[] };
-    expect(w.AND[0].OR[0]).toEqual({
+    expect(w.AND[1].OR[0]).toEqual({
       descricao: { contains: b, mode: "insensitive" },
     });
   });
@@ -213,7 +215,7 @@ describe("escopo e filtro", () => {
         { pagina: 1, porPagina: 25, situacao: s },
         { perfil: "gestor", setores: [] },
       );
-      expect(w).toEqual({ AND: [esperado[s]] });
+      expect(w).toEqual({ AND: [{ treino: false }, esperado[s]] });
     }
 
     // Cada caso cai em exatamente uma situação, a mesma que o domínio calcula.
@@ -329,7 +331,10 @@ describe("ServicoReclamacoes", () => {
       setores: ["Solda"],
     });
     expect(chamadas[0]).toEqual({
-      AND: [{ id: "r1" }, { setorResp: { nome: { in: ["Solda"] } } }],
+      AND: [
+        { id: "r1", treino: false },
+        { setorResp: { nome: { in: ["Solda"] } } },
+      ],
     });
   });
 

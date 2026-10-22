@@ -137,6 +137,8 @@ export interface Escopo {
   setores: string[];
   /** Marcas do usuário (nomes). Só limita o responsável de setor; vazia = todas. */
   marcas?: string[];
+  /** Modo treino: vê só os dados de treino. Ausente ou falso: nunca vê treino. */
+  treino?: boolean;
 }
 
 /**
@@ -154,6 +156,24 @@ export function filtroDeEscopo(
   if (marcas) e.push({ marca: { nome: { in: marcas } } });
   if (e.length === 0) return null;
   return e.length === 1 ? e[0] : { AND: e };
+}
+
+/**
+ * Dado de treino nunca se mistura com o real: a visão normal exclui, o modo treino mostra só ele.
+ * Lista, ficha, fila, alertas, relatórios e escrita juntam este filtro ao do escopo.
+ */
+export function filtroDeTreino(escopo: Escopo): Prisma.ReclamacaoWhereInput {
+  return { treino: escopo.treino === true };
+}
+
+/** Uma reclamação pelo id, já dentro do escopo e da visão (real ou treino). Fora deles, não existe. */
+export function filtroPorId(
+  id: string,
+  escopo: Escopo,
+): Prisma.ReclamacaoWhereInput {
+  const base: Prisma.ReclamacaoWhereInput = { id, ...filtroDeTreino(escopo) };
+  const doEscopo = filtroDeEscopo(escopo);
+  return doEscopo ? { AND: [base, doEscopo] } : base;
 }
 
 /** Mesma regra de `situacao()` do domínio, escrita como filtro de banco. */
@@ -174,6 +194,7 @@ export function montarFiltro(
 ): Prisma.ReclamacaoWhereInput {
   const e: Prisma.ReclamacaoWhereInput[] = [];
 
+  e.push(filtroDeTreino(escopo));
   const doEscopo = filtroDeEscopo(escopo);
   if (doEscopo) e.push(doEscopo);
 
@@ -465,10 +486,7 @@ export class ServicoReclamacoes {
 
   /** Fora do escopo do usuário é igual a não existir: devolve null, sem revelar a diferença. */
   async obter(id: string, escopo: Escopo) {
-    const doEscopo = filtroDeEscopo(escopo);
-    const where: Prisma.ReclamacaoWhereInput = doEscopo
-      ? { AND: [{ id }, doEscopo] }
-      : { id };
+    const where = filtroPorId(id, escopo);
     const ficha = await this.repo.obter(where);
     return ficha
       ? paraFicha(ficha, { perfil: escopo.perfil, agora: this.agora() })

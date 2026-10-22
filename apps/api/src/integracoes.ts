@@ -162,6 +162,8 @@ export interface EntradaIntegracao {
   listas?: Record<string, string>;
   /** estado → status do ClickUp. Só no ClickUp. Substitui o mapa inteiro; vazio volta ao padrão. */
   mapaEstados?: Partial<Record<Estado, string>>;
+  /** Cria cards no ClickUp para reclamações de treino. Só no ClickUp; padrão desligado. */
+  criarCardsTreino?: boolean;
   /** Uso interno (assistente do ClickUp); `lerEntradaIntegracao` nunca preenche. Mescla na config; null remove. */
   extra?: Record<string, string | null>;
   /** Uso interno: segredos a apagar. */
@@ -190,7 +192,7 @@ export function lerEntradaIntegracao(
   const erro = (mensagem: string) => ({ ok: false as const, mensagem });
   if (!ehObjeto(corpo)) return erro("Corpo inválido.");
   for (const k of Object.keys(corpo)) {
-    if (!["campos", "listas", "mapaEstados"].includes(k)) {
+    if (!["campos", "listas", "mapaEstados", "criarCardsTreino"].includes(k)) {
       return erro(`Campo não aceito: "${k}".`);
     }
   }
@@ -254,6 +256,14 @@ export function lerEntradaIntegracao(
       vistos.add(n);
     }
     entrada.mapaEstados = mapa;
+  }
+
+  if ("criarCardsTreino" in corpo) {
+    if (chave !== "clickup") return erro("Esta opção só existe no ClickUp.");
+    if (typeof corpo.criarCardsTreino !== "boolean") {
+      return erro('Valor inválido em "criarCardsTreino".');
+    }
+    entrada.criarCardsTreino = corpo.criarCardsTreino;
   }
 
   if (Object.keys(entrada).length === 0) return erro("Nada para gravar.");
@@ -538,6 +548,8 @@ export interface IntegracaoVisao {
     /** Status do ClickUp que cada estado usa hoje (o padrão com a troca do administrador). */
     mapaEstados: Record<Estado, string>;
     padraoEstados: Record<Estado, string>;
+    /** Reclamações de treino viram cards no ClickUp configurado. Padrão: não. */
+    criarCardsTreino?: boolean;
     /** O que o assistente já montou. Nunca o segredo do webhook. */
     assistente: {
       workspaceId: string;
@@ -621,6 +633,7 @@ export class ServicoIntegracoes {
           })),
           mapaEstados: mapaEstadosEfetivo(reg?.config ?? {}),
           padraoEstados: { ...MAPA_ESTADOS_PADRAO },
+          criarCardsTreino: reg?.config.criarCardsTreino === true,
           assistente: {
             workspaceId: String(reg?.config.workspaceId ?? ""),
             spaceId: String(reg?.config.spaceId ?? ""),
@@ -670,6 +683,13 @@ export class ServicoIntegracoes {
     if (entrada.mapaEstados) {
       config.mapaEstados = entrada.mapaEstados;
       alterados.push("mapaEstados");
+    }
+    if (
+      entrada.criarCardsTreino !== undefined &&
+      (config.criarCardsTreino === true) !== entrada.criarCardsTreino
+    ) {
+      config.criarCardsTreino = entrada.criarCardsTreino;
+      alterados.push("criarCardsTreino");
     }
     if (entrada.listas) alterados.push("listas");
     for (const [k, v] of Object.entries(entrada.extra ?? {})) {
