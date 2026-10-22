@@ -9,6 +9,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# O Next confere os tipos do repositório inteiro, e a API e a importação usam o
+# Prisma. Aqui só os tipos importam, então o cliente é gerado sem o motor.
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate --no-engine
 RUN mkdir -p public && npm run build
 
 FROM node:22-alpine AS runner
