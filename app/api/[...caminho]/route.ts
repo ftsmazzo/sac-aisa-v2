@@ -12,6 +12,8 @@ const CABECALHOS_DE_ENTRADA = [
   "origin",
   "user-agent",
   "x-signature",
+  "x-forwarded-host",
+  "x-forwarded-proto",
 ];
 
 type Contexto = { params: Promise<{ caminho: string[] }> };

@@ -17,6 +17,7 @@ import {
   rascunhoInicial,
 } from "@/lib/integracoes";
 import { ESTADOS, ROTULO_ESTADO } from "@/lib/reclamacoes-formato";
+import { AssistenteClickup } from "./assistente";
 
 type Aviso = { tom: "ok" | "erro" | "info"; texto: string };
 
@@ -191,6 +192,14 @@ function CartaoIntegracao({
             </div>
           ))}
         </div>
+
+        {integracao.clickup && (
+          <AssistenteClickup
+            integracao={integracao}
+            gravacaoLiberada={gravacaoLiberada}
+            atualizar={atualizar}
+          />
+        )}
 
         {integracao.clickup && (
           <>
