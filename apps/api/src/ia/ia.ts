@@ -146,9 +146,12 @@ export interface RepositorioIa {
       causaEscolhidaId: string | null;
       textoFinal: string | null;
       quando: Date;
+      /** Origem do campo decidido, para as métricas de qualidade do registro. */
+      origemCampo?: { campo: string; origem: string; aceite: string | null };
     },
     auditoria: AuditoriaIa,
   ): Promise<void>;
+  qualidade(): Promise<DadosQualidade>;
   gravarResposta(
     r: {
       reclamacaoId: string;
@@ -164,6 +167,15 @@ export interface RepositorioIa {
     },
     auditoria: AuditoriaIa,
   ): Promise<void>;
+}
+
+export interface DadosQualidade {
+  /** Campo x origem x aceite, com a contagem. */
+  grupos: { campo: string; origem: string; aceite: string | null; n: number }[];
+  reclamacoes: number;
+  importadas: number;
+  /** Tempo da abertura até sair da triagem, em minutos, de cada reclamação que já saiu. */
+  minutosEmTriagem: number[];
 }
 
 /** Chave e configuração da integração OpenRouter, lidas só dentro do servidor. */
@@ -339,6 +351,12 @@ export class ServicoIa {
       modelo: cfg.modelo,
       ...(await this.consumo(cfg)),
     };
+  }
+
+  /** Qualidade do registro: quanto veio pronto, quanto a pessoa aceitou da IA e corrigiu, e o tempo em triagem. */
+  async qualidade(usuario: UsuarioLogado): Promise<QualidadeIa> {
+    exigirPermissao(usuario, "integracoes.gerir");
+    return resumirQualidade(await this.repo.qualidade());
   }
 
   // ---------- Ficha ----------
@@ -560,6 +578,9 @@ export class ServicoIa {
     let aceite = entrada.aceite;
     let causaEscolhida: string | null = null;
     let textoFinal: string | null = null;
+    let origemCampo:
+      | { campo: string; origem: string; aceite: string | null }
+      | undefined;
     const sug = objeto(reg.sugestao);
     if (reg.tipo === "triagem") {
       if (aceite !== "recusada") {
@@ -568,6 +589,13 @@ export class ServicoIa {
         }
         causaEscolhida = entrada.causaId;
         aceite = entrada.causaId === sug.causaId ? "aceita" : "alterada";
+        origemCampo = {
+          campo: "causa",
+          origem: "ia",
+          aceite: aceite === "aceita" ? "aceita" : "corrigida",
+        };
+      } else {
+        origemCampo = { campo: "causa", origem: "pessoa", aceite: "recusada" };
       }
     } else if (aceite !== "recusada") {
       const original = typeof sug.mensagem === "string" ? sug.mensagem : "";
@@ -594,6 +622,7 @@ export class ServicoIa {
         causaEscolhidaId: causaEscolhida,
         textoFinal,
         quando: this.agora(),
+        origemCampo,
       },
       {
         usuarioId: usuario.id,
@@ -959,4 +988,73 @@ export class ServicoIa {
       })),
     };
   }
+}
+
+export interface QualidadeIa {
+  reclamacoes: number;
+  /** Campos com origem conhecida. */
+  camposRegistrados: number;
+  /** Parte deles que veio sem digitação (canal, IA ou importação). */
+  pctAutomatico: number | null;
+  tempoMedioTriagemMin: number | null;
+  porCampo: {
+    campo: string;
+    canal: number;
+    ia: number;
+    pessoa: number;
+    importado: number;
+    aceitasIa: number;
+    corrigidasIa: number;
+    taxaAceiteIa: number | null;
+  }[];
+}
+
+const pct = (n: number, d: number) =>
+  d === 0 ? null : Math.round((1000 * n) / d) / 10;
+
+export function resumirQualidade(d: DadosQualidade): QualidadeIa {
+  const por = new Map<string, QualidadeIa["porCampo"][number]>();
+  for (const g of d.grupos) {
+    const c = por.get(g.campo) ?? {
+      campo: g.campo,
+      canal: 0,
+      ia: 0,
+      pessoa: 0,
+      importado: 0,
+      aceitasIa: 0,
+      corrigidasIa: 0,
+      taxaAceiteIa: null,
+    };
+    if (
+      g.origem === "canal" ||
+      g.origem === "ia" ||
+      g.origem === "pessoa" ||
+      g.origem === "importado"
+    ) {
+      c[g.origem] += g.n;
+    }
+    if (g.origem === "ia" && g.aceite === "aceita") c.aceitasIa += g.n;
+    if (g.origem === "ia" && g.aceite === "corrigida") c.corrigidasIa += g.n;
+    if (g.origem === "pessoa" && g.aceite === "recusada") c.corrigidasIa += g.n;
+    por.set(g.campo, c);
+  }
+  const porCampo = [...por.values()].map((c) => ({
+    ...c,
+    taxaAceiteIa: pct(c.aceitasIa, c.aceitasIa + c.corrigidasIa),
+  }));
+  const soma = (f: (c: QualidadeIa["porCampo"][number]) => number) =>
+    porCampo.reduce((s, c) => s + f(c), 0);
+  const t = d.minutosEmTriagem;
+  return {
+    reclamacoes: d.reclamacoes,
+    camposRegistrados: soma((c) => c.canal + c.ia + c.pessoa + c.importado),
+    pctAutomatico: pct(
+      soma((c) => c.canal + c.ia + c.importado),
+      soma((c) => c.canal + c.ia + c.pessoa + c.importado),
+    ),
+    tempoMedioTriagemMin: t.length
+      ? Math.round(t.reduce((a, b) => a + b, 0) / t.length)
+      : null,
+    porCampo,
+  };
 }

@@ -406,3 +406,13 @@ Migração `20261026000100_ia_padrao_inicial`. Regras ancoradas em causas e fam�
 ### 10.4 Medida pendente
 
 O relatório de `ia:avaliar` ainda não foi rodado (exige a chave e o banco com a importação). O patamar para ligar a triagem como padrão, e a taxa de vazamento da redação com textos de teste plantados (seção 6.1), seguem para a fatia 4.
+
+### 10.5 Padrões adotados sobre dado do comprador e qualidade do registro (o dono pode mudar)
+
+Objetivo declarado pelo dono: **tirar ao máximo o erro humano de digitação e criar padrões que gerem métrica.**
+
+- **Padrão adotado, o dono pode mudar.** Nome, e-mail, telefone e endereço do comprador **não vão ao prompt** do OpenRouter (LGPD: terceiro externo). Isso não reduz o preenchimento automático nem a personalização: o modelo escreve o marcador `{{nome_cliente}}` (a sugestão de `{NOME_CLIENTE}` foi adotada com chaves duplas, que já são validadas pelo esquema) e o **servidor** troca pelo primeiro nome vindo do cadastro, depois da resposta. Qualquer outro marcador invalida a saída.
+- **Origem de cada campo.** Tabela `reclamacao_campo_origem` (`reclamacaoId`, `campo`, `origem`: canal, ia, pessoa ou importado; `aceite`: aceita, corrigida ou recusada). Hoje a IA grava a origem do campo **causa** quando a pessoa decide a sugestão (aceitar = `ia/aceita`; trocar = `ia/corrigida`; ignorar = `pessoa/recusada`).
+- **Métricas.** `GET /admin/ia/qualidade` e a seção "Qualidade do registro" em `/admin/integracoes`, ao lado do consumo da IA: % de campos sem digitação, aceite e correções por campo, tempo médio da abertura até sair da triagem.
+- **Campos-chave sem texto livre.** Causa, produto e setor já são escolha de lista (a API recusa id inexistente). O **pedido** passou a ter formato conferido: de 4 a 40 letras, números, ponto, hífen ou sublinhado.
+- **Ainda não feito, depende da captura do canal (fase 6):** preencher a reclamação automaticamente com os dados que a API do marketplace entrega (nome, e-mail, telefone, endereço, pedido, SKU, prazo, texto), marcar esses campos como "vindo do canal" (`origem: canal`) e **bloquear a edição sem motivo**. O modelo de origem e as métricas já aceitam `canal`; falta o conector que preenche e a regra de motivo no PATCH. Os demais campos (produto, setor, pedido) ainda não gravam origem: entram junto com a captura.

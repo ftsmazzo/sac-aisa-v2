@@ -216,6 +216,12 @@ export class ControladorIaAdmin {
     return comErros(() => this.admin.simular(usuarioDe(req), corpo));
   }
 
+  @Requer("integracoes.gerir")
+  @Get("qualidade")
+  qualidade(@Req() req: PedidoComUsuario) {
+    return comErros(() => this.servico.qualidade(usuarioDe(req)));
+  }
+
   /** Consumo do dia, para o cartão do OpenRouter em /admin/integracoes. */
   @Requer("integracoes.gerir")
   @Get("consumo")

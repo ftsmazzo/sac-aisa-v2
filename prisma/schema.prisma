@@ -275,6 +275,7 @@ model Reclamacao {
   planos           PlanoReclamacao[]
   captura          CapturaCanal?
   card             ClickupCard?
+  origens          ReclamacaoCampoOrigem[]
   ia               IaRegistro[]
   respostas        ReclamacaoResposta[]
   historicoEstados EstadoHistorico[]
@@ -289,6 +290,24 @@ model Reclamacao {
   @@index([causaId])
   @@index([produtoId])
   @@map("reclamacoes")
+}
+
+/// De onde veio cada campo da reclamação e se a pessoa aceitou ou corrigiu a sugestão da IA. Base das métricas de qualidade do registro.
+model ReclamacaoCampoOrigem {
+  id           String   @id @default(cuid())
+  reclamacaoId String
+  campo        String
+  /// canal, ia, pessoa ou importado.
+  origem       String
+  /// Só quando a origem é a IA: aceita ou corrigida.
+  aceite       String?
+  quando       DateTime @default(now())
+  usuarioId    String?
+
+  reclamacao Reclamacao @relation(fields: [reclamacaoId], references: [id], onDelete: Cascade)
+
+  @@unique([reclamacaoId, campo])
+  @@map("reclamacao_campo_origem")
 }
 
 /// Cada mudança de estado, com data e autor. Base dos relógios por etapa.

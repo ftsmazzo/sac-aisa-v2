@@ -41,6 +41,7 @@ beforeAll(async () => {
     "20261025000000_jornada",
     "20261026000000_ia_triagem",
     "20261026000100_ia_padrao_inicial",
+    "20261026000200_ia_origem_campos",
   ]) {
     await db.exec(migracao(m));
   }

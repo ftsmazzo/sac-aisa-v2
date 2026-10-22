@@ -712,3 +712,14 @@ describe("rotas", () => {
     expect(exigida("linhaDoTempo")).toEqual(["reclamacoes.ver"]);
   });
 });
+
+describe("pedido: formato conferido", () => {
+  it("aceita código de pedido e recusa texto solto", () => {
+    expect(lerEntrada({ pedido: "ML-20001234567" }, "editar").ok).toBe(true);
+    expect(lerEntrada({ pedido: "" }, "editar").ok).toBe(true);
+    expect(lerEntrada({ pedido: "o pedido da Maria" }, "editar").ok).toBe(
+      false,
+    );
+    expect(lerEntrada({ pedido: "12" }, "editar").ok).toBe(false);
+  });
+});

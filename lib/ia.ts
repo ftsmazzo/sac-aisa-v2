@@ -180,3 +180,27 @@ export const mensagemAdminIa = (
     : typeof r.dados.message === "string" && r.status === 400
       ? r.dados.message
       : padrao;
+
+export interface QualidadeIa {
+  reclamacoes: number;
+  camposRegistrados: number;
+  pctAutomatico: number | null;
+  tempoMedioTriagemMin: number | null;
+  porCampo: {
+    campo: string;
+    canal: number;
+    ia: number;
+    pessoa: number;
+    importado: number;
+    aceitasIa: number;
+    corrigidasIa: number;
+    taxaAceiteIa: number | null;
+  }[];
+}
+
+export const ROTULO_CAMPO: Record<string, string> = {
+  causa: "Causa",
+  produto: "Produto",
+  setor: "Setor",
+  pedido: "Pedido",
+};

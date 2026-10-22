@@ -149,6 +149,7 @@ export interface EstadoRepo {
   respostas: (RespostaRegistrada & { reclamacaoId: string })[];
   auditorias: AuditoriaIa[];
   escritasProibidas: string[];
+  origens: { campo: string; origem: string; aceite: string | null }[];
   consumo: { chamadas: number; custoUsd: number };
   reclamacao: ReclamacaoParaIa | null;
   perguntas: PerguntaIa[];
@@ -162,6 +163,7 @@ export function repoFalso(parcial: Partial<EstadoRepo> = {}) {
     respostas: [],
     auditorias: [],
     escritasProibidas: [],
+    origens: [],
     consumo: { chamadas: 0, custoUsd: 0 },
     reclamacao: RECLAMACAO_TESTE,
     perguntas: PERGUNTAS_TESTE,
@@ -212,7 +214,16 @@ export function repoFalso(parcial: Partial<EstadoRepo> = {}) {
         r.causaEscolhidaId = d.causaEscolhidaId;
         r.textoFinal = d.textoFinal;
       }
+      if (d.origemCampo) e.origens.push(d.origemCampo);
       e.auditorias.push(auditoria);
+    },
+    async qualidade() {
+      return {
+        grupos: [],
+        reclamacoes: 0,
+        importadas: 0,
+        minutosEmTriagem: [],
+      };
     },
     async gravarResposta(r, auditoria) {
       e.respostas = e.respostas.filter(

@@ -8,7 +8,7 @@ import {
   TRIAGEM_OK,
   usuario,
 } from "./fixtures";
-import { ErroIa, resolverConfig, ServicoIa } from "./ia";
+import { ErroIa, resolverConfig, resumirQualidade, ServicoIa } from "./ia";
 import { ErroProvedor } from "./provedor";
 
 const sem = async () => {};
@@ -537,6 +537,64 @@ describe("permissões e escopo", () => {
       chamadas: 0,
       limiteChamadas: 300,
       limiteCustoUsd: 3,
+    });
+  });
+});
+
+describe("qualidade do registro", () => {
+  it("aceitar a causa da IA grava a origem 'ia' e a correção grava 'corrigida'", async () => {
+    const x = servico([TRIAGEM_OK, PERGUNTA_OK]);
+    const v = await x.s.analisar(SAC, "r1");
+    await x.s.aceite(SAC, "r1", {
+      registroId: v.analise?.registroId ?? "",
+      aceite: "aceita",
+      causaId: "eletrico",
+    });
+    await x.s.aceite(SAC, "r1", {
+      registroId: v.analise?.registroId ?? "",
+      aceite: "aceita",
+      causaId: "avaria",
+    });
+    await x.s.aceite(SAC, "r1", {
+      registroId: v.analise?.registroId ?? "",
+      aceite: "recusada",
+    });
+    expect(x.e.origens).toEqual([
+      { campo: "causa", origem: "ia", aceite: "aceita" },
+      { campo: "causa", origem: "ia", aceite: "corrigida" },
+      { campo: "causa", origem: "pessoa", aceite: "recusada" },
+    ]);
+  });
+
+  it("resume % automático, taxa de aceite da IA por campo e tempo em triagem", () => {
+    const q = resumirQualidade({
+      reclamacoes: 10,
+      importadas: 0,
+      minutosEmTriagem: [10, 20],
+      grupos: [
+        { campo: "causa", origem: "ia", aceite: "aceita", n: 6 },
+        { campo: "causa", origem: "ia", aceite: "corrigida", n: 2 },
+        { campo: "causa", origem: "pessoa", aceite: "recusada", n: 2 },
+        { campo: "pedido", origem: "canal", aceite: null, n: 10 },
+      ],
+    });
+    const causa = q.porCampo.find((c) => c.campo === "causa");
+    expect(causa).toMatchObject({
+      aceitasIa: 6,
+      corrigidasIa: 4,
+      taxaAceiteIa: 60,
+    });
+    expect(q.pctAutomatico).toBe(90);
+    expect(q.tempoMedioTriagemMin).toBe(15);
+  });
+
+  it("só o administrador vê a qualidade", async () => {
+    const { s } = servico([TRIAGEM_OK]);
+    await expect(s.qualidade(usuario("gestor"))).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(s.qualidade(usuario("administrador"))).resolves.toMatchObject({
+      pctAutomatico: null,
     });
   });
 });

@@ -331,6 +331,34 @@ export class RepositorioIaPrisma implements RepositorioIa, RepositorioIaAdmin {
           aceitoEm: d.quando,
         },
       });
+      if (d.origemCampo) {
+        const reg = await tx.iaRegistro.findUnique({
+          where: { id },
+          select: { reclamacaoId: true },
+        });
+        if (reg?.reclamacaoId) {
+          const dados = {
+            origem: d.origemCampo.origem,
+            aceite: d.origemCampo.aceite,
+            quando: d.quando,
+            usuarioId: auditoria.usuarioId,
+          };
+          await tx.reclamacaoCampoOrigem.upsert({
+            where: {
+              reclamacaoId_campo: {
+                reclamacaoId: reg.reclamacaoId,
+                campo: d.origemCampo.campo,
+              },
+            },
+            create: {
+              reclamacaoId: reg.reclamacaoId,
+              campo: d.origemCampo.campo,
+              ...dados,
+            },
+            update: dados,
+          });
+        }
+      }
       await auditar(tx, auditoria);
     });
   }
@@ -360,6 +388,45 @@ export class RepositorioIaPrisma implements RepositorioIa, RepositorioIaAdmin {
       });
       await auditar(tx, auditoria);
     });
+  }
+
+  async qualidade() {
+    const [grupos, reclamacoes, importadas, historico] = await Promise.all([
+      this.prisma.reclamacaoCampoOrigem.groupBy({
+        by: ["campo", "origem", "aceite"],
+        _count: { _all: true },
+      }),
+      this.prisma.reclamacao.count({ where: { rascunho: false } }),
+      this.prisma.reclamacao.count({ where: { origemRegistro: "importado" } }),
+      this.prisma.estadoHistorico.findMany({
+        where: { de: "triagem" },
+        orderBy: { quando: "asc" },
+        take: 2000,
+        select: {
+          reclamacaoId: true,
+          quando: true,
+          reclamacao: { select: { criadoEm: true } },
+        },
+      }),
+    ]);
+    const primeira = new Map<string, number>();
+    for (const h of historico) {
+      if (primeira.has(h.reclamacaoId)) continue;
+      const min =
+        (h.quando.getTime() - h.reclamacao.criadoEm.getTime()) / 60000;
+      if (min >= 0) primeira.set(h.reclamacaoId, min);
+    }
+    return {
+      grupos: grupos.map((g) => ({
+        campo: g.campo,
+        origem: g.origem,
+        aceite: g.aceite,
+        n: g._count._all,
+      })),
+      reclamacoes,
+      importadas,
+      minutosEmTriagem: [...primeira.values()],
+    };
   }
 
   // ---------- Administração ----------
