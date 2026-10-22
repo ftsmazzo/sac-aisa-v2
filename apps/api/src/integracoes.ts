@@ -98,6 +98,13 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
         tipo: "texto",
         ajuda: "A mesma cadastrada no aplicativo, em HTTPS.",
       },
+      {
+        nome: "baseUrl",
+        rotulo: "URL base da API",
+        tipo: "texto",
+        ajuda:
+          "Deixe vazio para usar https://api.mercadolibre.com. Só se preenche para apontar a outro servidor (o marketplace simulado usa a própria URL do sistema).",
+      },
     ],
   },
   shopee: {
@@ -126,6 +133,13 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
         rotulo: "Shop ID",
         tipo: "texto",
         ajuda: "Opcional agora; chega com a autorização da loja.",
+      },
+      {
+        nome: "baseUrl",
+        rotulo: "URL base da API",
+        tipo: "texto",
+        ajuda:
+          "Deixe vazio para usar https://openplatform.shopee.com.br. Só se preenche para apontar a outro servidor.",
       },
     ],
   },

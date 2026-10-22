@@ -37,7 +37,7 @@ const HORA_MS = 3_600_000;
 type Coluna = [nome: string, valor: unknown, tipo?: string];
 
 /** Nomes de tabela e coluna vêm só das constantes deste arquivo; os valores vão por parâmetro. */
-async function inserir(
+export async function inserir(
   exec: Executor,
   tabela: string,
   colunas: Coluna[],
@@ -61,9 +61,9 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-const timestamp = (d: Date) => d.toISOString().replace("Z", "");
+export const timestamp = (d: Date) => d.toISOString().replace("Z", "");
 
-function hojeEmSaoPaulo(agora: Date): string {
+export function hojeEmSaoPaulo(agora: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
   }).format(agora);

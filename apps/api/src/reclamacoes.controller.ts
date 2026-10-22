@@ -249,6 +249,9 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
     return {
       id: r.id,
       numero: r.numero,
+      camposCanal: Array.isArray(r.camposCanal)
+        ? r.camposCanal.filter((c): c is string => typeof c === "string")
+        : [],
       estado: {
         canalId: r.canalId,
         marcaId: r.marcaId,

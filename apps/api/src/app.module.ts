@@ -8,6 +8,11 @@ import {
 } from "./analise-fila.controller";
 import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
+import {
+  ControladorSimulacao,
+  ControladorWebhooksCanais,
+  ServicoCanais,
+} from "./canais.controller";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
 import { ServicoAssistenteClickup } from "./clickup-assistente";
 import { ControladorImportacao } from "./importacao.controller";
@@ -44,6 +49,8 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorFilaAlertas,
     ControladorRelatorios,
     ControladorTreino,
+    ControladorWebhooksCanais,
+    ControladorSimulacao,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },
@@ -88,6 +95,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
       inject: [PrismaClient, ServicoIntegracoes],
     },
     FilaClickup,
+    ServicoCanais,
     {
       provide: ServicoAuth,
       useFactory: (prisma: PrismaClient) =>
