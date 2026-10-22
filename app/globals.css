@@ -1598,6 +1598,7 @@ a.chip:hover {
   font-size: 0.875rem;
   color: var(--cor-suave);
   overflow-wrap: anywhere;
+}
 
 /* Identidade por marca no sistema logado: seletor do cabeçalho e logos pequenas. */
 .seletor-marca {
