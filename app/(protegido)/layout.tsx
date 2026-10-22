@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { BotaoSair } from "@/components/botao-sair";
 import { NavLink } from "@/components/nav-link";
 import { Marca, Selo } from "@/components/ui";
+import type { RespostaAlertas } from "@/lib/fila-alertas";
+import { buscarNaApi } from "@/lib/reclamacoes";
 import { obterUsuario } from "@/lib/sessao";
 
 const PERFIL: Record<string, string> = {
@@ -21,6 +23,13 @@ export default async function LayoutProtegido({
   const usuario = await obterUsuario();
   if (!usuario) redirect("/login");
 
+  const podeAlertas = usuario.permissoes.includes("alertas.ver");
+  // Se a API falhar, o menu segue sem o número em vez de derrubar a página.
+  const alertas = podeAlertas
+    ? await buscarNaApi<RespostaAlertas>("/alertas")
+    : null;
+  const totalAlertas = alertas?.ok ? alertas.dados.total : 0;
+
   return (
     <>
       <header className="casca__topo">
@@ -30,6 +39,23 @@ export default async function LayoutProtegido({
             <NavLink href="/">Início</NavLink>
             {usuario.permissoes.includes("reclamacoes.ver") && (
               <NavLink href="/reclamacoes">Reclamações</NavLink>
+            )}
+            {usuario.permissoes.includes("reclamacoes.analisar") && (
+              <NavLink href="/fila">Fila do setor</NavLink>
+            )}
+            {podeAlertas && (
+              <NavLink href="/alertas">
+                Alertas
+                {totalAlertas > 0 && (
+                  <span
+                    className="nav-contagem"
+                    role="img"
+                    aria-label={`${totalAlertas} em aberto`}
+                  >
+                    {totalAlertas > 99 ? "99+" : totalAlertas}
+                  </span>
+                )}
+              </NavLink>
             )}
             {usuario.permissoes.includes("dados.importar") && (
               <NavLink href="/admin/importacao">Importação</NavLink>

@@ -1525,3 +1525,44 @@ a.chip:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- Abas da ficha e contagem de alertas ---------- */
+.abas {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.abas a {
+  padding: 10px 14px;
+  margin-bottom: -1px;
+  border-bottom: 3px solid transparent;
+  color: var(--cor-suave);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.abas a:hover {
+  color: inherit;
+}
+.abas a[aria-current="page"] {
+  border-bottom-color: var(--marca-texto);
+  color: inherit;
+}
+.ficha__bloco--rodape {
+  padding: 16px 24px 24px;
+  border-top: 1px solid var(--cor-borda);
+}
+.nav-contagem {
+  display: inline-block;
+  min-width: 20px;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: #7a1f1f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}

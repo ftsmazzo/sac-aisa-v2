@@ -38,15 +38,52 @@ const CUSTOS: [keyof Ficha["custos"], string][] = [
   ["guia", "Guia"],
 ];
 
-/** Ficha em leitura. Com `hrefEditar`, mostra o botão que abre o formulário de edição. */
+/** Abas da ficha: os dados da reclamação e a análise do setor. */
+export function AbasFicha({
+  atual,
+  hrefFicha,
+  hrefAnalise,
+}: {
+  atual: "ficha" | "analise";
+  hrefFicha: string;
+  hrefAnalise: string;
+}) {
+  return (
+    <nav className="abas" aria-label="Seções da ficha">
+      <Link
+        href={hrefFicha}
+        scroll={false}
+        aria-current={atual === "ficha" ? "page" : undefined}
+      >
+        Ficha
+      </Link>
+      <Link
+        href={hrefAnalise}
+        scroll={false}
+        aria-current={atual === "analise" ? "page" : undefined}
+      >
+        Análise do setor
+      </Link>
+    </nav>
+  );
+}
+
+/**
+ * Ficha em leitura. Com `hrefEditar`, mostra o botão que abre o formulário de edição;
+ * com `hrefAnalise`, mostra as abas para registrar a análise do setor.
+ */
 export function ConteudoFicha({
   ficha,
   fechar,
   hrefEditar,
+  hrefAnalise,
+  hrefFicha,
 }: {
   ficha: Ficha;
   fechar: string;
   hrefEditar?: string;
+  hrefAnalise?: string;
+  hrefFicha?: string;
 }) {
   return (
     <>
@@ -82,6 +119,14 @@ export function ConteudoFicha({
           </Link>
         </div>
       </header>
+
+      {hrefAnalise && hrefFicha && (
+        <AbasFicha
+          atual="ficha"
+          hrefFicha={hrefFicha}
+          hrefAnalise={hrefAnalise}
+        />
+      )}
 
       <div className="ficha__corpo">
         <dl className="ficha__grade">

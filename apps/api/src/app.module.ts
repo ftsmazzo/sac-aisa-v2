@@ -2,6 +2,10 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { PrismaClient } from "@prisma/client";
 import { ServicoAuth } from "@sac-aisa/auth";
+import {
+  ControladorAnalise,
+  ControladorFilaAlertas,
+} from "./analise-fila.controller";
 import { ControladorAuth, ControladorSaude } from "./auth.controller";
 import { GuardaAcesso } from "./auth.guard";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
@@ -26,6 +30,8 @@ import { lerChave } from "./segredos";
     ControladorReclamacoes,
     ControladorIntegracoes,
     ControladorWebhooks,
+    ControladorAnalise,
+    ControladorFilaAlertas,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },
