@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import {
@@ -33,16 +33,19 @@ const FAMILIAS_DO_CATALOGO = new Set(
 
 let db: PGlite;
 
+const nomesDaCadeia = () => {
+  const pasta = join(__dirname, "..", "prisma", "migrations");
+  return readdirSync(pasta)
+    .filter((n) => /^[0-9]{14}_/.test(n))
+    .sort();
+};
+
 beforeAll(async () => {
   db = new PGlite();
-  for (const m of [
-    "20261022000000_base_v2",
-    "20261023000000_integracoes",
-    "20261025000000_jornada",
-    "20261026000000_ia_triagem",
-    "20261026000100_ia_padrao_inicial",
-    "20261026000200_ia_origem_campos",
-  ]) {
+  const nomes = nomesDaCadeia();
+  const ate = nomes.indexOf("20261027100200_ia_origem_campos");
+  if (ate < 0) throw new Error("Migração da origem dos campos não encontrada.");
+  for (const m of nomes.slice(0, ate + 1)) {
     await db.exec(migracao(m));
   }
 });
@@ -52,6 +55,24 @@ afterAll(async () => {
 });
 
 describe("migração da IA e padrão inicial", () => {
+  it("fica depois do treino e da captura, com carimbo único", () => {
+    const nomes = nomesDaCadeia();
+    const prefixos = nomes.map((n) => n.slice(0, 14));
+    expect(new Set(prefixos).size).toBe(prefixos.length);
+    for (const n of [
+      "20261027100000_ia_triagem",
+      "20261027100100_ia_padrao_inicial",
+      "20261027100200_ia_origem_campos",
+    ]) {
+      expect(nomes.indexOf(n)).toBeGreaterThan(
+        nomes.indexOf("20261026000000_treino"),
+      );
+      expect(nomes.indexOf(n)).toBeGreaterThan(
+        nomes.indexOf("20261027000000_canal_captura"),
+      );
+    }
+  });
+
   it("semeia o perfil v1 marcado como exemplo de teste, com assinatura e sem política comercial", async () => {
     const r = await db.query<{
       versao: number;

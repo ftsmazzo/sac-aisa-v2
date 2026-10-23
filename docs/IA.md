@@ -384,7 +384,7 @@ Pendências técnicas, sem depender do cliente: `pgvector` na imagem do Postgres
 
 ### 10.2 Perguntas semeadas (padrão inicial)
 
-Migração `20261026000100_ia_padrao_inicial`. Regras ancoradas em causas e famílias que existem no domínio e no catálogo importado (o teste `teste/migracao-ia.test.ts` confere):
+Migração `20261027100100_ia_padrao_inicial`, depois de `20261027000000_canal_captura`. Regras ancoradas em causas e famílias que existem no domínio e no catálogo importado (o teste `teste/migracao-ia.test.ts` confere):
 
 | Categoria | Perguntas | Vale quando |
 |---|---|---|
