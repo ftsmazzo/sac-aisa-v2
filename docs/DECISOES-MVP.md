@@ -9,9 +9,9 @@
 
 | Selo | Significa |
 |---|---|
-| **Pronto** | Está na `main`, funciona com os dados reais importados. |
-| **Pronto após mesclar PRs** | Está feito e testado em pull request aberto (PR 24, 25 ou 27). Entra na `main` quando o usuário pedir a mesclagem. |
-| **Simulado no modo treino** | Aparece na demonstração com dados de demonstração. O modo treino está em construção em outra sessão e ainda não tem PR. |
+| **Pronto** | Está na `main`. Funciona com os dados reais importados ou, no modo treino, só com os dados fictícios. |
+| **Simulado** | O código é o da captura real. Na demonstração os casos são fictícios e a reclamação nasce marcada como treino. A conta real ainda pede credencial e autorização. |
+| **Fatia 1** | A triagem por IA sugere causa, setor e a pergunta. Quem grava é a pessoa. O tom inicial é exemplo de teste, para o dono validar. A resposta final com casos parecidos ainda não existe. |
 | **Não existe** | Ainda não foi construído (seção 7). |
 
 Onde falta dado, o texto diz "a definir" e quem informa. Este documento não traz horas, prazos nem preços.
@@ -30,12 +30,14 @@ O SAC AISA v2 recebe a reclamação, direciona ao setor responsável, abre o car
 - Lista, ficha, cadastro e edição, com registro de quem mudou o quê.
 - Análise do setor, fila por urgência e alertas de demora e de custo.
 - Card automático no ClickUp, que acompanha cada passo da reclamação.
-- Relatórios com impressão (A4) e CSV. Tema e logo por marca (AISA, ARTMAQ, ARAUCA).
-- Após mesclar os PRs 24, 25 e 27: triagem enxuta de 13 campos, solução registrada pelo setor, sete estados da jornada, relógio por etapa, setores e marcas por usuário, prazo do marketplace e impressão de várias fichas.
+- Relatórios com impressão (A4) e CSV, relatório visual e impressão de várias fichas. Tema e logo por marca (AISA, ARTMAQ, ARAUCA).
+- Triagem enxuta de 13 campos, solução registrada pelo setor, sete estados da jornada, relógio por etapa, setores e marcas por usuário e prazo do marketplace.
+- Modo treino com dados fictícios, isolado das 402 reclamações reais, e marketplace simulado do Mercado Livre e da Shopee. O caso inventado entra em Triagem com pedido, SKU, texto, prazo, comprador e valor.
+- Triagem por IA na ficha: sugere causa, setor e a pergunta, com botão Copiar. Não grava sozinha. O padrão de tom é exemplo de teste.
 
 **O que o MVP ainda não faz**
 
-IA de triagem e de resposta, captura automática do Mercado Livre e da Shopee, WhatsApp, fotos e o painel com filtro cruzado completo (seção 7).
+Resposta final pela IA com casos parecidos, autorização das contas reais dos canais, WhatsApp, fotos enviadas pela operação e o painel com filtro cruzado completo (seção 7). Dois pontos do Mercado Livre ainda são suposição e pedem conferência no console: anexos e a assinatura do aviso.
 
 **O que precisamos do dono** para ir da demonstração à execução real: metas e indicadores, textos e exemplos para a IA, acessos às contas (ClickUp, Mercado Livre, Shopee, IA), regras de dados pessoais, pessoas e a forma da virada (seção 4).
 
@@ -49,41 +51,41 @@ IA de triagem e de resposta, captura automática do Mercado Livre e da Shopee, W
 |---|---|
 | Reclamação digitada pela operação (site, marketplace, WhatsApp como origem informada) | Pronto |
 | Importação das 402 reclamações, 22 causas, regras e usuários do sistema atual | Pronto |
-| Dado do comprador e prazo do marketplace no cadastro | Pronto após mesclar PRs (campo de prazo: PR 27) |
-| Reclamação chegando sozinha do Mercado Livre e da Shopee | Simulado no modo treino (simulador de canal). A captura real não existe |
-| Credenciais do Mercado Livre e da Shopee guardadas e testadas pelo administrador | Pronto. A autorização da conta e a captura não existem |
+| Dado do comprador e prazo do marketplace no cadastro | Pronto |
+| Reclamação chegando sozinha do Mercado Livre e da Shopee | Simulado. O mesmo código lê o canal real com a URL base vazia, credenciais cadastradas e conta autorizada |
+| Credenciais do Mercado Livre e da Shopee guardadas e testadas pelo administrador | Pronto o cadastro e o teste. A autorização da conta e da loja ainda é do dono |
 
 ### Triagem
 
 | Item | Selo |
 |---|---|
 | Cadastro e edição com setor, causa e situação calculados pelo servidor | Pronto |
-| Triagem enxuta: 13 campos em quatro grupos (Entrada, Consumidor, O caso, Encaminhamento) | Pronto após mesclar PRs (PR 25) |
-| Estados Triagem e Aguardando cliente, com relógio que pausa enquanto se espera o cliente | Pronto após mesclar PRs (PR 27) |
-| Sugestão de causa, perguntas ao comprador e rascunho pela IA | Não existe (seção 7) |
+| Triagem enxuta: 13 campos em quatro grupos (Entrada, Consumidor, O caso, Encaminhamento) | Pronto |
+| Estados Triagem e Aguardando cliente, com relógio que pausa enquanto se espera o cliente | Pronto |
+| Sugestão de causa, perguntas ao comprador e mensagem com Copiar | Fatia 1 |
 
 ### Setor
 
 | Item | Selo |
 |---|---|
 | Direcionamento pela causa, com troca manual | Pronto |
-| Troca de setor com autor, de/para e motivo na auditoria; ficha mostra "sugerido pela regra" ou "trocado à mão" | Pronto após mesclar PRs (PR 25) |
-| Fila do setor por urgência e botão "Assumir" | Fila: pronto. "Assumir": pronto após mesclar PRs (PR 27) |
+| Troca de setor com autor, de/para e motivo na auditoria; ficha mostra "sugerido pela regra" ou "trocado à mão" | Pronto |
+| Fila do setor por urgência e botão "Assumir" | Pronto |
 | Análise do setor, com a decisão de retorno do produto | Pronto |
-| Solução, laudo, peça, garantia e data de ação registrados pelo setor (a operação recebe recusa do servidor) | Pronto após mesclar PRs (PR 25) |
-| Setores e marcas por usuário; o responsável de setor vê só o que é dele | Pronto após mesclar PRs (PR 27) |
+| Solução, laudo, peça, garantia e data de ação registrados pelo setor (a operação recebe recusa do servidor) | Pronto |
+| Setores e marcas por usuário; o responsável de setor vê só o que é dele | Pronto |
 | Alertas de 7, 3 e 2 dias e de custo acima de R$ 500 | Pronto |
-| Alertas novos: setor sem receber, solução sem finalização, prazo do marketplace | Pronto após mesclar PRs (PR 27) |
+| Alertas novos: setor sem receber, solução sem finalização, prazo do marketplace | Pronto |
 
 ### Fechamento
 
 | Item | Selo |
 |---|---|
-| Sete estados: Triagem, Aguardando cliente, Encaminhada ao setor, Recebida pelo setor, Em tratativa, Resolvida no setor técnico, Finalizada no SAC | Pronto após mesclar PRs (PR 27) |
-| Quem pode cada passagem conferido no servidor; reabertura com motivo | Pronto após mesclar PRs (PR 27) |
-| Jornada na ficha: linha do tempo com autor e data, seis etapas e o próximo passo | Pronto após mesclar PRs (PR 25) |
-| Tempos por etapa e histórico de estados na ficha | Pronto após mesclar PRs (PR 27) |
-| Resposta final ao cliente redigida pela IA, com botão Copiar | Não existe |
+| Sete estados: Triagem, Aguardando cliente, Encaminhada ao setor, Recebida pelo setor, Em tratativa, Resolvida no setor técnico, Finalizada no SAC | Pronto |
+| Quem pode cada passagem conferido no servidor; reabertura com motivo | Pronto |
+| Jornada na ficha: linha do tempo com autor e data, seis etapas e o próximo passo | Pronto |
+| Tempos por etapa e histórico de estados na ficha | Pronto |
+| Resposta final ao cliente, no tom da empresa e com casos parecidos | Não existe. A pergunta ao comprador, com Copiar, está na fatia 1 |
 
 ### ClickUp
 
@@ -92,8 +94,8 @@ IA de triagem e de resposta, captura automática do Mercado Livre e da Shopee, W
 | Card criado ao registrar; fila de nova tentativa; erro visível no card | Pronto |
 | Atualização do card a cada movimento no SAC | Pronto |
 | Webhook com assinatura validada: mover o card atualiza a situação aqui | Pronto |
-| Um status do card por estado da jornada (mapa configurável); mudança no card só vale para Recebida, Em tratativa e Resolvida, para a frente | Pronto após mesclar PRs (PR 27) |
-| Assistente que cria espaço, listas e webhook pela tela | Em construção em outra sessão (ainda sem PR) |
+| Um status do card por estado da jornada (mapa configurável); mudança no card só vale para Recebida, Em tratativa e Resolvida, para a frente | Pronto |
+| Assistente que cria espaço, listas e webhook pela tela | Pronto |
 | Card dos planos de ação; trocar a lista do card quando o setor muda; botão "tentar de novo agora" | Não existe |
 
 ### Indicadores
@@ -101,8 +103,8 @@ IA de triagem e de resposta, captura automática do Mercado Livre e da Shopee, W
 | Item | Selo |
 |---|---|
 | Totais, tempo médio por etapa, ocorrências por setor e por produto, bancada × tipo de ocorrência, com filtro por período, marca, setor e causa | Pronto |
-| Relatório visual (cartões, barras, mapa de calor bancada × tipo) | Pronto após mesclar PRs (PR 24) |
-| Tempos por estado e relógio até recebimento, tratativa e finalização | Pronto após mesclar PRs (PR 27) |
+| Relatório visual (cartões, barras, mapa de calor bancada × tipo) | Pronto |
+| Tempos por estado e relógio até recebimento, tratativa e finalização | Pronto |
 | Painel com filtro cruzado (clicar num gráfico filtra os demais), canal e plano de ação com efeito | Não existe (fase 4 e fase 7) |
 
 ### Impressão e relatório
@@ -111,7 +113,7 @@ IA de triagem e de resposta, captura automática do Mercado Livre e da Shopee, W
 |---|---|
 | Ficha da reclamação em A4, com a logo da marca | Pronto |
 | Relatório em A4 e CSV | Pronto |
-| Imprimir várias fichas de uma vez (selecionadas ou todas do filtro, até 60) | Pronto após mesclar PRs (PR 24) |
+| Imprimir várias fichas de uma vez (selecionadas ou todas do filtro, até 60) | Pronto |
 
 ### Base e segurança
 
@@ -120,7 +122,7 @@ IA de triagem e de resposta, captura automática do Mercado Livre e da Shopee, W
 | Login com hash forte (Argon2id) e cookie httpOnly; perfil conferido no servidor em toda ação | Pronto |
 | Tema e logo por marca, seletor de marca no cabeçalho | Pronto |
 | Tela de integrações do administrador com segredos cifrados | Pronto |
-| Modo treino com dados de demonstração, isolado dos dados reais | Em construção em outra sessão (ainda sem PR) |
+| Modo treino com dados de demonstração, isolado dos dados reais | Pronto. A visão de treino vale só para administrador e gestor |
 | Monitoramento de erros (GlitchTip) e de disponibilidade (Uptime Kuma) | Pendente. Precisa de `SENTRY_DSN` e do monitor em `/health` |
 
 ---
@@ -231,27 +233,27 @@ Cada item diz por que importa e quem pode responder. "Quem pode responder" é su
 | Fase | Entrega | Complexidade | Situação |
 |---|---|---|---|
 | 1. Base de dados e acesso | Esquema, API, login e perfis, importação do sistema atual, domínio com testes, sistema de design e tema por marca | M | Feita |
-| 2. Núcleo da reclamação | Lista, ficha, cadastro e edição, análise do setor, fila, alertas, estados e relógios, triagem enxuta, usuários por setor e marca; **falta: fotos** | M | Quase toda feita (parte nos PRs 25 e 27) |
+| 2. Núcleo da reclamação | Lista, ficha, cadastro e edição, análise do setor, fila, alertas, estados e relógios, triagem enxuta, usuários por setor e marca; **falta: fotos enviadas pela operação** | M | Feita, salvo as fotos |
 | 3. ClickUp | Card automático, webhook, estados no card, assistente de configuração; **falta: card dos planos, trocar lista quando o setor muda, botão de nova tentativa** | M | Quase toda feita |
 | 4. Painel de indicadores | Filtro cruzado, bancada × ocorrência, tempo por setor, custo, atrasadas | G | Relatórios feitos; painel não |
-| 5. IA no registro | Jornada guiada, rascunho, taxa de aceite, registro de custo, limite diário | M | Não começou (arquitetura em `IA.md`) |
-| 5a. Triagem por IA | Perguntas obrigatórias, apontar o que falta, Copiar, causa e setor sugeridos | G | Não começou |
+| 5. IA no registro | Jornada guiada, rascunho, taxa de aceite, registro de custo, limite diário | M | Fatia 1 feita: triagem, pergunta, registro e limite. A jornada guiada completa não |
+| 5a. Triagem por IA | Perguntas obrigatórias, apontar o que falta, Copiar, causa e setor sugeridos | G | Fatia 1 feita. O padrão inicial é exemplo de teste |
 | 5b. Conhecimento da empresa | Casos resolvidos e busca, resposta sugerida no tom da empresa, aviso de repetida, resumo semanal | G | Não começou |
 | 5c. Padrões e fotos | Padrão bancada × ocorrência pela IA, descrição de defeito pela foto | M | Depende de painel, fotos e 5b |
-| 6. Marketplaces | Captura do Mercado Livre e da Shopee, rascunho pré-tratado, fila de pendentes, alerta de atraso | G | Estudo das APIs feito (levantamento de 22/10/2026); código não |
+| 6. Marketplaces | Captura do Mercado Livre e da Shopee, fila de aviso e de busca, reclamação em Triagem | G | Código feito, com marketplace simulado para a demonstração. Falta autorizar as contas reais. Anexos e assinatura do aviso do Mercado Livre ainda são suposição |
 | 7. Melhoria contínua | Plano de ação com acompanhamento do efeito | M | Não começou |
 | 8. Virada | Execução em paralelo, conferência, migração final, desligar o sistema atual | M | Depois das demais |
 | Depois | WhatsApp, Magalu, PWA, resposta automática ao marketplace | a definir | Fora do MVP |
 
-O MVP do plano são as fases 1 a 4. A IA e os marketplaces vêm em seguida.
+O MVP do plano são as fases 1 a 4. A triagem por IA e a captura dos marketplaces já têm uma primeira entrega; a resposta com casos parecidos e a conta real ainda vêm em seguida.
 
 ### 5.2 O que já está construído e reduz o custo
 
 - Base completa: login, perfis, importação de dados reais, cadastros, tema por marca, impressão e relatórios.
 - Regras de negócio testadas (situação, custo, direcionamento, estados e relógios).
 - ClickUp de ponta a ponta no estado atual, com fila de nova tentativa.
-- Estudo das APIs do Mercado Livre e da Shopee feito: caminhos, autenticação, avisos e campos mapeados para o SAC.
-- Arquitetura da IA desenhada em `IA.md`, incluindo segurança e limites de custo.
+- Estudo das APIs do Mercado Livre e da Shopee feito, e o código da captura junto com o marketplace simulado para demonstrar sem a conta real.
+- Triagem por IA na ficha, com registro de custo, limite diário e padrão inicial de teste. A arquitetura completa está em `IA.md`.
 - Tela de integrações do administrador e estrutura de auditoria.
 - CI com tipo, lint, teste e build; deploy automático no EasyPanel.
 
@@ -297,31 +299,26 @@ Valores a definir; nenhum foi informado.
 | Regras de contato do canal ainda não verificadas | O WhatsApp pode não valer para contato com comprador | Confirmar com o canal (D3) |
 | Mudança no sistema atual durante a construção | Reimportação na virada | Congelar o esquema ou prever migração final |
 | Dado pessoal escapa na limpeza do texto da IA | Exposição de comprador | Lista de campos permitidos, nome e contato fora do prompt, taxa de vazamento medida; risco reduzido, não zero |
-| PRs 24, 25 e 27 foram conferidos por teste, sem tela real com banco | Falha visual na primeira demonstração | Ensaiar o roteiro antes de apresentar (seção 6) |
+| Parte das telas foi conferida por teste, sem ensaio no navegador com o banco real | Falha visual na primeira demonstração | Ensaiar o roteiro em `/admin/roteiro-treino` antes de apresentar |
 | Sem processo hoje, a linha de base dos indicadores é fraca | Meta mal calibrada | Rodar em paralelo e ajustar metas depois de um ciclo |
 
 ---
 
 ## 6. Roteiro de demonstração (10 minutos)
 
-Perfil de entrada: gestor, que vê tudo. Passos com ★ dependem de PRs ainda abertos; passos com ◆ dependem do modo treino (sem PR ainda). Ensaiar antes de apresentar: os PRs 24, 25 e 27 não tiveram a tela conferida no navegador com o banco real.
+O texto que se diz ao dono está na tela `/admin/roteiro-treino`. São 9 passos, 10 minutos, com o modo treino ligado. Perfil de entrada: gestor ou administrador.
 
-| Min | Passo | Tela | Depende de |
-|---|---|---|---|
-| 0:00 | **Abertura**: a promessa e a jornada de ponta a ponta | Slide (seção 8) | — |
-| 1:00 | **Entrar**, trocar a marca no cabeçalho (AISA, ARTMAQ, ARAUCA) e ver tema e logo mudarem | Login e cabeçalho | Pronto |
-| 2:00 | **Lista de reclamações** com as 402 reais, filtros e ficha lateral | `/reclamacoes` | Pronto |
-| 3:00 | **Chegada de uma reclamação nova**, como se viesse do Mercado Livre | Simulador de canal | ◆ Modo treino |
-| 3:30 | **Triagem enxuta**: 13 campos, bancada, setor sugerido pela regra | Nova reclamação | ★ PR 25 |
-| 4:30 | **Encaminhar ao setor e card no ClickUp** (mostrar o card na lista do setor) | Ficha e ClickUp | Pronto; status por estado: ★ PR 27 |
-| 5:30 | **Entrar como responsável de setor**: fila, botão "Assumir", análise, decisão de retorno do produto, solução e data de ação | `/fila` e ficha | Fila e análise: pronto. Assumir e solução: ★ PR 25 e 27 |
-| 6:30 | **SAC finaliza**; ver o card se mover; ficha com linha do tempo, tempos por etapa e histórico | Ficha | ★ PR 25 e 27 |
-| 7:30 | **Alertas**: setor sem receber, solução sem finalização, prazo do marketplace, custo acima de R$ 500 | `/alertas` | Alertas básicos: pronto. Novos: ★ PR 27 |
-| 8:30 | **Relatório** com mapa de calor bancada × tipo de ocorrência; imprimir várias fichas | `/relatorios` e `/reclamacoes/imprimir` | Relatório: pronto. Visual e lote: ★ PR 24 |
-| 9:30 | **Administrador**: integrações (segredos cifrados) e usuários por setor e marca | `/admin/integracoes` e `/admin/usuarios` | Integrações: pronto. Usuários: ★ PR 27 |
-| 10:00 | **Fechamento**: o que falta e o que precisamos do dono | Slide (seções 7 e 4) | — |
+1. Preparar o treino e carregar os dados fictícios.
+2. Visão geral do início.
+3. A lista nos sete estados.
+4. Simulação de canais: novo caso do Mercado Livre e da Shopee, aviso duplicado, aviso perdido e a lista do que falta para a conta real. Abrir a reclamação criada e clicar em Analisar.
+5. Ficha, relógios e prazo do marketplace.
+6. Fila do setor e o botão Assumir.
+7. Alertas.
+8. Relatórios e custo.
+9. Desligar o modo treino. Apagar os dados de treino tira só o que é fictício.
 
-Se o modo treino não estiver pronto, cadastrar a reclamação nova à mão e dizer que a chegada automática é a fase 6.
+A IA sugere e a pessoa copia. O tom inicial está marcado como exemplo de teste. Para a conta real: desligar o simulado, deixar a URL base vazia, cadastrar as credenciais e autorizar a conta do Mercado Livre e a loja da Shopee.
 
 ---
 
@@ -329,18 +326,17 @@ Se o modo treino não estiver pronto, cadastrar a reclamação nova à mão e di
 
 Sem rodeios:
 
-- **IA de triagem e de resposta: não existe.** Há só a arquitetura desenhada (`IA.md`). Nada do que a IA faria aparece no sistema hoje.
-- **Captura real do Mercado Livre e da Shopee: não existe.** Existe o estudo das APIs e o cadastro e teste das credenciais. A reclamação ainda é digitada pela operação.
+- **Resposta final pela IA, com casos parecidos: não existe.** A triagem por IA existe: sugere causa, setor e a pergunta, com Copiar, e não grava. O padrão de tom é exemplo de teste.
+- **Conta real do Mercado Livre e da Shopee: não autorizada.** O código da captura e o marketplace simulado existem. Dois pontos do Mercado Livre ainda são suposição: anexos e a assinatura do aviso.
 - **WhatsApp: não existe** no sistema novo. O sistema atual tem, parcialmente.
-- **Fotos na reclamação: não existem.** Perguntas do tipo foto só valem como "recebi" quando a IA entrar.
-- **Painel com filtro cruzado completo: não existe.** Há relatórios e o relatório visual (PR 24).
+- **Fotos enviadas pela operação: não existem.** A captura guarda o endereço da foto que o canal mandar. A pergunta do tipo foto, na IA, vale como "a atendente marca que recebeu".
+- **Painel com filtro cruzado completo: não existe.** Há relatórios e o relatório visual.
 - **Plano de ação com acompanhamento do efeito (estágio 2): não existe.**
-- **ClickUp:** faltam o card dos planos de ação, a troca de lista quando o setor muda e o botão "tentar de novo agora". O assistente de criação de espaço e listas está em construção.
+- **ClickUp:** faltam o card dos planos de ação, a troca de lista quando o setor muda e o botão "tentar de novo agora". O assistente de espaço, listas e webhook existe.
 - **Alertas** são calculados na hora; ainda não são gravados nem enviados ao gestor por WhatsApp ou ClickUp.
 - **Monitoramento de erros e de disponibilidade: pendente.**
 - **Tela de usuários sem teste de interface.**
-- **PRs 24, 25 e 27 abertos**, sem tela conferida no navegador com o banco real. Só valem para a demonstração depois de mesclados.
-- **Modo treino** em construção.
+- **Ensaio no navegador com o banco real:** ainda é o passo antes de apresentar. O roteiro está em `/admin/roteiro-treino`.
 - **Fim do sistema atual (virada):** nada feito. Depende de todas as fases.
 - **Retenção de dados, LGPD, prazos, metas e orçamento**: a definir.
 
@@ -367,8 +363,8 @@ Sem rodeios:
 
 **4. O que já funciona**
 - 402 reclamações reais importadas, lista, ficha e edição
-- Análise do setor, fila e alertas
-- ClickUp de ponta a ponta
+- Análise do setor, fila, alertas e ClickUp de ponta a ponta
+- Modo treino e marketplace simulado, sem misturar com o dado real
 - Relatório, impressão em A4 e tema por marca
 
 **5. O que o dono vê**
@@ -377,11 +373,11 @@ Sem rodeios:
 - Bancada × tipo de ocorrência, sem culpar a bancada por padrão
 - Custo e reclamações paradas
 
-**6. Como a IA vai ajudar (próxima etapa)**
-- Aponta o que falta e redige a pergunta ao comprador
-- Sugere a resposta no tom da empresa
-- Só propõe: a pessoa decide e copia
+**6. Como a IA ajuda agora**
+- Na ficha, aponta causa, setor e o que falta, e redige a pergunta
+- A pessoa confirma e copia. A IA não grava
 - Dados do comprador ficam fora do modelo
+- A resposta no tom da empresa, com casos parecidos, é a etapa seguinte. O tom atual é exemplo de teste
 
 **7. Decisões que tomamos**
 - Reclamação antiga com data de ação: Finalizada no SAC
@@ -390,9 +386,9 @@ Sem rodeios:
 - Segredos cifrados; IA só propõe; modo treino isolado
 
 **8. O que falta construir**
-- IA de triagem e de resposta
-- Captura do Mercado Livre e da Shopee
-- Fotos e painel com filtro cruzado
+- Resposta final pela IA, com casos parecidos
+- Autorizar as contas reais do Mercado Livre e da Shopee
+- Fotos enviadas pela operação e painel com filtro cruzado
 - WhatsApp e plano de ação com efeito
 
 **9. O que precisamos do dono**

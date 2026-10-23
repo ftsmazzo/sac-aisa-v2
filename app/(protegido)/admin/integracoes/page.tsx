@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { FilaClickup, PainelIntegracoes } from "@/lib/integracoes";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { obterUsuario } from "@/lib/sessao";
+import { ConsumoIa } from "./consumo-ia";
 import { Painel } from "./painel";
 
 export const metadata = { title: "Integrações · SAC AISA" };
@@ -30,6 +31,7 @@ export default async function PaginaIntegracoes() {
           caracteres.
         </p>
       </div>
+      <ConsumoIa />
       {r.ok ? (
         <Painel inicial={r.dados} fila={fila.ok ? fila.dados : null} />
       ) : (

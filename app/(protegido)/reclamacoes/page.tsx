@@ -357,6 +357,9 @@ export default async function Reclamacoes({
     "reclamacoes.trocar_setor",
   );
   const podeAnalisar = usuario.permissoes.includes("reclamacoes.analisar");
+  const ia = usuario.permissoes.includes("ia.usar")
+    ? { podeEditar, podeAplicar: podeAnalisar }
+    : undefined;
   const analisando = estado.acao === "analise" && podeAnalisar;
   const cadastrando = estado.acao === "nova" && podeCriar;
   const editando = estado.acao === "editar" && podeEditar;
@@ -596,6 +599,7 @@ export default async function Reclamacoes({
                   ? montarHref(estado, { acao: "analise" })
                   : undefined
               }
+              ia={ia}
             />
           ) : (
             <div className="ficha__vazio">

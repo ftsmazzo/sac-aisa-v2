@@ -15,6 +15,7 @@ import {
 } from "./canais.controller";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
 import { ServicoAssistenteClickup } from "./clickup-assistente";
+import { ControladorIa, ControladorIaAdmin } from "./ia/ia.controller";
 import { ControladorImportacao } from "./importacao.controller";
 import { ServicoIntegracoes } from "./integracoes";
 import {
@@ -41,6 +42,8 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorImportacao,
     ControladorReclamacoes,
     ControladorJornada,
+    ControladorIa,
+    ControladorIaAdmin,
     ControladorIntegracoes,
     ControladorAssistenteClickup,
     ControladorUsuarios,

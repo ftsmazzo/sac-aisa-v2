@@ -15,6 +15,7 @@ import {
 import { JornadaDaFicha } from "./linha-do-tempo";
 import { ProximoPasso } from "./proximo-passo";
 import { HistoricoEstados, Tempos } from "./tempos";
+import { TriagemIa } from "./triagem-ia";
 
 function Campo({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   return (
@@ -84,12 +85,15 @@ export function ConteudoFicha({
   hrefEditar,
   hrefAnalise,
   hrefFicha,
+  ia,
 }: {
   ficha: Ficha;
   fechar: string;
   hrefEditar?: string;
   hrefAnalise?: string;
   hrefFicha?: string;
+  /** Presente quando a pessoa pode usar a triagem por IA. */
+  ia?: { podeEditar: boolean; podeAplicar: boolean };
 }) {
   return (
     <>
@@ -180,6 +184,14 @@ export function ConteudoFicha({
 
         <Texto rotulo="O que aconteceu" valor={ficha.descricao} />
         <Texto rotulo="Observação da triagem" valor={ficha.observacao} />
+
+        {ia && (
+          <TriagemIa
+            id={ficha.id}
+            podeEditar={ia.podeEditar}
+            podeAplicar={ia.podeAplicar}
+          />
+        )}
 
         <section className="ficha__bloco">
           <h3 className="ficha__subtitulo">Encaminhamento</h3>

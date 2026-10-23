@@ -145,10 +145,12 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
   },
   openrouter: {
     nome: "OpenRouter (IA)",
-    resumo: "Chave para a IA sugerir o preenchimento do registro (fase 5).",
+    resumo:
+      "Chave para a triagem por IA e a pergunta ao cliente na ficha da reclamação.",
     passos: [
       "Em openrouter.ai, abra Keys e crie uma chave para o SAC.",
-      "Cole a chave aqui. A IA recebe o texto da reclamação e o SKU, nunca o nome do cliente.",
+      "Cole a chave aqui. A IA recebe o texto da reclamação e o SKU, nunca nome, e-mail, telefone, endereço ou pedido do cliente.",
+      "Modelo e limites do dia são opcionais. Sem eles valem o padrão (openai/gpt-4o-mini, 300 chamadas e US$ 3 por dia). Atingido o limite, a ficha segue sem IA.",
     ],
     campos: [
       {
@@ -156,6 +158,25 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
         rotulo: "Chave da API",
         tipo: "segredo",
         ajuda: "Começa com sk-or-.",
+      },
+      {
+        nome: "modelo",
+        rotulo: "Modelo",
+        tipo: "texto",
+        ajuda:
+          "Opcional. Ex.: openai/gpt-4o-mini. Vale mais que OPENROUTER_MODELO.",
+      },
+      {
+        nome: "limiteChamadas",
+        rotulo: "Limite de chamadas por dia",
+        tipo: "texto",
+        ajuda: "Opcional. Número inteiro. Padrão 300.",
+      },
+      {
+        nome: "limiteCustoUsd",
+        rotulo: "Limite de custo por dia (US$)",
+        tipo: "texto",
+        ajuda: "Opcional. Ex.: 3 ou 2,5. Padrão 3.",
       },
     ],
   },

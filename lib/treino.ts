@@ -61,9 +61,9 @@ export const ROTEIRO: readonly PassoRoteiro[] = [
     titulo: "Os canais consumidos de ponta a ponta",
     minutos: 2,
     fazer:
-      "Em Simulação de canais, ligue o marketplace simulado e clique em “Novo caso do Mercado Livre”. Acompanhe o registro: aviso, busca do caso, do detalhe e do pedido, mapeamento e a reclamação em Triagem. Repita com a Shopee e mostre o aviso duplicado e o aviso perdido. Ao lado, leia “O que falta para funcionar de verdade”.",
+      "Em Simulação de canais, ligue o marketplace simulado e clique em “Novo caso do Mercado Livre”. Acompanhe o registro: aviso, busca do caso, do detalhe e do pedido, mapeamento e a reclamação em Triagem. Abra essa reclamação e clique em Analisar: a IA sugere causa, setor e a pergunta, com o botão Copiar. Repita um caso da Shopee e mostre o aviso duplicado e o aviso perdido. Ao lado, leia “O que falta para funcionar de verdade”.",
     dizer:
-      "É o mesmo código que vai ler as contas reais: trocar para o canal de verdade é configurar a URL e as credenciais. O que falta está na lista: aplicativo criado, conta autorizando, URL pública e a aprovação da Shopee.",
+      "É o mesmo código que vai ler as contas reais. Para isso, desligue o simulado, deixe a URL base vazia e autorize a conta. A IA só propõe; quem grava é a regra do sistema. O tom inicial ainda é exemplo de teste, para o dono validar.",
     href: "/admin/simulacao-canais",
     rotulo: "Abrir a simulação de canais",
   },

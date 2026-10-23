@@ -218,6 +218,16 @@ export function lerEntrada(
       return erro(`Valor inválido em "${campo}".`);
     }
     const t = v.trim();
+    // Pedido é chave de busca e de cruzamento: formato conferido, nunca texto inventado.
+    if (
+      campo === "pedido" &&
+      t !== "" &&
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{3,39}$/.test(t)
+    ) {
+      return erro(
+        "Pedido inválido: use de 4 a 40 letras, números, ponto, hífen ou sublinhado.",
+      );
+    }
     e[campo] = campo === "protocoloExterno" && t === "" ? null : t;
   }
 

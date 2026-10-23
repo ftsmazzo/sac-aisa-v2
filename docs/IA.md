@@ -360,3 +360,59 @@ Pendências técnicas, sem depender do cliente: `pgvector` na imagem do Postgres
 - **Tom que parece robô:** depende dos exemplos aprovados e da revisão humana; o botão é Copiar, não Enviar.
 - **Custo de uso:** baixo no volume atual, mas medir desde a fatia 1; o limite diário protege.
 - **Dado pessoal escapar na redação:** medido, reduzido, nunca zero; por isso a lista branca e a ausência de nome, contato e pedido no prompt são a defesa principal.
+
+## 10. Fatia 1 construída: triagem por IA e pergunta ao cliente
+
+**Data**: 23/10/2026. Esta seção registra o que entrou no código e onde ele se afasta das sugestões acima. Os pontos de decisão do cliente (seção 8) seguem abertos: o que foi semeado é um **padrão inicial de teste, marcado `padrao`, "exemplo de teste, validar com o dono"**, sem política comercial.
+
+### 10.1 O que existe
+
+| Peça | Onde | Resumo |
+|---|---|---|
+| Provedor | `apps/api/src/ia/provedor.ts` | Interface `ProvedorIa` e `ProvedorOpenRouter` (modelo padrão `openai/gpt-4o-mini`, o mesmo do sistema antigo). Tempo limite de 20 s, uma nova tentativa curta só em rede, tempo, 429 e 5xx. Lê tokens e custo do próprio OpenRouter (`usage.cost`); sem ele, estima pela tabela do modelo. A chave só vai no cabeçalho e nunca em log, erro, registro ou resposta |
+| Configuração | `resolverConfig` em `ia/ia.ts` | Chave: cartão OpenRouter de `/admin/integracoes` (cifrada) e, se ausente, `OPENROUTER_API_KEY`. Modelo: campo "Modelo" do cartão, depois `OPENROUTER_MODELO`, depois o padrão. Limites por dia: campos "Limite de chamadas" (padrão 300) e "Limite de custo, US$" (padrão 3), ou `IA_LIMITE_CHAMADAS` e `IA_LIMITE_CUSTO_USD`. O dia vira à meia-noite de Brasília |
+| Entrada | `ia/redacao.ts` | Lista branca: só texto da reclamação, produto, SKU e canal. O texto passa por `redigir`: e-mail, telefone, CPF/CNPJ, CEP, endereço, números longos, o pedido e o **nome do comprador (completo e cada parte, sem ligar para acento)** viram marcadores; `<` e `>` são retirados para o texto não fechar o bloco `<reclamacao>` |
+| Etapa 1, triagem | `ia/prompts.ts`, `ia/esquemas.ts` | O modelo devolve `causaId` (lista fechada), `confianca`, uma `sintese` de uma frase e `respondidas` (o que o texto já responde das perguntas conhecidas). Esquema Zod **estrito**: campo a mais, causa fora da lista, confiança fora de 0 a 1 ou pergunta inexistente invalidam a saída inteira |
+| Etapa 2, pergunta | idem | Uma mensagem curta, no máximo 3 perguntas, no tom do perfil, com `{{nome_cliente}}` como único marcador. A assinatura vem do perfil (`Equipe SAC {marca}`) e é acrescentada pelo código. Marcador desconhecido ou de redação invalida a saída |
+| Setor | `ia/ia.ts` | O modelo só sugere a causa. O setor sai da causa pela regra do banco (`RegraDirecionamento` troca o setor da causa), como no resto do sistema |
+| O que falta | `packages/domain/src/perguntas.ts` | `perguntasAplicaveis` e `perguntasFaltantes` são funções puras e testadas. O modelo não decide o que falta: o que ele achou no texto aparece como "sugerida" e **só vale quando a pessoa confirma** |
+| Registro | `IaRegistro` | Por chamada: tipo, etapa, modelo, versão do prompt e do perfil, tokens, custo em dólar, duração, entrada já redigida, erro, se caiu nas regras, aceite (aceita, alterada, recusada), causa escolhida, texto final só quando editado e **sem o nome do cliente**, quem usou. O consumo do dia (chamadas e custo) aparece em `/admin/integracoes` |
+| Falha | `ServicoIa.analisar` | Falha, tempo, esquema inválido ou limite do dia: a ficha mostra o aviso, a sugestão das regras do domínio (`classificar`) e o formulário normal. Cada falha também vira registro com o erro |
+| Padrão editável | `/admin/ia` | Perfil da empresa versionado (cada gravação publica uma versão; `exemplos` sem dado pessoal, validado ao salvar) e perguntas obrigatórias (texto, chave, tipo, obrigatória, exemplo, ordem, ativa e regras), com simulador. Só administrador e gestor; tudo na auditoria |
+| Ficha | `reclamacoes/triagem-ia.tsx` | Painel "Triagem por IA" na ficha: botão Analisar, síntese, causa e setor sugeridos com a confiança, seletor para aceitar, trocar ou ignorar, perguntas com campo de resposta, mensagem editável com botão Copiar (com confirmação visual) |
+| Avaliação | `npm run ia:avaliar` | Amostra (padrão 30, `-- --amostra N --semente S`) das reclamações importadas com causa **definida no backup**, texto redigido, compara causa e setor da IA e das regras com o histórico e imprime o custo. Pede "sim" antes de gastar; só roda quando alguém executa |
+
+### 10.2 Perguntas semeadas (padrão inicial)
+
+Migração `20261027100100_ia_padrao_inicial`, depois de `20261027000000_canal_captura`. Regras ancoradas em causas e famílias que existem no domínio e no catálogo importado (o teste `teste/migracao-ia.test.ts` confere):
+
+| Categoria | Perguntas | Vale quando |
+|---|---|---|
+| Elétrica | voltagem da tomada, extensão ou estabilizador, modelo ou série, foto da etiqueta | causa `eletrico` ou `voltagem` |
+| Embalagem | local da caixa onde estava o dano, foto da caixa externa, foto da etiqueta de transporte | causa `avaria` |
+| Montagem | passo do manual, foto da peça, ferramenta usada | família PRATELEIRA, MESA, ESTANTE ou BANCADA com causa `furacao`, `kit` ou `item`, ou causa `furacao` |
+| Peça faltante | quais peças, foto do inventário | causa `kit`, `item` ou `unidade` |
+| Transporte | data de recebimento, foto do dano | categoria de causa "Transporte" (data) e causa `avaria` (foto) |
+
+### 10.3 Onde a fatia se afasta do desenho das seções 2 a 5
+
+- **Regras como JSON na própria pergunta** (`regras`: lista de `{ familias, causaIds, causaCategorias }`), em vez da tabela `PerguntaRegra`. Mesma semântica (uma regra bate quando todos os filtros preenchidos batem; basta uma regra), menos tabelas. Migrar para tabela é mecânico se o cliente pedir regra por produto ou canal.
+- **Perfil sem variação por marca** por enquanto: a assinatura leva `{marca}`, trocado pelo nome da marca da reclamação.
+- **Sem cache por hash** da entrada (clicar duas vezes em Analisar paga duas vezes; o limite do dia protege).
+- **Sem foto**: o tipo "foto" vale como "a atendente marca que recebeu". `ReclamacaoFoto` segue na fase 2.
+- A IA **não grava causa nem setor**: o painel registra a decisão (aceite) e, só para quem tem `reclamacoes.analisar`, oferece "Aceitar e gravar na ficha", que usa o PATCH normal da reclamação, com as regras e a auditoria de sempre. A IA não muda estado nem manda mensagem.
+- Permissões novas: `ia.usar` (operação, gestor, administrador; não o responsável de setor) e `ia.gerir` (gestor e administrador).
+
+### 10.4 Medida pendente
+
+O relatório de `ia:avaliar` ainda não foi rodado (exige a chave e o banco com a importação). O patamar para ligar a triagem como padrão, e a taxa de vazamento da redação com textos de teste plantados (seção 6.1), seguem para a fatia 4.
+
+### 10.5 Padrões adotados sobre dado do comprador e qualidade do registro (o dono pode mudar)
+
+Objetivo declarado pelo dono: **tirar ao máximo o erro humano de digitação e criar padrões que gerem métrica.**
+
+- **Padrão adotado, o dono pode mudar.** Nome, e-mail, telefone e endereço do comprador **não vão ao prompt** do OpenRouter (LGPD: terceiro externo). Isso não reduz o preenchimento automático nem a personalização: o modelo escreve o marcador `{{nome_cliente}}` (a sugestão de `{NOME_CLIENTE}` foi adotada com chaves duplas, que já são validadas pelo esquema) e o **servidor** troca pelo primeiro nome vindo do cadastro, depois da resposta. Qualquer outro marcador invalida a saída.
+- **Origem de cada campo.** Tabela `reclamacao_campo_origem` (`reclamacaoId`, `campo`, `origem`: canal, ia, pessoa ou importado; `aceite`: aceita, corrigida ou recusada). Hoje a IA grava a origem do campo **causa** quando a pessoa decide a sugestão (aceitar = `ia/aceita`; trocar = `ia/corrigida`; ignorar = `pessoa/recusada`).
+- **Métricas.** `GET /admin/ia/qualidade` e a seção "Qualidade do registro" em `/admin/integracoes`, ao lado do consumo da IA: % de campos sem digitação, aceite e correções por campo, tempo médio da abertura até sair da triagem.
+- **Campos-chave sem texto livre.** Causa, produto e setor já são escolha de lista (a API recusa id inexistente). O **pedido** passou a ter formato conferido: de 4 a 40 letras, números, ponto, hífen ou sublinhado.
+- **Ainda não feito, depende da captura do canal (fase 6):** preencher a reclamação automaticamente com os dados que a API do marketplace entrega (nome, e-mail, telefone, endereço, pedido, SKU, prazo, texto), marcar esses campos como "vindo do canal" (`origem: canal`) e **bloquear a edição sem motivo**. O modelo de origem e as métricas já aceitam `canal`; falta o conector que preenche e a regra de motivo no PATCH. Os demais campos (produto, setor, pedido) ainda não gravam origem: entram junto com a captura.
