@@ -156,10 +156,12 @@ export function AssistenteClickup({
     <div className="assistente">
       <h3 className="integracao__sub">Assistente do ClickUp</h3>
       <p className="campo__ajuda">
-        Usa o token gravado acima para criar o Space “SAC AISA” com os sete
-        status, uma lista por setor e o webhook. Pode rodar de novo sem duplicar
-        nada. No ClickUp real, use o token de um usuário de serviço: o webhook
-        fica atrelado a quem o criou e para se essa pessoa for desativada.
+        Grave só o token. Depois busque o workspace e configure. O assistente
+        cria o Space “SAC AISA”, os sete status, uma lista por setor e o
+        webhook, e preenche o segredo e os IDs. Não cole esses dados à mão.
+        Pode rodar de novo sem duplicar nada. No ClickUp real, use o token de
+        um usuário de serviço: o webhook fica atrelado a quem o criou e para
+        se essa pessoa for desativada.
       </p>
       {!token?.preenchido && (
         <p className="aviso aviso--info" role="status">

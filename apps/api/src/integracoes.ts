@@ -39,35 +39,37 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
     resumo: "Cria o card da reclamação na lista do setor e acompanha o status.",
     passos: [
       "No ClickUp, abra Configurações › Apps e gere um token pessoal (começa com pk_). Use um usuário de serviço, não uma pessoa: o token e o webhook ficam atrelados a esse usuário e param se ele for desativado.",
-      "Informe o ID da lista de cada setor. O ID aparece na URL da lista. A lista padrão recebe o que não tiver setor ou lista.",
-      "Crie o webhook do ClickUp apontando para /api/webhooks/clickup deste sistema e cole aqui o segredo que o ClickUp devolve.",
-      'No mapa de estados, diga qual status do ClickUp acompanha cada estado da reclamação. Crie esses status na lista (o ClickUp recusa nome que não existe). O setor só move o card entre Recebida, Em tratativa e Resolvida no setor técnico; "Complete" vale como Resolvida no setor técnico, nunca como Finalizada.',
+      "Cole só o token no campo abaixo e clique em Gravar. Deixe segredo, lista padrão e ID do workspace vazios.",
+      "No assistente, clique em Buscar workspaces, escolha a conta e depois em Configurar ClickUp automaticamente. Ele cria o Space, as listas, os status e o webhook, e grava o segredo e os IDs.",
+      "O webhook só é criado se a variável URL_PUBLICA_WEB for um endereço HTTPS que o ClickUp consiga acessar. Sem isso, o Space e as listas nascem mesmo assim e o passo do webhook diz o que falta.",
     ],
     campos: [
       {
         nome: "token",
         rotulo: "Token da API",
         tipo: "segredo",
-        ajuda: "Token pessoal do ClickUp.",
+        ajuda: "O único campo que você preenche. Cole o token e grave.",
       },
       {
         nome: "segredoWebhook",
         rotulo: "Segredo do webhook",
         tipo: "segredo",
-        ajuda: "Usado para conferir a assinatura de cada aviso recebido.",
+        ajuda:
+          "Deixe vazio. O assistente grava o segredo quando cria o webhook.",
       },
       {
         nome: "listaPadraoId",
         rotulo: "Lista padrão",
         tipo: "texto",
-        ajuda: "ID da lista para setor sem lista própria.",
+        ajuda:
+          "Deixe vazio. O assistente cria uma lista por setor. Este ID só serve de reserva.",
       },
       {
         nome: "workspaceId",
         rotulo: "ID do workspace",
         tipo: "texto",
         ajuda:
-          "Número que aparece na URL do ClickUp (app.clickup.com/NÚMERO/...). Necessário para mover o card quando o setor responsável muda.",
+          "Deixe vazio. O assistente preenche com o número de app.clickup.com/NÚMERO/...",
       },
     ],
   },
