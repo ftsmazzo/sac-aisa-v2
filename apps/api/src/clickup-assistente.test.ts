@@ -450,6 +450,7 @@ describe("remover e testar", () => {
   it("testar: evento que não chega vira erro, depois de esperar", async () => {
     const { s, dormir, ck } = await montar({}, 0);
     await s.configurar(adm, ENTRADA);
+    dormir.mockClear();
     const passos = await s.testar(adm);
     expect(passos.find((p) => p.id === "teste-evento")?.estado).toBe("erro");
     expect(dormir).toHaveBeenCalledTimes(6);

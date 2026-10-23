@@ -336,25 +336,14 @@ export class ServicoAssistenteClickup {
       return { passos, webhook };
     }
 
-    // 3. Status
+    // 3. Status. A API pública não altera status do Space: o PUT oficial não tem esse campo.
     await passo("status", "Status do fluxo", async () => {
-      let falta = faltantes(espaco, desejados);
-      if (falta.length > 0) {
-        // O ClickUp nem sempre aceita status no corpo da criação do Space: tenta pela atualização.
-        try {
-          await api("PUT", `/space/${encodeURIComponent(spaceId)}`, {
-            statuses: desejados,
-          });
-          espaco = await api("GET", `/space/${encodeURIComponent(spaceId)}`);
-          falta = faltantes(espaco, desejados);
-        } catch {
-          // Cai no aviso abaixo, que diz o que criar à mão.
-        }
-      }
+      espaco = await api("GET", `/space/${encodeURIComponent(spaceId)}`);
+      const falta = faltantes(espaco, desejados);
       if (falta.length > 0) {
         return {
           estado: "aviso" as const,
-          mensagem: `O ClickUp não aceitou criar estes status pela API. Crie-os no Space (Configurações › Status): ${falta.map((f) => f.status).join(", ")}.`,
+          mensagem: `A API do ClickUp não cria status. No Space “${NOME_DO_SPACE}”, abra os três pontinhos e escolha Status da tarefa. Crie: ${falta.map((f) => f.status).join(", ")}.`,
         };
       }
       return { mensagem: `${desejados.length} status no Space e no mapa.` };
@@ -371,6 +360,27 @@ export class ServicoAssistenteClickup {
       const mapaListas: Record<string, string> = {};
       const falhas: string[] = [];
       let criadas = 0;
+      const criarLista = async (nome: string): Promise<string> => {
+        let ultimo = "sem detalhe do ClickUp";
+        for (let tentativa = 0; tentativa < 3; tentativa++) {
+          if (tentativa > 0) await this.dormir(500 * 2 ** (tentativa - 1));
+          try {
+            const nova = await api(
+              "POST",
+              `/space/${encodeURIComponent(spaceId)}/list`,
+              { name: nome },
+            );
+            const aninhada = objeto(nova.list);
+            const id = String(nova.id ?? aninhada.id ?? "");
+            if (!id) throw new ErroApi("O ClickUp não devolveu o id da lista.");
+            return id;
+          } catch (e) {
+            ultimo =
+              e instanceof ErroApi ? e.message : "Falha ao criar a lista.";
+          }
+        }
+        throw new ErroApi(ultimo);
+      };
       for (const s of setores) {
         const achada = existentes.find(
           (l) => norm(texto(l.name)) === norm(s.nome),
@@ -380,18 +390,15 @@ export class ServicoAssistenteClickup {
           continue;
         }
         try {
-          const nova = await api(
-            "POST",
-            `/space/${encodeURIComponent(spaceId)}/list`,
-            { name: s.nome },
-          );
-          const id = String(nova.id ?? "");
-          if (!id) throw new ErroApi("sem id");
+          if (criadas > 0) await this.dormir(400);
+          const id = await criarLista(s.nome);
           mapaListas[s.id] = id;
           existentes.push({ id, name: s.nome });
           criadas++;
-        } catch {
-          falhas.push(s.nome);
+        } catch (e) {
+          const motivo =
+            e instanceof ErroApi ? e.message : "Falha ao criar a lista.";
+          falhas.push(`${s.nome} (${motivo})`);
         }
       }
       if (Object.keys(mapaListas).length > 0) {
