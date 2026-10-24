@@ -817,6 +817,20 @@ button {
 .casca__topo {
   background: var(--marca-casca);
   color: #fff;
+  transition: background-color 0.2s var(--suave);
+}
+.casca__topo .marca__emblema {
+  display: flex;
+  align-items: center;
+  width: 108px;
+  height: 38px;
+  flex: none;
+}
+.casca__topo .marca__emblema .logo-marca {
+  width: 108px;
+  height: 34px;
+  object-fit: contain;
+  object-position: left center;
 }
 .casca__topo-interno {
   max-width: 1280px;
@@ -1687,7 +1701,9 @@ a.chip:hover {
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background-color 0.16s var(--suave);
+  transition:
+    background-color 0.16s var(--suave),
+    color 0.16s var(--suave);
 }
 .seletor-marca__item:hover {
   background: rgba(255, 255, 255, 0.14);
@@ -1697,7 +1713,7 @@ a.chip:hover {
   background: #fff;
   color: var(--marca-casca);
 }
-.casca__topo .marca > .logo-marca {
+.casca__topo .marca .logo-marca {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.22),
     0 4px 12px rgba(0, 0, 0, 0.25);
