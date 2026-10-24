@@ -26,6 +26,8 @@ import {
   type RepositorioFila,
   ServicoFilaAlertas,
 } from "./fila-alertas";
+import { ServicoJornada } from "./jornada";
+import { RepositorioJornadaPrisma } from "./jornada.controller";
 import { ErroEscrita } from "./reclamacoes-escrita";
 
 const ISO = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -187,12 +189,31 @@ const ID = /^[A-Za-z0-9_-]{1,64}$/;
 @Controller("reclamacoes")
 export class ControladorAnalise {
   private readonly servico: ServicoAnalise;
+  private readonly jornada: ServicoJornada;
 
   constructor(
-    @Inject(PrismaClient) prisma: PrismaClient,
+    @Inject(PrismaClient) private readonly prisma: PrismaClient,
     @Inject(ServicoClickup) private readonly clickup: ServicoClickup,
   ) {
     this.servico = new ServicoAnalise(new RepositorioAnalisePrisma(prisma));
+    this.jornada = new ServicoJornada(new RepositorioJornadaPrisma(prisma));
+  }
+
+  /** Gravar o diagnóstico tira a reclamação de Recebida e põe Em tratativa. */
+  private async avancarDiagnostico(
+    id: string,
+    usuario: NonNullable<PedidoComUsuario["usuario"]>,
+  ) {
+    const atual = await this.prisma.reclamacao.findUnique({
+      where: { id },
+      select: { estado: true },
+    });
+    if (atual?.estado !== "recebida" && atual?.estado !== "encaminhada") return;
+    try {
+      await this.jornada.mudar(id, { para: "em_tratativa" }, usuario);
+    } catch {
+      // Sem produto recebido, ou fora do escopo: a análise fica gravada e o estado não muda.
+    }
   }
 
   /** Depois de gravar: comenta a análise no card e atualiza o resto, sem segurar a resposta. */
@@ -220,9 +241,12 @@ export class ControladorAnalise {
     if (!ID.test(id)) throw new NotFoundException("Reclamação não encontrada.");
     const r = lerAnalise(corpo, "criar");
     if (!r.ok) throw new BadRequestException(r.mensagem);
-    return comErros(async () =>
-      this.depois(id, await this.servico.criar(id, r.entrada, usuarioDe(req))),
-    );
+    return comErros(async () => {
+      const usuario = usuarioDe(req);
+      const feito = await this.servico.criar(id, r.entrada, usuario);
+      await this.avancarDiagnostico(id, usuario);
+      return this.depois(id, feito);
+    });
   }
 
   @Requer("reclamacoes.analisar")
@@ -238,12 +262,17 @@ export class ControladorAnalise {
     }
     const r = lerAnalise(corpo, "editar");
     if (!r.ok) throw new BadRequestException(r.mensagem);
-    return comErros(async () =>
-      this.depois(
+    return comErros(async () => {
+      const usuario = usuarioDe(req);
+      const feito = await this.servico.editar(
         id,
-        await this.servico.editar(id, analiseId, r.entrada, usuarioDe(req)),
-      ),
-    );
+        analiseId,
+        r.entrada,
+        usuario,
+      );
+      await this.avancarDiagnostico(id, usuario);
+      return this.depois(id, feito);
+    });
   }
 }
 

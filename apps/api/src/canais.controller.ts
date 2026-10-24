@@ -42,6 +42,7 @@ import {
   type SituacaoDoCanal,
 } from "./canal-registro";
 import { CREDENCIAIS_SIMULADAS, MarketplaceSimulado } from "./canal-simulado";
+import { ServicoClickup } from "./clickup";
 import { ServicoIntegracoes } from "./integracoes";
 import { lerChave } from "./segredos";
 import { transacaoPrisma } from "./treino";
@@ -83,11 +84,20 @@ export class ServicoCanais implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(PrismaClient) private readonly prisma: PrismaClient,
     @Inject(ServicoIntegracoes) private readonly integ: ServicoIntegracoes,
+    @Inject(ServicoClickup) private readonly clickup: ServicoClickup,
   ) {
     this.captura = new ServicoCaptura(
       () => this.contexto(),
       new RepositorioCapturaSql(transacaoPrisma(prisma)),
       this.registro,
+      () => new Date(),
+      {
+        aoGravar: (r) => {
+          void this.clickup
+            .reclamacaoMudou(r.reclamacaoId)
+            .catch(() => undefined);
+        },
+      },
     );
     this.cenarios = new CenariosSimulados(
       this.simulador,

@@ -66,15 +66,24 @@ interface Aresta {
   papel: "sac" | "setor";
 }
 
-/** O fluxo normal. Quem não é gestor nem administrador só faz o que está aqui. */
+/**
+ * O fluxo normal. Quem não é gestor nem administrador só faz o que está aqui.
+ * Encaminhar ao setor já deixa a reclamação recebida: não há botão de receber.
+ * Em tratativa nasce quando o setor grava o diagnóstico, não por um botão.
+ */
 export const ARESTAS: readonly Aresta[] = [
   { de: "triagem", para: "aguardando_cliente", papel: "sac" },
   { de: "aguardando_cliente", para: "triagem", papel: "sac" },
   { de: "triagem", para: "encaminhada", papel: "sac" },
   { de: "aguardando_cliente", para: "encaminhada", papel: "sac" },
+  { de: "triagem", para: "recebida", papel: "sac" },
+  { de: "aguardando_cliente", para: "recebida", papel: "sac" },
   { de: "encaminhada", para: "recebida", papel: "setor" },
+  { de: "encaminhada", para: "resolvida_setor", papel: "setor" },
   { de: "recebida", para: "em_tratativa", papel: "setor" },
+  { de: "recebida", para: "resolvida_setor", papel: "setor" },
   { de: "em_tratativa", para: "resolvida_setor", papel: "setor" },
+  { de: "em_tratativa", para: "recebida", papel: "setor" },
   { de: "resolvida_setor", para: "finalizada", papel: "sac" },
 ];
 
@@ -110,7 +119,8 @@ export type CodigoTransicao =
   | "sem_permissao"
   | "motivo"
   | "sem_setor"
-  | "produto_nao_recebido";
+  | "produto_nao_recebido"
+  | "sem_fechamento";
 
 export interface PedidoTransicao {
   perfil: Perfil;
@@ -119,6 +129,9 @@ export interface PedidoTransicao {
   motivo?: string | null;
   devolucao: Devolucao | string | null;
   temSetor: boolean;
+  /** Quando vierem, fechar exige os dois. Ausentes, a regra antiga segue valendo. */
+  temSolucao?: boolean;
+  respostaEnviada?: boolean;
 }
 
 export type ResultadoTransicao =
@@ -170,10 +183,31 @@ export function validarTransicao(p: PedidoTransicao): ResultadoTransicao {
     );
   }
 
-  if (p.para === "encaminhada" && !p.temSetor) {
+  if (
+    (p.para === "encaminhada" ||
+      (p.para === "recebida" &&
+        (p.de === "triagem" || p.de === "aguardando_cliente"))) &&
+    !p.temSetor
+  ) {
     return recusa(
       "sem_setor",
       "Defina o setor responsável antes de encaminhar.",
+    );
+  }
+  if (p.de === "em_tratativa" && p.para === "recebida" && motivo === "") {
+    return recusa("motivo", "Informe para qual setor esta reclamação vai.");
+  }
+  if (
+    p.para === "finalizada" &&
+    (p.temSolucao === false || p.respostaEnviada === false)
+  ) {
+    const falta = [
+      p.temSolucao === false ? "a solução" : "",
+      p.respostaEnviada === false ? "o envio da resposta no marketplace" : "",
+    ].filter(Boolean);
+    return recusa(
+      "sem_fechamento",
+      `Antes de fechar, registre ${falta.join(" e ")}.`,
     );
   }
   // Tratativa só depois do produto recebido, ou sem devolução.
@@ -197,6 +231,8 @@ export interface OpcaoTransicao {
   reabertura: boolean;
   /** A pessoa precisa informar o motivo. */
   exigeMotivo: boolean;
+  /** Fora do passo da etapa. A ficha esconde isto atrás de "Outra passagem". */
+  excepcional: boolean;
 }
 
 /** Os próximos estados que o perfil pode escolher a partir de `de` (a tela mostra só estes). */
@@ -220,7 +256,95 @@ export function transicoesPermitidas(
       rotulo: ROTULO_ESTADO[para],
       reabertura,
       exigeMotivo: reabertura || (papel === "total" && !normal),
+      excepcional: false,
     });
+  }
+  return saida;
+}
+
+/** Botões do passo atual. O nome é o da ação, não o do status de destino. */
+const ACOES_DA_ETAPA: readonly {
+  de: Estado;
+  para: Estado;
+  rotulo: string;
+  exigeMotivo?: boolean;
+}[] = [
+  {
+    de: "triagem",
+    para: "aguardando_cliente",
+    rotulo: "Pedir informação ao cliente",
+  },
+  { de: "triagem", para: "recebida", rotulo: "Encaminhar ao setor" },
+  {
+    de: "aguardando_cliente",
+    para: "triagem",
+    rotulo: "O cliente respondeu",
+  },
+  {
+    de: "aguardando_cliente",
+    para: "recebida",
+    rotulo: "Encaminhar ao setor",
+  },
+  { de: "encaminhada", para: "resolvida_setor", rotulo: "Devolver ao SAC" },
+  { de: "recebida", para: "resolvida_setor", rotulo: "Devolver ao SAC" },
+  { de: "em_tratativa", para: "resolvida_setor", rotulo: "Devolver ao SAC" },
+  {
+    de: "em_tratativa",
+    para: "recebida",
+    rotulo: "Encaminhar a outro setor",
+    exigeMotivo: true,
+  },
+  {
+    de: "resolvida_setor",
+    para: "finalizada",
+    rotulo: "Fechar a reclamação",
+  },
+];
+
+/**
+ * O que a ficha mostra agora. Gestor e administrador ainda alcançam as outras
+ * passagens, atrás de "Outra passagem", com motivo.
+ */
+export function acoesDaEtapa(perfil: Perfil, de: Estado): OpcaoTransicao[] {
+  const papel = papelDe(perfil);
+  const saida: OpcaoTransicao[] = [];
+  for (const a of ACOES_DA_ETAPA) {
+    if (a.de !== de) continue;
+    const normal = aresta(a.de, a.para);
+    if (!normal) continue;
+    if (papel !== "total" && normal.papel !== papel) continue;
+    saida.push({
+      para: a.para,
+      rotulo: a.rotulo,
+      reabertura: false,
+      exigeMotivo: a.exigeMotivo === true,
+      excepcional: false,
+    });
+  }
+  if (
+    ESTADOS_REABRIVEIS.includes(de) &&
+    (papel === "sac" || papel === "total")
+  ) {
+    saida.push({
+      para: "encaminhada",
+      rotulo: "Reabrir com o setor",
+      reabertura: true,
+      exigeMotivo: true,
+      excepcional: false,
+    });
+  }
+  if (papel === "total") {
+    const ja = new Set(saida.map((o) => o.para));
+    for (const para of ESTADOS) {
+      if (para === de || ja.has(para)) continue;
+      saida.push({
+        para,
+        rotulo: ROTULO_ESTADO[para],
+        reabertura: false,
+        exigeMotivo: true,
+        excepcional: true,
+      });
+    }
   }
   return saida;
 }

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import {
+  acoesDaEtapa,
   calcularRelogios,
   custoTotal,
   type Devolucao,
@@ -9,7 +10,6 @@ import {
   type Perfil,
   type Situacao,
   situacao,
-  transicoesPermitidas,
   veTodosOsSetores,
 } from "@sac-aisa/domain";
 
@@ -337,6 +337,9 @@ export interface FichaBanco extends Omit<LinhaBanco, "causa"> {
   laudo: string;
   procedencia: string;
   solucao: string;
+  respostaMarketplace: string;
+  respostaEnviadaEm: Date | null;
+  acompanhamento: string;
   observacao: string;
   garantia: string;
   pedido: string;
@@ -404,7 +407,7 @@ export function paraFicha(
       estado: h.para,
       quando: h.quando.toISOString(),
     })),
-    transicoes: transicoesPermitidas(ctx.perfil, f.estado),
+    transicoes: acoesDaEtapa(ctx.perfil, f.estado),
     /** Setor que a causa atual indica; pode diferir do responsável se alguém o trocou. */
     setorSugerido: f.causa
       ? (f.causa.regra?.setor ?? f.causa.setor ?? null)
@@ -415,6 +418,9 @@ export function paraFicha(
     laudo: f.laudo,
     procedencia: f.procedencia,
     solucao: f.solucao,
+    respostaMarketplace: f.respostaMarketplace,
+    respostaEnviadaEm: f.respostaEnviadaEm?.toISOString() ?? null,
+    acompanhamento: f.acompanhamento,
     observacao: f.observacao,
     garantia: f.garantia,
     pedido: f.pedido,

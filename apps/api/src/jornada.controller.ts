@@ -11,6 +11,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { type Prisma, PrismaClient } from "@prisma/client";
+import { papelDe } from "@sac-aisa/domain";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
 import { ServicoClickup } from "./clickup";
 import {
@@ -38,11 +39,19 @@ export class RepositorioJornadaPrisma implements RepositorioJornada {
         dataAbertura: true,
         dataAcao: true,
         setorRespId: true,
+        solucao: true,
+        respostaEnviadaEm: true,
       },
     });
     if (!r) return null;
     return {
-      ...r,
+      id: r.id,
+      numero: r.numero,
+      estado: r.estado,
+      devolucao: r.devolucao,
+      setorRespId: r.setorRespId,
+      solucao: r.solucao,
+      respostaEnviada: r.respostaEnviadaEm !== null,
       dataAbertura: ISO(r.dataAbertura) as string,
       dataAcao: ISO(r.dataAcao),
     };
@@ -107,7 +116,7 @@ export class ControladorJornada {
   private readonly servico: ServicoJornada;
 
   constructor(
-    @Inject(PrismaClient) prisma: PrismaClient,
+    @Inject(PrismaClient) private readonly prisma: PrismaClient,
     @Inject(ServicoClickup) private readonly clickup: ServicoClickup,
   ) {
     this.servico = new ServicoJornada(new RepositorioJornadaPrisma(prisma));
@@ -139,4 +148,129 @@ export class ControladorJornada {
       throw new BadRequestException(e.message);
     }
   }
+
+  /** O SAC registra a resposta que foi ao marketplace. Fechar só fica liberado depois disto. */
+  @Requer("reclamacoes.ver")
+  @Post(":id/resposta")
+  @HttpCode(200)
+  async resposta(
+    @Param("id") id: string,
+    @Body() corpo: unknown,
+    @Req() req: PedidoComUsuario,
+  ) {
+    const usuario = this.exigirSac(id, req);
+    const texto = lerTexto(corpo, "texto", 4000);
+    const r = await this.prisma.reclamacao.findUnique({
+      where: { id },
+      select: { numero: true, estado: true },
+    });
+    if (!r) throw new NotFoundException("Reclamação não encontrada.");
+    if (r.estado !== "resolvida_setor") {
+      throw new BadRequestException(
+        "A resposta é enviada quando a reclamação voltou ao SAC.",
+      );
+    }
+    const agora = new Date();
+    await this.prisma.$transaction([
+      this.prisma.reclamacao.update({
+        where: { id },
+        data: {
+          respostaMarketplace: texto,
+          respostaEnviadaEm: agora,
+          alteradoPorId: usuario.id,
+        },
+      }),
+      this.prisma.auditoria.create({
+        data: {
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "reclamacao.resposta",
+          alvo: `Reclamação #${r.numero}`,
+          detalhe: "Resposta enviada no marketplace.",
+          reclamacaoId: id,
+          extra: { texto: texto.slice(0, 500) },
+        },
+      }),
+    ]);
+    return { id, enviadaEm: agora.toISOString() };
+  }
+
+  /** Depois de fechada: se o cliente confirmou o reparo, o reenvio ou ficou satisfeito. */
+  @Requer("reclamacoes.ver")
+  @Post(":id/acompanhamento")
+  @HttpCode(200)
+  async acompanhamento(
+    @Param("id") id: string,
+    @Body() corpo: unknown,
+    @Req() req: PedidoComUsuario,
+  ) {
+    const usuario = this.exigirSac(id, req);
+    const valor = lerAcompanhamento(corpo);
+    const r = await this.prisma.reclamacao.findUnique({
+      where: { id },
+      select: { numero: true, estado: true },
+    });
+    if (!r) throw new NotFoundException("Reclamação não encontrada.");
+    if (r.estado !== "finalizada") {
+      throw new BadRequestException(
+        "O acompanhamento é feito depois que a reclamação fecha.",
+      );
+    }
+    await this.prisma.$transaction([
+      this.prisma.reclamacao.update({
+        where: { id },
+        data: { acompanhamento: valor, alteradoPorId: usuario.id },
+      }),
+      this.prisma.auditoria.create({
+        data: {
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "reclamacao.acompanhamento",
+          alvo: `Reclamação #${r.numero}`,
+          detalhe: ROTULO_ACOMPANHAMENTO[valor],
+          reclamacaoId: id,
+          extra: { valor, rotulo: ROTULO_ACOMPANHAMENTO[valor] },
+        },
+      }),
+    ]);
+    return { id, acompanhamento: valor };
+  }
+
+  private exigirSac(id: string, req: PedidoComUsuario) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+      throw new NotFoundException("Reclamação não encontrada.");
+    }
+    if (!req.usuario) throw new BadRequestException("Sessão ausente.");
+    if (papelDe(req.usuario.perfil) === "setor") {
+      throw new ForbiddenException("Esta etapa é do SAC.");
+    }
+    return req.usuario;
+  }
+}
+
+const ROTULO_ACOMPANHAMENTO: Record<string, string> = {
+  satisfeito: "Cliente ficou satisfeito.",
+  reparo: "Cliente confirmou o reparo.",
+  reenvio: "Cliente confirmou o reenvio.",
+  insatisfeito: "Cliente não ficou satisfeito.",
+};
+
+function lerTexto(corpo: unknown, campo: string, max: number): string {
+  const c = (corpo ?? {}) as Record<string, unknown>;
+  const v = c[campo];
+  if (typeof v !== "string" || v.trim() === "" || v.trim().length > max) {
+    throw new BadRequestException(`Informe ${campo}.`);
+  }
+  return v.trim();
+}
+
+function lerAcompanhamento(corpo: unknown): string {
+  const c = (corpo ?? {}) as Record<string, unknown>;
+  const v = c.valor;
+  if (typeof v !== "string" || !(v in ROTULO_ACOMPANHAMENTO)) {
+    throw new BadRequestException(
+      "Informe satisfeito, reparo, reenvio ou insatisfeito.",
+    );
+  }
+  return v;
 }

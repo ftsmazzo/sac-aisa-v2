@@ -64,6 +64,8 @@ function repoJornada(r: Partial<ReclamacaoParaEstado> | null) {
             dataAbertura: "2026-10-20",
             dataAcao: null,
             setorRespId: "s-solda",
+            solucao: "Peça trocada",
+            respostaEnviada: true,
             ...r,
           };
     },
@@ -149,12 +151,12 @@ describe("ServicoJornada (a regra é do servidor)", () => {
     const { repo, gravado } = repoJornada({ estado: "triagem" });
     const s = new ServicoJornada(repo, AGORA);
     expect(
-      (await recusa(s.mudar("r1", { para: "recebida" }, usuario("gestor"))))
+      (await recusa(s.mudar("r1", { para: "em_tratativa" }, usuario("gestor"))))
         .status,
     ).toBe(400);
     await s.mudar(
       "r1",
-      { para: "recebida", motivo: "Setor já estava com o produto." },
+      { para: "em_tratativa", motivo: "Setor já estava com o produto." },
       usuario("gestor"),
     );
     expect(gravado[0].motivo).toBe("Setor já estava com o produto.");
@@ -568,19 +570,26 @@ describe("a gravação mexe na jornada", () => {
     });
   });
 
-  it("o setor não registra a ação sem receber e tratar antes", async () => {
-    for (const estado of ["encaminhada", "recebida", "triagem"] as const) {
+  it("a data de ação devolve ao SAC a partir do setor; da triagem, não", async () => {
+    for (const estado of ["encaminhada", "recebida"] as const) {
       const { repo, gravado } = repoEscrita({ estado });
-      const e = await recusa(
-        new ServicoEscrita(repo, AGORA).editar(
-          "r1",
-          { dataAcao: "2026-10-21" },
-          usuario("responsavel_setor", ["Solda"]),
-        ),
+      await new ServicoEscrita(repo, AGORA).editar(
+        "r1",
+        { dataAcao: "2026-10-21" },
+        usuario("responsavel_setor", ["Solda"]),
       );
-      expect(e.status).toBe(400);
-      expect(gravado).toEqual([]);
+      expect(gravado[0].estado.estado).toBe("resolvida_setor");
     }
+    const { repo, gravado } = repoEscrita({ estado: "triagem" });
+    const e = await recusa(
+      new ServicoEscrita(repo, AGORA).editar(
+        "r1",
+        { dataAcao: "2026-10-21" },
+        usuario("responsavel_setor", ["Solda"]),
+      ),
+    );
+    expect(e.status).toBe(400);
+    expect(gravado).toEqual([]);
   });
 
   it("apagar a data de ação volta a tratativa; depois de finalizada, só reabrindo", async () => {

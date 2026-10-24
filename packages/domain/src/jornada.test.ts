@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ALERT_CONFIG_PADRAO,
+  acoesDaEtapa,
   avaliarAlertasReclamacao,
   calcularRelogios,
   ESTADOS,
@@ -24,7 +25,13 @@ const tenta = (
   perfil: Perfil,
   de: Estado,
   para: Estado,
-  extra: { motivo?: string; devolucao?: string; temSetor?: boolean } = {},
+  extra: {
+    motivo?: string;
+    devolucao?: string;
+    temSetor?: boolean;
+    temSolucao?: boolean;
+    respostaEnviada?: boolean;
+  } = {},
 ) =>
   validarTransicao({
     perfil,
@@ -33,6 +40,8 @@ const tenta = (
     devolucao: extra.devolucao ?? "NA",
     temSetor: extra.temSetor ?? true,
     motivo: extra.motivo,
+    temSolucao: extra.temSolucao,
+    respostaEnviada: extra.respostaEnviada,
   });
 
 describe("matriz de transições", () => {
@@ -41,11 +50,15 @@ describe("matriz de transições", () => {
     ["aguardando_cliente", "triagem"],
     ["triagem", "encaminhada"],
     ["aguardando_cliente", "encaminhada"],
+    ["triagem", "recebida"],
+    ["aguardando_cliente", "recebida"],
     ["resolvida_setor", "finalizada"],
   ];
   const SETOR: [Estado, Estado][] = [
     ["encaminhada", "recebida"],
+    ["encaminhada", "resolvida_setor"],
     ["recebida", "em_tratativa"],
+    ["recebida", "resolvida_setor"],
     ["em_tratativa", "resolvida_setor"],
   ];
 
@@ -61,6 +74,14 @@ describe("matriz de transições", () => {
         true,
       );
     }
+    expect(
+      tenta("responsavel_setor", "em_tratativa", "recebida", {
+        motivo: "Vai para a pintura.",
+      }).ok,
+    ).toBe(true);
+    expect(tenta("responsavel_setor", "em_tratativa", "recebida").ok).toBe(
+      false,
+    );
   });
 
   it("o SAC não faz o que é do setor, e o setor não faz o que é do SAC", () => {
@@ -85,7 +106,7 @@ describe("matriz de transições", () => {
     });
     expect(tenta("responsavel_setor", "triagem", "recebida")).toMatchObject({
       ok: false,
-      codigo: "invalida",
+      codigo: "sem_permissao",
     });
     expect(tenta("responsavel_setor", "recebida", "encaminhada")).toMatchObject(
       { ok: false, codigo: "invalida" },
@@ -117,7 +138,8 @@ describe("matriz de transições", () => {
 
   it("no fluxo normal o gestor não precisa de motivo", () => {
     expect(tenta("gestor", "encaminhada", "recebida").ok).toBe(true);
-    expect(tenta("gestor", "triagem", "recebida")).toMatchObject({
+    expect(tenta("gestor", "triagem", "recebida").ok).toBe(true);
+    expect(tenta("gestor", "triagem", "em_tratativa")).toMatchObject({
       ok: false,
       codigo: "motivo",
     });
@@ -132,7 +154,10 @@ describe("matriz de transições", () => {
       "setor",
       "total",
     ]);
-    expect(quemPodeTransicionar("triagem", "recebida")).toEqual(["total"]);
+    expect(quemPodeTransicionar("triagem", "recebida")).toEqual([
+      "sac",
+      "total",
+    ]);
     expect(quemPodeTransicionar("triagem", "triagem")).toEqual([]);
   });
 
@@ -197,9 +222,13 @@ describe("matriz de transições", () => {
     expect(para("operacao", "triagem")).toEqual([
       "aguardando_cliente",
       "encaminhada",
+      "recebida",
     ]);
     expect(para("responsavel_setor", "triagem")).toEqual([]);
-    expect(para("responsavel_setor", "encaminhada")).toEqual(["recebida"]);
+    expect(para("responsavel_setor", "encaminhada")).toEqual([
+      "recebida",
+      "resolvida_setor",
+    ]);
     expect(para("operacao", "resolvida_setor")).toEqual([
       "encaminhada",
       "finalizada",
@@ -212,6 +241,62 @@ describe("matriz de transições", () => {
         exigeMotivo: true,
       }),
     ]);
+  });
+
+  it("a ficha mostra só o passo da etapa, com o nome da ação", () => {
+    const rotulos = (p: Perfil, de: Estado) =>
+      acoesDaEtapa(p, de)
+        .filter((o) => !o.excepcional)
+        .map((o) => o.rotulo);
+    expect(rotulos("operacao", "triagem")).toEqual([
+      "Pedir informação ao cliente",
+      "Encaminhar ao setor",
+    ]);
+    expect(rotulos("operacao", "aguardando_cliente")).toEqual([
+      "O cliente respondeu",
+      "Encaminhar ao setor",
+    ]);
+    expect(rotulos("responsavel_setor", "recebida")).toEqual([
+      "Devolver ao SAC",
+    ]);
+    expect(rotulos("responsavel_setor", "em_tratativa")).toEqual([
+      "Devolver ao SAC",
+      "Encaminhar a outro setor",
+    ]);
+    expect(rotulos("operacao", "resolvida_setor")).toEqual([
+      "Fechar a reclamação",
+      "Reabrir com o setor",
+    ]);
+    expect(rotulos("responsavel_setor", "triagem")).toEqual([]);
+    expect(acoesDaEtapa("gestor", "triagem").some((o) => o.excepcional)).toBe(
+      true,
+    );
+    expect(acoesDaEtapa("operacao", "triagem").some((o) => o.excepcional)).toBe(
+      false,
+    );
+  });
+
+  it("encaminhar já deixa recebida pelo setor e exige setor", () => {
+    expect(tenta("operacao", "triagem", "recebida").ok).toBe(true);
+    expect(
+      tenta("operacao", "triagem", "recebida", { temSetor: false }),
+    ).toMatchObject({ ok: false, codigo: "sem_setor" });
+    expect(tenta("responsavel_setor", "triagem", "recebida").ok).toBe(false);
+  });
+
+  it("fechar exige solução e resposta enviada quando a regra é consultada", () => {
+    expect(
+      tenta("operacao", "resolvida_setor", "finalizada", {
+        temSolucao: false,
+        respostaEnviada: false,
+      }),
+    ).toMatchObject({ ok: false, codigo: "sem_fechamento" });
+    expect(
+      tenta("operacao", "resolvida_setor", "finalizada", {
+        temSolucao: true,
+        respostaEnviada: true,
+      }).ok,
+    ).toBe(true);
   });
 });
 

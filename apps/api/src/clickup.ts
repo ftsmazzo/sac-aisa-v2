@@ -145,6 +145,22 @@ export interface RepositorioClickup {
     limite: number,
     incluirTreino?: boolean,
   ): Promise<string[]>;
+  /**
+   * Cria a linha do card se a reclamação existe e ainda não tem.
+   * Canal, demonstração e importação não criam essa linha no registro.
+   */
+  garantirCard(reclamacaoId: string, agora: Date): Promise<boolean>;
+  /**
+   * Reclamações sem card que o ClickUp ainda deve receber.
+   * Importadas só entram se alguém mexeu nelas desde `alteradasDesde`.
+   */
+  semCard(args: {
+    limite: number;
+    incluirTreino: boolean;
+    alteradasDesde: Date;
+  }): Promise<string[]>;
+  /** Liga o setor à lista que já existe no ClickUp com o nome do setor. */
+  guardarLista(setorId: string, listaId: string): Promise<void>;
   /** Marca o card para atualizar e, se vier texto, enfileira o comentário. Sem card, não faz nada. */
   marcarSync(args: {
     reclamacaoId: string;
@@ -295,12 +311,74 @@ export class ServicoClickup {
   }
 
   /**
+   * Lista do setor. Se o id não foi salvo (a criação da lista falhou no assistente),
+   * procura no Space uma lista com o nome do setor e grava o id.
+   */
+  private async listaDoSetor(
+    setorId: string | null,
+    setorNome: string,
+    token: string,
+  ): Promise<string> {
+    const [listas, cfg] = await Promise.all([
+      this.integr.listasClickup(),
+      this.integr.config("clickup"),
+    ]);
+    const salva = setorId ? (listas[setorId] ?? "") : "";
+    if (salva) return salva;
+    const peloNome = await this.buscarListaPeloNome(cfg, setorNome, token);
+    if (peloNome && setorId) {
+      await this.repo.guardarLista(setorId, peloNome).catch(() => undefined);
+      return peloNome;
+    }
+    return typeof cfg.listaPadraoId === "string" ? cfg.listaPadraoId : "";
+  }
+
+  private async buscarListaPeloNome(
+    cfg: Record<string, unknown>,
+    setorNome: string,
+    token: string,
+  ): Promise<string> {
+    const spaceId = typeof cfg.spaceId === "string" ? cfg.spaceId.trim() : "";
+    const nome = setorNome.trim().toLowerCase();
+    if (!spaceId || !nome) return "";
+    try {
+      const r = await this.http(
+        `${API}/v2/space/${encodeURIComponent(spaceId)}/list?archived=false`,
+        {
+          headers: { Authorization: token },
+          signal: AbortSignal.timeout(10_000),
+        },
+      );
+      const json = (await r.json().catch(() => null)) as {
+        lists?: { id?: unknown; name?: unknown }[];
+      } | null;
+      const achada = json?.lists?.find(
+        (l) =>
+          typeof l.name === "string" && l.name.trim().toLowerCase() === nome,
+      );
+      if (!achada) return "";
+      if (typeof achada.id === "string" && achada.id.trim()) return achada.id;
+      if (typeof achada.id === "number") return String(achada.id);
+      return "";
+    } catch {
+      return "";
+    }
+  }
+
+  /**
    * Tenta criar o card. Nunca lança: sem token o card só fica pendente, e qualquer falha
    * do ClickUp vira erro registrado em `ClickupCard`, com nova tentativa mais tarde.
    */
   async tentarCard(reclamacaoId: string): Promise<ResultadoTentativa> {
-    const dados = await this.repo.carregarCard(reclamacaoId);
-    if (!dados) return "sem_card";
+    let dados = await this.repo.carregarCard(reclamacaoId);
+    if (!dados) {
+      const agora = this.agora();
+      if (!(await this.repo.garantirCard(reclamacaoId, agora))) {
+        return "sem_card";
+      }
+      dados = await this.repo.carregarCard(reclamacaoId);
+      if (!dados) return "sem_card";
+    }
     if (dados.taskId) return "criado";
     if (dados.reclamacao.treino && !(await this.treinoLiberado())) {
       return "treino_bloqueado";
@@ -310,13 +388,11 @@ export class ServicoClickup {
     if (!token) return "sem_token";
 
     const agora = this.agora();
-    const listas = await this.integr.listasClickup();
-    const cfg = await this.integr.config("clickup");
-    const padrao =
-      typeof cfg.listaPadraoId === "string" ? cfg.listaPadraoId : "";
-    const listaId =
-      (dados.reclamacao.setorRespId && listas[dados.reclamacao.setorRespId]) ||
-      padrao;
+    const listaId = await this.listaDoSetor(
+      dados.reclamacao.setorRespId,
+      dados.reclamacao.setorNome,
+      token,
+    );
     if (!listaId) {
       await this.repo.registrarFalha({
         cardId: dados.cardId,
@@ -383,13 +459,19 @@ export class ServicoClickup {
     });
   }
 
-  /** Passada da fila: tenta os cards cuja hora chegou. */
+  /** Passada da fila: abre o card que faltou e tenta os cards cuja hora chegou. */
   async processarPendentes(limite = 20): Promise<number> {
-    const ids = await this.repo.pendentes(
-      this.agora(),
+    const liberado = await this.treinoLiberado();
+    const agora = this.agora();
+    const faltam = await this.repo.semCard({
       limite,
-      await this.treinoLiberado(),
-    );
+      incluirTreino: liberado,
+      alteradasDesde: new Date(agora.getTime() - 14 * 86_400_000),
+    });
+    for (const id of faltam) {
+      await this.repo.garantirCard(id, agora).catch(() => undefined);
+    }
+    const ids = await this.repo.pendentes(agora, limite, liberado);
     for (const id of ids) await this.trabalhar(id).catch(() => undefined);
     return ids.length;
   }
@@ -414,6 +496,7 @@ export class ServicoClickup {
   ): Promise<void> {
     if (opcoes.origem === "clickup") return;
     try {
+      await this.repo.garantirCard(reclamacaoId, this.agora());
       await this.repo.marcarSync({
         reclamacaoId,
         comentarios: opcoes.comentarios ?? [],
@@ -495,13 +578,12 @@ export class ServicoClickup {
 
     const agora = this.agora();
     const cfg = await this.integr.config("clickup");
-    const listas = await this.integr.listasClickup();
     const mapa = mapaEstadosEfetivo(cfg);
-    const padrao =
-      typeof cfg.listaPadraoId === "string" ? cfg.listaPadraoId : "";
-    const alvoLista =
-      (dados.reclamacao.setorRespId && listas[dados.reclamacao.setorRespId]) ||
-      padrao;
+    const alvoLista = await this.listaDoSetor(
+      dados.reclamacao.setorRespId,
+      dados.reclamacao.setorNome,
+      token,
+    );
     const workspace =
       typeof cfg.workspaceId === "string" ? cfg.workspaceId.trim() : "";
     const taskId = encodeURIComponent(dados.taskId);

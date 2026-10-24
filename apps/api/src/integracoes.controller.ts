@@ -398,6 +398,62 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     return r.count;
   }
 
+  async garantirCard(reclamacaoId: string, agora: Date): Promise<boolean> {
+    const r = await this.prisma.reclamacao.findUnique({
+      where: { id: reclamacaoId },
+      select: { id: true },
+    });
+    if (!r) return false;
+    const existente = await this.prisma.clickupCard.findUnique({
+      where: { reclamacaoId },
+      select: { id: true },
+    });
+    if (existente) return true;
+    try {
+      await this.prisma.clickupCard.create({
+        data: {
+          reclamacaoId,
+          proximaTentativaEm: agora,
+          precisaSync: true,
+        },
+      });
+    } catch (erro) {
+      const duplicada =
+        typeof erro === "object" &&
+        erro !== null &&
+        (erro as { code?: unknown }).code === "P2002";
+      if (!duplicada) throw erro;
+    }
+    return true;
+  }
+
+  async semCard(
+    args: Parameters<RepositorioClickup["semCard"]>[0],
+  ): Promise<string[]> {
+    const l = await this.prisma.reclamacao.findMany({
+      where: {
+        card: { is: null },
+        ...(args.incluirTreino ? {} : { treino: false }),
+        OR: [
+          { origemRegistro: { not: "importado" } },
+          { alteradoEm: { gte: args.alteradasDesde } },
+        ],
+      },
+      orderBy: { alteradoEm: "desc" },
+      take: args.limite,
+      select: { id: true },
+    });
+    return l.map((x) => x.id);
+  }
+
+  async guardarLista(setorId: string, listaId: string): Promise<void> {
+    await this.prisma.clickupConfig.upsert({
+      where: { setorId },
+      create: { setorId, listaId },
+      update: { listaId },
+    });
+  }
+
   async pendentes(agora: Date, limite: number, incluirTreino = false) {
     const l = await this.prisma.clickupCard.findMany({
       where: {

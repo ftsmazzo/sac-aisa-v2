@@ -82,9 +82,26 @@ class RepoFalso implements RepositorioClickup {
     temSetor: true,
   };
   aplicado: Parameters<RepositorioClickup["aplicarStatus"]>[0][] = [];
+  garantidas: string[] = [];
+  podeGarantir = true;
+  semCardIds: string[] = [];
+  listasGuardadas: { setorId: string; listaId: string }[] = [];
 
   async carregarCard() {
     return this.card;
+  }
+  async garantirCard(reclamacaoId: string) {
+    this.garantidas.push(reclamacaoId);
+    if (this.card) return true;
+    if (!this.podeGarantir) return false;
+    this.card = dadosCard({ precisaSync: true });
+    return true;
+  }
+  async semCard() {
+    return this.semCardIds;
+  }
+  async guardarLista(setorId: string, listaId: string) {
+    this.listasGuardadas.push({ setorId, listaId });
   }
   async registrarCriado(
     a: Parameters<RepositorioClickup["registrarCriado"]>[0],
@@ -184,6 +201,81 @@ function http(status: number, corpo: unknown = {}) {
 }
 
 describe("card ao registrar", () => {
+  it("reclamação que chegou sem card ganha a linha e o card no ClickUp", async () => {
+    const repo = new RepoFalso();
+    repo.card = null;
+    const h = http(200, { id: "t-nova", status: { status: "triagem" } });
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.tentarCard("r-canal")).toBe("criado");
+    expect(repo.garantidas).toEqual(["r-canal"]);
+    expect(h.chamadas[0].url).toContain("/list/L-SOLDA/task");
+  });
+
+  it("sem a reclamação, não inventa card nem chama o ClickUp", async () => {
+    const repo = new RepoFalso();
+    repo.card = null;
+    repo.podeGarantir = false;
+    const h = http(200);
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.tentarCard("nao-existe")).toBe("sem_card");
+    expect(h.chamadas).toHaveLength(0);
+  });
+
+  it("mudança de estado cria o card que a reclamação ainda não tinha", async () => {
+    const repo = new RepoFalso();
+    repo.card = null;
+    const h = http(200, { id: "t-436", status: { status: "triagem" } });
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    await s.reclamacaoMudou("r-436");
+    expect(repo.garantidas).toContain("r-436");
+    expect(h.chamadas.some((c) => c.url.includes("/task"))).toBe(true);
+  });
+
+  it("setor sem id salvo usa a lista do ClickUp com o nome do setor", async () => {
+    const repo = new RepoFalso();
+    const base = dadosCard();
+    repo.card = dadosCard({
+      reclamacao: {
+        ...base.reclamacao,
+        setorRespId: "s-mont",
+        setorNome: "Montagem",
+      },
+    });
+    const chamadas: string[] = [];
+    const f = (async (url: string | URL | Request) => {
+      const u = String(url);
+      chamadas.push(u);
+      const corpo = u.includes("/space/")
+        ? { lists: [{ id: "L-MONT", name: "Montagem" }] }
+        : { id: "t-mont", status: { status: "triagem" } };
+      return new Response(JSON.stringify(corpo), { status: 200 });
+    }) as typeof fetch;
+    const s = new ServicoClickup(
+      repo,
+      integr(TOKEN, {}, { spaceId: "SP1", listaPadraoId: "L-PADRAO" }),
+      f,
+      AGORA,
+    );
+    expect(await s.tentarCard("r1")).toBe("criado");
+    expect(chamadas.some((u) => u.includes("/list/L-MONT/task"))).toBe(true);
+    expect(repo.listasGuardadas).toEqual([
+      { setorId: "s-mont", listaId: "L-MONT" },
+    ]);
+  });
+
+  it("a fila abre card para reclamação que ainda não tem", async () => {
+    const repo = new RepoFalso();
+    repo.semCardIds = ["r-436"];
+    const s = new ServicoClickup(
+      repo,
+      integr(),
+      http(200, { id: "t" }).f,
+      AGORA,
+    );
+    await s.processarPendentes();
+    expect(repo.garantidas).toContain("r-436");
+  });
+
   it("cria o card na lista do setor responsável", async () => {
     const repo = new RepoFalso();
     const h = http(200, { id: "t-abc", status: { status: "to do" } });
