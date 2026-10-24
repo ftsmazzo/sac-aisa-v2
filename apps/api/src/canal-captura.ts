@@ -461,11 +461,16 @@ export class ServicoCaptura {
     private readonly repo: RepositorioCaptura,
     readonly registro: RegistroChamadas,
     private readonly agora: () => Date = () => new Date(),
-    opcoesFila: { tentativas?: number; espera?: (n: number) => number } = {},
+    opcoesFila: {
+      tentativas?: number;
+      espera?: (n: number) => number;
+      aoGravar?: (r: ResultadoGravacao) => Promise<void> | void;
+    } = {},
   ) {
     this.fila = new FilaCaptura(
       async (j) => {
-        await this.processar(j);
+        const r = await this.processar(j);
+        await opcoesFila.aoGravar?.(r);
       },
       registro,
       opcoesFila.tentativas,

@@ -246,6 +246,11 @@ model Reclamacao {
   procedencia      String        @default("")
   solucao          String        @default("")
   observacao       String        @default("")
+  /// Texto enviado ao comprador no marketplace, na volta da reclamação ao SAC.
+  respostaMarketplace String     @default("")
+  respostaEnviadaEm   DateTime?
+  /// satisfeito, reparo, reenvio ou insatisfeito. Vazio até o acompanhamento.
+  acompanhamento   String        @default("")
   garantia         String        @default("")
   pedido           String        @default("")
   clienteNome      String        @default("")

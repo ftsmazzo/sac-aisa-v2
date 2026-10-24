@@ -8,12 +8,12 @@ import {
   moeda,
   ROTULO_DEVOLUCAO,
   ROTULO_ESTADO,
-  ROTULO_SITUACAO,
-  tomDaSituacao,
   tomDoEstado,
 } from "@/lib/reclamacoes-formato";
+import { Acompanhamento } from "./acompanhamento";
 import { JornadaDaFicha } from "./linha-do-tempo";
 import { ProximoPasso } from "./proximo-passo";
+import { RespostaSac } from "./resposta-sac";
 import { HistoricoEstados, Tempos } from "./tempos";
 import { TriagemIa } from "./triagem-ia";
 
@@ -107,9 +107,6 @@ export function ConteudoFicha({
             <Selo tom={tomDoEstado(ficha.estado)}>
               {ROTULO_ESTADO[ficha.estado]}
             </Selo>
-            <Selo tom={tomDaSituacao(ficha.situacao)}>
-              {ROTULO_SITUACAO[ficha.situacao]}
-            </Selo>
             {ficha.rascunho && <Selo tom="atencao">Rascunho</Selo>}
           </div>
         </div>
@@ -149,7 +146,47 @@ export function ConteudoFicha({
       )}
 
       <div className="ficha__corpo">
-        <ProximoPasso id={ficha.id} transicoes={ficha.transicoes} />
+        <ProximoPasso
+          id={ficha.id}
+          estado={ficha.estado}
+          transicoes={ficha.transicoes.filter(
+            (t) =>
+              t.para !== "finalizada" ||
+              (ficha.solucao.trim() !== "" && ficha.respostaEnviadaEm !== null),
+          )}
+        />
+        {(ficha.estado === "triagem" ||
+          ficha.estado === "aguardando_cliente") &&
+          ia && (
+            <TriagemIa
+              id={ficha.id}
+              podeEditar={ia.podeEditar}
+              podeAplicar={ia.podeAplicar}
+            />
+          )}
+        {(ficha.estado === "encaminhada" ||
+          ficha.estado === "recebida" ||
+          ficha.estado === "em_tratativa") &&
+          hrefAnalise && (
+            <p className="pagina__apoio">
+              <Link href={hrefAnalise} scroll={false}>
+                Registrar diagnóstico do setor
+              </Link>
+            </p>
+          )}
+        {ficha.estado === "resolvida_setor" && (
+          <RespostaSac
+            id={ficha.id}
+            solucao={ficha.solucao}
+            conclusoes={ficha.analises.map((a) => a.conclusao)}
+            custoTotal={ficha.custoTotal}
+            textoEnviado={ficha.respostaMarketplace}
+            enviadaEm={ficha.respostaEnviadaEm}
+          />
+        )}
+        {ficha.estado === "finalizada" && (
+          <Acompanhamento id={ficha.id} atual={ficha.acompanhamento} />
+        )}
         <Tempos ficha={ficha} />
         <JornadaDaFicha id={ficha.id} />
         <HistoricoEstados ficha={ficha} />
@@ -184,14 +221,6 @@ export function ConteudoFicha({
 
         <Texto rotulo="O que aconteceu" valor={ficha.descricao} />
         <Texto rotulo="Observação da triagem" valor={ficha.observacao} />
-
-        {ia && (
-          <TriagemIa
-            id={ficha.id}
-            podeEditar={ia.podeEditar}
-            podeAplicar={ia.podeAplicar}
-          />
-        )}
 
         <section className="ficha__bloco">
           <h3 className="ficha__subtitulo">Encaminhamento</h3>

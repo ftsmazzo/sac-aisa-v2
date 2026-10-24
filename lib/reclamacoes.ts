@@ -36,6 +36,7 @@ export interface TransicaoDisponivel {
   rotulo: string;
   reabertura: boolean;
   exigeMotivo: boolean;
+  excepcional?: boolean;
 }
 
 /** Tempos em milissegundos, calculados pela API. */
@@ -68,6 +69,9 @@ export interface Ficha extends ItemLista {
   laudo: string;
   procedencia: string;
   solucao: string;
+  respostaMarketplace: string;
+  respostaEnviadaEm: string | null;
+  acompanhamento: string;
   observacao: string;
   garantia: string;
   pedido: string;
@@ -114,7 +118,9 @@ export interface EventoLinha {
     | "analise"
     | "recebimento"
     | "solucao"
-    | "resolucao";
+    | "resolucao"
+    | "resposta"
+    | "acompanhamento";
   quando: string;
   data: string | null;
   titulo: string;

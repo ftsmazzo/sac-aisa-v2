@@ -174,3 +174,48 @@ export async function mudarEstado(
     return { ok: false, status: 502, mensagem: MENSAGEM_GENERICA };
   }
 }
+
+async function postJson(
+  caminho: string,
+  corpo: unknown,
+): Promise<{ ok: true } | { ok: false; status: number; mensagem: string }> {
+  const token = (await cookies()).get("sac_sessao")?.value;
+  if (!token) {
+    return { ok: false, status: 401, mensagem: MENSAGEM_POR_STATUS[401] };
+  }
+  try {
+    const r = await fetch(`${urlDaApi()}${caminho}`, {
+      method: "POST",
+      headers: {
+        cookie: `sac_sessao=${encodeURIComponent(token)}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(corpo),
+      cache: "no-store",
+    });
+    if (r.ok) return { ok: true };
+    const dados = (await r.json().catch(() => ({}))) as { message?: string };
+    return {
+      ok: false,
+      status: r.status,
+      mensagem:
+        r.status < 500 && dados.message
+          ? dados.message
+          : (MENSAGEM_POR_STATUS[r.status] ?? MENSAGEM_GENERICA),
+    };
+  } catch {
+    return { ok: false, status: 502, mensagem: MENSAGEM_GENERICA };
+  }
+}
+
+export function enviarResposta(id: string, texto: string) {
+  return postJson(`/reclamacoes/${encodeURIComponent(id)}/resposta`, {
+    texto,
+  });
+}
+
+export function registrarAcompanhamento(id: string, valor: string) {
+  return postJson(`/reclamacoes/${encodeURIComponent(id)}/acompanhamento`, {
+    valor,
+  });
+}

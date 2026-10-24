@@ -16,7 +16,9 @@ export type TipoEvento =
   | "analise"
   | "recebimento"
   | "solucao"
-  | "resolucao";
+  | "resolucao"
+  | "resposta"
+  | "acompanhamento";
 
 export interface EventoLinha {
   id: string;
@@ -98,6 +100,12 @@ const ROTULO_TRIAGEM: Record<string, string> = {
   transportadora: "transportadora",
 };
 
+function textoDe(extra: unknown, campo: string): string {
+  if (typeof extra !== "object" || extra === null) return "";
+  const v = (extra as Record<string, unknown>)[campo];
+  return typeof v === "string" ? v : "";
+}
+
 function lerExtra(extra: unknown): { mudancas: MudancaLida[]; motivo: string } {
   const e = (extra ?? {}) as { mudancas?: unknown; motivo?: unknown };
   const lista = Array.isArray(e.mudancas) ? e.mudancas : [];
@@ -161,6 +169,23 @@ export function montarLinhaDoTempo(d: DadosDaLinha): LinhaDoTempo {
         detalhe,
         data,
       });
+
+    if (a.acao === "reclamacao.resposta") {
+      add(
+        "resposta",
+        "Resposta enviada no marketplace",
+        textoDe(a.extra, "texto"),
+      );
+      continue;
+    }
+    if (a.acao === "reclamacao.acompanhamento") {
+      add(
+        "acompanhamento",
+        "Acompanhamento do cliente",
+        textoDe(a.extra, "rotulo"),
+      );
+      continue;
+    }
 
     const cadastro = a.acao === "reclamacao.criar";
     const edicao = a.acao === "reclamacao.editar";

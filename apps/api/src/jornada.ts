@@ -50,6 +50,8 @@ export interface ReclamacaoParaEstado {
   dataAbertura: string;
   dataAcao: string | null;
   setorRespId: string | null;
+  solucao: string;
+  respostaEnviada: boolean;
 }
 
 /**
@@ -128,6 +130,8 @@ export class ServicoJornada {
       motivo: entrada.motivo,
       devolucao: r.devolucao,
       temSetor: r.setorRespId !== null,
+      temSolucao: r.solucao.trim() !== "",
+      respostaEnviada: r.respostaEnviada,
     });
     if (!v.ok) {
       throw new ErroEscrita(

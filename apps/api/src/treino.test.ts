@@ -801,6 +801,12 @@ function repoClickup(treinoCard: boolean, taskId: string | null = null) {
       chamadas.pendentes.push(incluirTreino);
       return [];
     },
+    async semCard() {
+      return [];
+    },
+    async garantirCard() {
+      return true;
+    },
   };
   return { repo: repo as RepositorioClickup, chamadas };
 }

@@ -531,8 +531,8 @@ export class ControladorReclamacoes {
     const criada = await this.comErros(() =>
       this.escrita.criar(r.entrada, usuarioDe(req)),
     );
-    // Primeira tentativa já; se falhar ou faltar token, a fila tenta de novo.
-    void this.clickup.tentarCard(criada.id).catch(() => undefined);
+    // O card nasce na coluna do estado (Triagem, na chegada). Se falhar, a fila tenta de novo.
+    void this.clickup.reclamacaoMudou(criada.id).catch(() => undefined);
     return criada;
   }
 
