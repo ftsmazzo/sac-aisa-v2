@@ -28,7 +28,7 @@ interface MarcaNaTela {
 
 const MarcaNaTelaCtx = createContext<MarcaNaTela | null>(null);
 
-function usarMarcaNaTela() {
+function useMarcaNaTela() {
   const ctx = useContext(MarcaNaTelaCtx);
   if (!ctx) throw new Error("Seletor de marca fora do cabeçalho.");
   return ctx;
@@ -101,7 +101,7 @@ export function ProvedorMarca({
 
 /** Logo do cabeçalho. Troca no clique, sem esperar o servidor redesenhar a casca. */
 export function LogoDaMarcaAtiva() {
-  const { atual } = usarMarcaNaTela();
+  const { atual } = useMarcaNaTela();
   return (
     <span className="marca">
       <span className="marca__emblema">
@@ -123,7 +123,7 @@ export function LogoDaMarcaAtiva() {
 
 /** Seletor de marca do cabeçalho: Todas e as marcas que o perfil enxerga. */
 export function SeletorMarca() {
-  const { atual, oferecidas, escolher } = usarMarcaNaTela();
+  const { atual, oferecidas, escolher } = useMarcaNaTela();
   if (oferecidas.length === 0) return null;
 
   const itens: { id: EscolhaMarca; nome: string }[] = [
