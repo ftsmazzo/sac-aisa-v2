@@ -208,13 +208,13 @@ async function postJson(
   }
 }
 
-export function enviarResposta(id: string, texto: string) {
+export async function enviarResposta(id: string, texto: string) {
   return postJson(`/reclamacoes/${encodeURIComponent(id)}/resposta`, {
     texto,
   });
 }
 
-export function registrarAcompanhamento(id: string, valor: string) {
+export async function registrarAcompanhamento(id: string, valor: string) {
   return postJson(`/reclamacoes/${encodeURIComponent(id)}/acompanhamento`, {
     valor,
   });

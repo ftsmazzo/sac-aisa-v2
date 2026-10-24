@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  acoesDaEtapa,
   ALERT_CONFIG_PADRAO,
+  acoesDaEtapa,
   avaliarAlertasReclamacao,
   calcularRelogios,
   ESTADOS,

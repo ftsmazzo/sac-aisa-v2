@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import {
+  acoesDaEtapa,
   calcularRelogios,
   custoTotal,
   type Devolucao,
@@ -8,7 +9,6 @@ import {
   marcasVisiveis,
   type Perfil,
   type Situacao,
-  acoesDaEtapa,
   situacao,
   veTodosOsSetores,
 } from "@sac-aisa/domain";
