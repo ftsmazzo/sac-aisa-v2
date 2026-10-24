@@ -3,10 +3,14 @@ import type { ReactNode } from "react";
 import { AlternarTreino } from "@/components/alternar-treino";
 import { BotaoSair } from "@/components/botao-sair";
 import { NavLink } from "@/components/nav-link";
-import { SeletorMarca } from "@/components/seletor-marca";
-import { LogoMarca, Marca, Selo } from "@/components/ui";
+import {
+  LogoDaMarcaAtiva,
+  ProvedorMarca,
+  SeletorMarca,
+} from "@/components/seletor-marca";
+import { Selo } from "@/components/ui";
 import type { RespostaAlertas } from "@/lib/fila-alertas";
-import { consultaDeMarca, TODAS } from "@/lib/marca-escolhida";
+import { consultaDeMarca } from "@/lib/marca-escolhida";
 import { marcaAtiva } from "@/lib/marca-servidor";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { obterUsuario } from "@/lib/sessao";
@@ -43,7 +47,7 @@ export default async function LayoutProtegido({
     usuario.perfil === "administrador" || usuario.perfil === "gestor";
 
   return (
-    <>
+    <ProvedorMarca escolha={marca.escolha} oferecidas={marca.oferecidas}>
       {usuario.modoTreino && (
         <div className="faixa-treino" role="status">
           <span>{TEXTO_FAIXA_TREINO}</span>
@@ -54,19 +58,7 @@ export default async function LayoutProtegido({
       )}
       <header className="casca__topo">
         <div className="casca__topo-interno">
-          {marca.escolha === TODAS ? (
-            <Marca nome="SAC" legenda="Reclamações e indicadores" />
-          ) : (
-            <span className="marca">
-              <LogoMarca marca={marca.escolha} altura={34} />
-              <span className="marca__texto">
-                <span className="marca__nome">SAC</span>
-                <span className="marca__legenda">
-                  Reclamações e indicadores
-                </span>
-              </span>
-            </span>
-          )}
+          <LogoDaMarcaAtiva />
           <nav className="casca__nav" aria-label="Principal">
             <NavLink href="/">Início</NavLink>
             {usuario.permissoes.includes("reclamacoes.ver") && (
@@ -117,7 +109,7 @@ export default async function LayoutProtegido({
           {conduzTreino && (
             <AlternarTreino ativo={usuario.modoTreino === true} />
           )}
-          <SeletorMarca oferecidas={marca.oferecidas} escolha={marca.escolha} />
+          <SeletorMarca />
           <div className="casca__usuario">
             <span>{usuario.nome}</span>
             <Selo>{PERFIL[usuario.perfil] ?? usuario.perfil}</Selo>
@@ -126,6 +118,6 @@ export default async function LayoutProtegido({
         </div>
       </header>
       <main className="casca__conteudo">{children}</main>
-    </>
+    </ProvedorMarca>
   );
 }
