@@ -2094,6 +2094,10 @@ a.chip:hover {
   height: 10px;
   border-radius: 50%;
 }
+/* O mapa de calor acompanha a largura do relatório. */
+.tabela-simples.calor {
+  max-width: none;
+}
 .calor th,
 .calor td {
   text-align: center;
