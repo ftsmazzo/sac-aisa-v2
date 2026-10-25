@@ -28,6 +28,7 @@ import {
   RepositorioIntegracoesPrisma,
 } from "./integracoes.controller";
 import { ControladorJornada } from "./jornada.controller";
+import { ControladorPainel } from "./painel.controller";
 import { ControladorReclamacoes } from "./reclamacoes.controller";
 import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
@@ -51,6 +52,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorAnalise,
     ControladorFilaAlertas,
     ControladorRelatorios,
+    ControladorPainel,
     ControladorTreino,
     ControladorWebhooksCanais,
     ControladorSimulacao,

@@ -1,0 +1,237 @@
+.inicio {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.inicio__frase {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+.inicio__comandos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.inicio__periodo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+.inicio__comandos .chip {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.inicio__comandos .chips__limpar {
+  border: 0;
+  background: transparent;
+  color: var(--marca-texto);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.inicio__comandos .chip[aria-pressed="true"] {
+  border-color: var(--marca);
+  background: var(--marca-suave);
+  color: var(--marca-texto);
+}
+.inicio__corpo {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+}
+.inicio__graficos {
+  display: grid;
+  gap: 14px;
+}
+.inicio__painel,
+.inicio__tempo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 18px 16px;
+  min-width: 0;
+}
+.inicio__titulo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.inicio__nota {
+  margin: 0;
+  color: var(--cor-suave);
+  font-size: 0.875rem;
+  max-width: 68ch;
+}
+.inicio__faixas {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.inicio__faixa {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-p);
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+.inicio__faixa-n {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.inicio__faixa--ate2 {
+  background: var(--cor-ok-fundo);
+}
+.inicio__faixa--ate7 {
+  background: var(--cor-info-fundo);
+}
+.inicio__faixa--ate10 {
+  background: var(--cor-atencao-fundo);
+}
+.inicio__faixa--alem {
+  background: var(--cor-perigo-fundo);
+}
+.inicio__faixa[aria-pressed="true"] {
+  border-color: var(--marca-texto);
+  box-shadow: inset 0 0 0 1px var(--marca-texto);
+}
+.inicio__barras {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.inicio__escolha {
+  display: grid;
+  grid-template-columns: minmax(88px, 34%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--raio-p);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+.inicio__escolha[aria-pressed="true"] {
+  background: var(--marca-suave);
+}
+.inicio__rotulo {
+  overflow-wrap: anywhere;
+}
+.inicio__trilho {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--cor-borda);
+  overflow: hidden;
+}
+.inicio__barra {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--marca);
+}
+.inicio__numero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.inicio__numero small {
+  font-weight: 500;
+  color: var(--cor-suave);
+}
+.inicio__urgentes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.inicio__urgentes a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--raio-p);
+  color: inherit;
+  text-decoration: none;
+}
+.inicio__urgentes a:hover {
+  background: var(--marca-suave);
+}
+.inicio__urgentes small {
+  color: var(--cor-perigo);
+}
+.inicio__dia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inicio__dia + .inicio__dia {
+  margin-top: 8px;
+}
+.inicio__data {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--cor-suave);
+}
+.inicio__tempo .linha__titulo a {
+  color: inherit;
+}
+@media (min-width: 1100px) {
+  .inicio__corpo {
+    grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  }
+  .inicio__tempo {
+    position: sticky;
+    top: 12px;
+    max-height: calc(100vh - 88px);
+    overflow: auto;
+  }
+}
+@media (max-width: 720px) {
+  .inicio__faixas {
+    flex-direction: column;
+  }
+  .inicio__escolha {
+    grid-template-columns: 1fr auto;
+  }
+  .inicio__trilho {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .inicio__barra {
+    transition: width 0.2s var(--suave);
+  }
+}
