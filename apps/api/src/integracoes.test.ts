@@ -37,6 +37,7 @@ function usuario(perfil: Perfil, extra: string[] = []): UsuarioLogado {
 class RepoFalso implements RepositorioIntegracoes {
   registros = new Map<ChaveIntegracao, RegistroIntegracao>();
   listasGravadas: Record<string, string> = {};
+  limpouListas = false;
   auditorias: AuditoriaIntegracao[] = [];
 
   async obter(chave: ChaveIntegracao) {
@@ -51,6 +52,10 @@ class RepoFalso implements RepositorioIntegracoes {
       ultimoErro: null,
       testadoEm: null,
     });
+    if (a.limparListas) {
+      this.listasGravadas = {};
+      this.limpouListas = true;
+    }
     Object.assign(this.listasGravadas, a.listas);
     this.auditorias.push(a.auditoria);
   }
@@ -96,7 +101,7 @@ const SEGREDO = "pk_123456789_SEGREDO_MUITO_LONGO_ABCD";
 
 describe("permissão", () => {
   it("as rotas exigem a permissão de integrações", () => {
-    for (const rota of ["painel", "salvar", "testar"] as const) {
+    for (const rota of ["painel", "salvar", "testar", "esquecer"] as const) {
       expect(
         Reflect.getMetadata(
           CHAVE_REQUER,
@@ -116,6 +121,9 @@ describe("permissão", () => {
         s.salvar(u, "clickup", { campos: { token: SEGREDO } }),
       ).rejects.toMatchObject({ status: 403 });
       await expect(s.testar(u, "clickup")).rejects.toMatchObject({
+        status: 403,
+      });
+      await expect(s.esquecer(u, "clickup")).rejects.toMatchObject({
         status: 403,
       });
       expect(repo.registros.size).toBe(0);
@@ -177,6 +185,26 @@ describe("gravação de segredos", () => {
     });
     expect(repo.registros.get("clickup")?.segredos.token).toBeDefined();
     expect(await s.segredo("clickup", "token")).toBe(SEGREDO);
+  });
+
+  it("excluir a conexão apaga segredo, texto e as listas do ClickUp", async () => {
+    const { s, repo } = servico();
+    const adm = usuario("administrador");
+    await s.salvar(adm, "clickup", {
+      campos: { token: SEGREDO, listaPadraoId: "9012" },
+      listas: { "s-solda": "lista-1" },
+    });
+    await s.esquecer(adm, "clickup");
+    const g = repo.registros.get("clickup");
+    expect(g?.segredos).toEqual({});
+    expect(g?.config).toEqual({});
+    expect(repo.limpouListas).toBe(true);
+    expect(repo.listasGravadas).toEqual({});
+    expect(repo.auditorias.at(-1)).toMatchObject({
+      acao: "integracao.salvar",
+      detalhe: "Conexão excluída.",
+    });
+    expect(JSON.stringify(repo.auditorias)).not.toContain(SEGREDO);
   });
 
   it("sem INTEGRACOES_CHAVE recusa gravar e a tela é avisada", async () => {

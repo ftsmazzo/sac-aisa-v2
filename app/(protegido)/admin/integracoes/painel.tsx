@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Botao, Cartao, Selo } from "@/components/ui";
 import {
+  ERRO_SEM_LISTA,
   ESTADO_SELO,
   FILA_SELO,
   type FilaClickup,
   formatarQuando,
   type Integracao,
+  type ListaEmUso,
   mensagemIntegracao,
   montarEntrada,
   oQueFalta,
@@ -23,7 +25,7 @@ type Aviso = { tom: "ok" | "erro" | "info"; texto: string };
 
 async function chamar(
   caminho: string,
-  metodo: "GET" | "PUT" | "POST",
+  metodo: "GET" | "PUT" | "POST" | "DELETE",
   corpo?: unknown,
 ): Promise<{ ok: boolean; status: number; dados: Record<string, unknown> }> {
   const r = await fetch(`/api/admin/integracoes${caminho}`, {
@@ -36,6 +38,42 @@ async function chamar(
     unknown
   >;
   return { ok: r.ok, status: r.status, dados };
+}
+
+function Escolha({
+  id,
+  valor,
+  vazio,
+  opcoes,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  valor: string;
+  vazio: string;
+  opcoes: { id: string; rotulo: string }[];
+  disabled: boolean;
+  onChange: (valor: string) => void;
+}) {
+  const extra =
+    valor && !opcoes.some((o) => o.id === valor)
+      ? [{ id: valor, rotulo: `${valor} (já gravado)` }]
+      : [];
+  return (
+    <select
+      id={id}
+      value={valor}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">{vazio}</option>
+      {[...extra, ...opcoes].map((o) => (
+        <option key={o.id} value={o.id}>
+          {o.rotulo}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 function CartaoIntegracao({
@@ -51,7 +89,11 @@ function CartaoIntegracao({
   const [rascunho, setRascunho] = useState<RascunhoIntegracao>(() =>
     rascunhoInicial(inicial),
   );
-  const [ocupado, setOcupado] = useState<"salvar" | "testar" | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const [listasEmUso, setListasEmUso] = useState<ListaEmUso[]>([]);
+  const [ocupado, setOcupado] = useState<
+    "salvar" | "testar" | "excluir" | null
+  >(null);
   const [aviso, setAviso] = useState<Aviso | null>(null);
 
   const selo = ESTADO_SELO[integracao.estado];
@@ -129,174 +171,325 @@ function CartaoIntegracao({
     }
   }
 
+  async function excluir() {
+    if (ocupado) return;
+    const segue = window.confirm(
+      `Excluir a conexão ${integracao.nome}? O token deixa de valer aqui. O que já existe no serviço de fora permanece.`,
+    );
+    if (!segue) return;
+    setOcupado("excluir");
+    setAviso(null);
+    try {
+      const r = await chamar(`/${integracao.chave}`, "DELETE");
+      if (!r.ok) {
+        setAviso({
+          tom: "erro",
+          texto: mensagemIntegracao(
+            r.status,
+            typeof r.dados.message === "string" ? r.dados.message : undefined,
+          ),
+        });
+        return;
+      }
+      setListasEmUso([]);
+      await atualizar();
+      setAviso({ tom: "ok", texto: "Conexão excluída." });
+    } catch {
+      setAviso({ tom: "erro", texto: "Não foi possível conectar." });
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  const listasEscolhidas = new Set(
+    [
+      ...Object.values(rascunho.listas),
+      rascunho.campos.listaPadraoId ?? "",
+    ].filter(Boolean),
+  );
+  const baseStatus =
+    listasEscolhidas.size === 0
+      ? listasEmUso
+      : listasEmUso.filter((l) => listasEscolhidas.has(l.id));
+  const statuses: string[] = [];
+  for (const lista of baseStatus) {
+    for (const nome of lista.statuses) {
+      if (!statuses.some((s) => s.toLowerCase() === nome.toLowerCase())) {
+        statuses.push(nome);
+      }
+    }
+  }
+
   return (
     <Cartao className="integracao">
       <section aria-labelledby={`${idBase}-titulo`}>
-        <header className="integracao__cab">
-          <div>
-            <h2 className="integracao__titulo" id={`${idBase}-titulo`}>
-              {integracao.nome}
-            </h2>
-            <p className="integracao__resumo">{integracao.resumo}</p>
-          </div>
-          <div className="integracao__estado">
+        <h2 className="integracao__titulo" id={`${idBase}-titulo`}>
+          <button
+            type="button"
+            className="integracao__abre"
+            aria-expanded={aberto}
+            aria-controls={`${idBase}-corpo`}
+            onClick={() => setAberto((v) => !v)}
+          >
+            <span>{integracao.nome}</span>
             <Selo tom={selo.tom}>{selo.rotulo}</Selo>
-            <span className="integracao__quando">
-              {formatarQuando(integracao.testadoEm)}
-            </span>
+          </button>
+        </h2>
+
+        {aberto && (
+          <div id={`${idBase}-corpo`} className="integracao__corpo">
+            <p className="integracao__resumo">{integracao.resumo}</p>
+            {integracao.testadoEm && (
+              <p className="integracao__quando">
+                Testada {formatarQuando(integracao.testadoEm)}
+              </p>
+            )}
+
+            {integracao.estado === "erro" && integracao.ultimoErro && (
+              <p className="aviso aviso--erro" role="alert">
+                {integracao.ultimoErro}
+              </p>
+            )}
+
+            <details className="integracao__passos">
+              <summary>Como configurar</summary>
+              <ol>
+                {integracao.passos.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ol>
+            </details>
+
+            <div className="integracao__campos">
+              {integracao.campos.map((c) => (
+                <div className="campo" key={c.nome}>
+                  <label
+                    className="campo__rotulo"
+                    htmlFor={`${idBase}-${c.nome}`}
+                  >
+                    {c.rotulo}
+                  </label>
+                  <div className="campo__entrada">
+                    {c.nome === "listaPadraoId" && listasEmUso.length > 0 ? (
+                      <Escolha
+                        id={`${idBase}-${c.nome}`}
+                        valor={rascunho.campos[c.nome] ?? ""}
+                        vazio="Sem lista reserva"
+                        opcoes={listasEmUso.map((l) => ({
+                          id: l.id,
+                          rotulo: `${l.space} · ${l.nome}`,
+                        }))}
+                        disabled={!gravacaoLiberada}
+                        onChange={(valor) => campo(c.nome, valor)}
+                      />
+                    ) : (
+                      <input
+                        id={`${idBase}-${c.nome}`}
+                        type={c.tipo === "segredo" ? "password" : "text"}
+                        autoComplete="off"
+                        spellCheck={false}
+                        value={rascunho.campos[c.nome] ?? ""}
+                        placeholder={
+                          c.tipo === "segredo" && c.preenchido
+                            ? `${c.mascara} (deixe vazio para manter)`
+                            : ""
+                        }
+                        onChange={(e) => campo(c.nome, e.target.value)}
+                        disabled={!gravacaoLiberada}
+                      />
+                    )}
+                  </div>
+                  <span className="campo__ajuda">
+                    {c.tipo === "segredo" && c.preenchido
+                      ? `Gravado: ${c.mascara}. ${c.ajuda}`
+                      : c.ajuda}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {integracao.clickup && (
+              <AssistenteClickup
+                integracao={integracao}
+                gravacaoLiberada={gravacaoLiberada}
+                atualizar={atualizar}
+                aoTrazer={(listas, workspaceId) => {
+                  setListasEmUso(listas);
+                  campo("workspaceId", workspaceId);
+                }}
+              />
+            )}
+
+            {integracao.clickup && (
+              <>
+                <h3 className="integracao__sub">Lista de cada setor</h3>
+                <p className="campo__ajuda">
+                  {listasEmUso.length > 0
+                    ? "Estas são as listas que já existem no ClickUp. Escolha a do setor e grave."
+                    : "Traga as listas do ClickUp em uso. Enquanto isso, o envio fica parado."}
+                </p>
+                <div className="integracao__campos">
+                  {integracao.clickup.setores.map((s) => (
+                    <div className="campo" key={s.id}>
+                      <label
+                        className="campo__rotulo"
+                        htmlFor={`${idBase}-lista-${s.id}`}
+                      >
+                        {s.nome}
+                      </label>
+                      <div className="campo__entrada">
+                        {listasEmUso.length > 0 ? (
+                          <Escolha
+                            id={`${idBase}-lista-${s.id}`}
+                            valor={rascunho.listas[s.id] ?? ""}
+                            vazio="Sem lista"
+                            opcoes={listasEmUso.map((l) => ({
+                              id: l.id,
+                              rotulo: `${l.space} · ${l.nome}`,
+                            }))}
+                            disabled={!gravacaoLiberada}
+                            onChange={(valor) =>
+                              setRascunho((r) => ({
+                                ...r,
+                                listas: { ...r.listas, [s.id]: valor },
+                              }))
+                            }
+                          />
+                        ) : (
+                          <input
+                            id={`${idBase}-lista-${s.id}`}
+                            type="text"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={rascunho.listas[s.id] ?? ""}
+                            placeholder="Traga as listas primeiro"
+                            readOnly
+                            disabled={!gravacaoLiberada}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <h3 className="integracao__sub">Estado → status do ClickUp</h3>
+                <p className="campo__ajuda">
+                  Os status precisam existir na lista do ClickUp. O setor só
+                  move o card entre Recebida, Em tratativa e Resolvida no setor
+                  técnico; “Complete” no ClickUp vale como Resolvida no setor
+                  técnico, nunca como Finalizada. Mover o card para um estado do
+                  SAC é recusado e o card volta. Vazio usa o padrão.
+                </p>
+                <div className="integracao__campos">
+                  {ESTADOS.map((e) => (
+                    <div className="campo" key={e}>
+                      <label
+                        className="campo__rotulo"
+                        htmlFor={`${idBase}-estado-${e}`}
+                      >
+                        {ROTULO_ESTADO[e]}
+                      </label>
+                      <div className="campo__entrada">
+                        {statuses.length > 0 ? (
+                          <Escolha
+                            id={`${idBase}-estado-${e}`}
+                            valor={rascunho.estados[e] ?? ""}
+                            vazio={`Padrão: ${integracao.clickup?.padraoEstados?.[e] ?? ""}`}
+                            opcoes={statuses.map((nome) => ({
+                              id: nome,
+                              rotulo: nome,
+                            }))}
+                            disabled={!gravacaoLiberada}
+                            onChange={(valor) =>
+                              setRascunho((r) => ({
+                                ...r,
+                                estados: { ...r.estados, [e]: valor },
+                              }))
+                            }
+                          />
+                        ) : (
+                          <input
+                            id={`${idBase}-estado-${e}`}
+                            type="text"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={rascunho.estados[e] ?? ""}
+                            placeholder={
+                              integracao.clickup?.padraoEstados?.[e] ?? ""
+                            }
+                            onChange={(ev) =>
+                              setRascunho((r) => ({
+                                ...r,
+                                estados: { ...r.estados, [e]: ev.target.value },
+                              }))
+                            }
+                            disabled={!gravacaoLiberada}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <h3 className="integracao__sub">Reclamações de treino</h3>
+                <label className="campo__rotulo" htmlFor={`${idBase}-treino`}>
+                  <input
+                    id={`${idBase}-treino`}
+                    type="checkbox"
+                    checked={rascunho.criarCardsTreino}
+                    onChange={(ev) =>
+                      setRascunho((r) => ({
+                        ...r,
+                        criarCardsTreino: ev.target.checked,
+                      }))
+                    }
+                    disabled={!gravacaoLiberada}
+                  />{" "}
+                  Criar cards para reclamações de treino
+                </label>
+                <p className="campo__ajuda">
+                  Desligado por padrão: o modo treino não toca no ClickUp.
+                  Ligado, as reclamações fictícias de treino viram cards reais
+                  no ClickUp configurado aqui e vão aparecer lá.
+                </p>
+              </>
+            )}
+
+            {aviso && (
+              <p
+                className={`aviso aviso--${aviso.tom}`}
+                role={aviso.tom === "erro" ? "alert" : "status"}
+              >
+                {aviso.texto}
+              </p>
+            )}
+
+            <div className="integracao__acoes">
+              <Botao
+                onClick={salvar}
+                disabled={!gravacaoLiberada || ocupado !== null}
+              >
+                {ocupado === "salvar" ? "Gravando…" : "Gravar"}
+              </Botao>
+              <Botao
+                variante="secundario"
+                onClick={testar}
+                disabled={ocupado !== null}
+              >
+                {ocupado === "testar" ? "Testando…" : "Testar conexão"}
+              </Botao>
+              <Botao
+                variante="secundario"
+                className="integracao__excluir"
+                onClick={excluir}
+                disabled={!gravacaoLiberada || ocupado !== null}
+              >
+                {ocupado === "excluir" ? "Excluindo…" : "Excluir conexão"}
+              </Botao>
+            </div>
           </div>
-        </header>
-
-        {integracao.estado === "erro" && integracao.ultimoErro && (
-          <p className="aviso aviso--erro" role="alert">
-            {integracao.ultimoErro}
-          </p>
         )}
-
-        <details className="integracao__passos">
-          <summary>Como configurar</summary>
-          <ol>
-            {integracao.passos.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ol>
-        </details>
-
-        <div className="integracao__campos">
-          {integracao.campos.map((c) => (
-            <div className="campo" key={c.nome}>
-              <label className="campo__rotulo" htmlFor={`${idBase}-${c.nome}`}>
-                {c.rotulo}
-              </label>
-              <div className="campo__entrada">
-                <input
-                  id={`${idBase}-${c.nome}`}
-                  type={c.tipo === "segredo" ? "password" : "text"}
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={rascunho.campos[c.nome] ?? ""}
-                  placeholder={
-                    c.tipo === "segredo" && c.preenchido
-                      ? `${c.mascara} (deixe vazio para manter)`
-                      : ""
-                  }
-                  onChange={(e) => campo(c.nome, e.target.value)}
-                  disabled={!gravacaoLiberada}
-                />
-              </div>
-              <span className="campo__ajuda">
-                {c.tipo === "segredo" && c.preenchido
-                  ? `Gravado: ${c.mascara}. ${c.ajuda}`
-                  : c.ajuda}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {integracao.clickup && (
-          <AssistenteClickup
-            integracao={integracao}
-            gravacaoLiberada={gravacaoLiberada}
-            atualizar={atualizar}
-          />
-        )}
-
-        {integracao.clickup && (
-          <>
-            <h3 className="integracao__sub">Lista de cada setor</h3>
-            <div className="integracao__campos">
-              {integracao.clickup.setores.map((s) => (
-                <div className="campo" key={s.id}>
-                  <label
-                    className="campo__rotulo"
-                    htmlFor={`${idBase}-lista-${s.id}`}
-                  >
-                    {s.nome}
-                  </label>
-                  <div className="campo__entrada">
-                    <input
-                      id={`${idBase}-lista-${s.id}`}
-                      type="text"
-                      autoComplete="off"
-                      spellCheck={false}
-                      value={rascunho.listas[s.id] ?? ""}
-                      placeholder="ID da lista"
-                      onChange={(e) =>
-                        setRascunho((r) => ({
-                          ...r,
-                          listas: { ...r.listas, [s.id]: e.target.value },
-                        }))
-                      }
-                      disabled={!gravacaoLiberada}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <h3 className="integracao__sub">Estado → status do ClickUp</h3>
-            <p className="campo__ajuda">
-              Os status precisam existir na lista do ClickUp. O setor só move o
-              card entre Recebida, Em tratativa e Resolvida no setor técnico;
-              “Complete” no ClickUp vale como Resolvida no setor técnico, nunca
-              como Finalizada. Mover o card para um estado do SAC é recusado e o
-              card volta. Vazio usa o padrão.
-            </p>
-            <div className="integracao__campos">
-              {ESTADOS.map((e) => (
-                <div className="campo" key={e}>
-                  <label
-                    className="campo__rotulo"
-                    htmlFor={`${idBase}-estado-${e}`}
-                  >
-                    {ROTULO_ESTADO[e]}
-                  </label>
-                  <div className="campo__entrada">
-                    <input
-                      id={`${idBase}-estado-${e}`}
-                      type="text"
-                      autoComplete="off"
-                      spellCheck={false}
-                      value={rascunho.estados[e] ?? ""}
-                      placeholder={integracao.clickup?.padraoEstados?.[e] ?? ""}
-                      onChange={(ev) =>
-                        setRascunho((r) => ({
-                          ...r,
-                          estados: { ...r.estados, [e]: ev.target.value },
-                        }))
-                      }
-                      disabled={!gravacaoLiberada}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <h3 className="integracao__sub">Reclamações de treino</h3>
-            <label className="campo__rotulo" htmlFor={`${idBase}-treino`}>
-              <input
-                id={`${idBase}-treino`}
-                type="checkbox"
-                checked={rascunho.criarCardsTreino}
-                onChange={(ev) =>
-                  setRascunho((r) => ({
-                    ...r,
-                    criarCardsTreino: ev.target.checked,
-                  }))
-                }
-                disabled={!gravacaoLiberada}
-              />{" "}
-              Criar cards para reclamações de treino
-            </label>
-            <p className="campo__ajuda">
-              Desligado por padrão: o modo treino não toca no ClickUp. Ligado,
-              as reclamações fictícias de treino viram cards reais no ClickUp
-              configurado aqui e vão aparecer lá.
-            </p>
-          </>
-        )}
-
-        {aviso && (
+        {!aberto && aviso && (
           <p
             className={`aviso aviso--${aviso.tom}`}
             role={aviso.tom === "erro" ? "alert" : "status"}
@@ -304,22 +497,6 @@ function CartaoIntegracao({
             {aviso.texto}
           </p>
         )}
-
-        <div className="integracao__acoes">
-          <Botao
-            onClick={salvar}
-            disabled={!gravacaoLiberada || ocupado !== null}
-          >
-            {ocupado === "salvar" ? "Gravando…" : "Gravar"}
-          </Botao>
-          <Botao
-            variante="secundario"
-            onClick={testar}
-            disabled={ocupado !== null}
-          >
-            {ocupado === "testar" ? "Testando…" : "Testar conexão"}
-          </Botao>
-        </div>
       </section>
     </Cartao>
   );
@@ -379,6 +556,15 @@ function FilaDoClickup({ inicial }: { inicial: FilaClickup }) {
             <Selo tom="perigo">{esgotado} esgotados</Selo>
           </div>
         </div>
+
+        {fila.itens.some((i) => i.ultimoErro === ERRO_SEM_LISTA) && (
+          <p className="aviso aviso--atencao" role="status">
+            Estes cards pararam porque o setor ainda não tem uma lista do
+            ClickUp em uso. Abra a conexão ClickUp, traga as listas, escolha a
+            de cada setor, grave e só então tente de novo. A tentativa não foi
+            gasta.
+          </p>
+        )}
 
         {fila.itens.length === 0 ? (
           <p className="aviso aviso--info" role="status">

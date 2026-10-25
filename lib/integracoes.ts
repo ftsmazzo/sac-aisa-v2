@@ -37,6 +37,18 @@ export interface Integracao {
   };
 }
 
+/** Lista que já existe no ClickUp. O identificador nunca é digitado à mão. */
+export interface ListaEmUso {
+  id: string;
+  nome: string;
+  space: string;
+  statuses: string[];
+}
+
+/** O mesmo texto que a fila grava quando o setor ainda não tem lista. */
+export const ERRO_SEM_LISTA =
+  "Sem lista para o setor e sem lista padrão no ClickUp.";
+
 export interface PassoAssistente {
   id: string;
   rotulo: string;

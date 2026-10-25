@@ -18,71 +18,111 @@ export async function ConsumoIa() {
   if (!r.ok) return null;
   const c = r.dados;
   const q = await buscarNaApi<QualidadeIa>("/admin/ia/qualidade");
+  const selo = !c.configurada
+    ? { tom: "atencao" as const, rotulo: "IA não configurada" }
+    : c.limiteAtingido
+      ? { tom: "perigo" as const, rotulo: "Limite atingido" }
+      : { tom: "ok" as const, rotulo: "Dentro do limite" };
+
   return (
-    <>
-      <Cartao>
-        <h2 className="ficha__subtitulo">
-          Consumo da IA hoje{" "}
-          {!c.configurada ? (
-            <Selo tom="atencao">IA não configurada</Selo>
-          ) : c.limiteAtingido ? (
-            <Selo tom="perigo">Limite atingido</Selo>
-          ) : (
-            <Selo tom="ok">Dentro do limite</Selo>
-          )}
-        </h2>
-        <p className="pagina__apoio">
-          {c.chamadas} de {c.limiteChamadas} chamadas · {dolar(c.custoUsd)} de{" "}
-          {dolar(c.limiteCustoUsd)} · modelo {c.modelo}. O custo é o informado
-          pelo OpenRouter (ou uma estimativa pela tabela do modelo). Passou do
-          limite, a ficha segue sem IA até amanhã.
+    <div className="ia-painel">
+      <Cartao className="ia-medida">
+        <header className="ia-medida__cab">
+          <h2>Consumo da IA hoje</h2>
+          <Selo tom={selo.tom}>{selo.rotulo}</Selo>
+        </header>
+        <dl className="ia-medida__numeros">
+          <div>
+            <dt>Chamadas</dt>
+            <dd>
+              {c.chamadas}
+              <small>de {c.limiteChamadas}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Custo</dt>
+            <dd>
+              {dolar(c.custoUsd)}
+              <small>de {dolar(c.limiteCustoUsd)}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Modelo</dt>
+            <dd className="ia-medida__modelo">{c.modelo}</dd>
+          </div>
+        </dl>
+        <p className="ia-medida__nota">
+          O custo é o informado pelo OpenRouter, ou uma estimativa pela tabela
+          do modelo. Passou do limite, a ficha segue sem IA até amanhã.
         </p>
       </Cartao>
       {q.ok && (
-        <Cartao>
-          <h2 className="ficha__subtitulo">Qualidade do registro</h2>
-          <p className="pagina__apoio">
+        <Cartao className="ia-medida">
+          <header className="ia-medida__cab">
+            <h2>Qualidade do registro</h2>
+            <Selo tom={q.dados.pctAutomatico === null ? "atencao" : "info"}>
+              {q.dados.pctAutomatico === null
+                ? "Sem dados ainda"
+                : `${q.dados.pctAutomatico}% sem digitação`}
+            </Selo>
+          </header>
+          <dl className="ia-medida__numeros">
+            <div>
+              <dt>Campos registrados</dt>
+              <dd>{q.dados.camposRegistrados}</dd>
+            </div>
+            <div>
+              <dt>Reclamações</dt>
+              <dd>{q.dados.reclamacoes}</dd>
+            </div>
+            <div>
+              <dt>Tempo médio em triagem</dt>
+              <dd>
+                {q.dados.tempoMedioTriagemMin === null
+                  ? "—"
+                  : `${q.dados.tempoMedioTriagemMin} min`}
+              </dd>
+            </div>
+          </dl>
+          <p className="ia-medida__nota">
             {q.dados.pctAutomatico === null
-              ? "Ainda sem dados: a origem de cada campo começa a ser guardada quando a pessoa decide a sugestão da IA."
-              : `${q.dados.pctAutomatico}% dos campos registrados vieram sem digitação (canal, IA ou importação).`}{" "}
-            Tempo médio em triagem:{" "}
-            {q.dados.tempoMedioTriagemMin === null
-              ? "—"
-              : `${q.dados.tempoMedioTriagemMin} min`}
-            .
+              ? "A origem de cada campo começa a ser guardada quando a pessoa decide a sugestão da IA."
+              : "Canal, IA e importação entram sem digitação. Pessoa é o que alguém preencheu. Correções são sugestões da IA que foram trocadas."}
           </p>
           {q.dados.porCampo.length > 0 && (
-            <table className="tabela-simples">
-              <thead>
-                <tr>
-                  <th>Campo</th>
-                  <th>Canal</th>
-                  <th>IA</th>
-                  <th>Pessoa</th>
-                  <th>Importado</th>
-                  <th>Aceite da IA</th>
-                  <th>Correções</th>
-                </tr>
-              </thead>
-              <tbody>
-                {q.dados.porCampo.map((f) => (
-                  <tr key={f.campo}>
-                    <td>{ROTULO_CAMPO[f.campo] ?? f.campo}</td>
-                    <td>{f.canal}</td>
-                    <td>{f.ia}</td>
-                    <td>{f.pessoa}</td>
-                    <td>{f.importado}</td>
-                    <td>
-                      {f.taxaAceiteIa === null ? "—" : `${f.taxaAceiteIa}%`}
-                    </td>
-                    <td>{f.corrigidasIa}</td>
+            <div className="ia-rolagem">
+              <table className="ia-tabela">
+                <thead>
+                  <tr>
+                    <th>Campo</th>
+                    <th>Canal</th>
+                    <th>IA</th>
+                    <th>Pessoa</th>
+                    <th>Importado</th>
+                    <th>Aceite da IA</th>
+                    <th>Correções</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {q.dados.porCampo.map((f) => (
+                    <tr key={f.campo}>
+                      <th scope="row">{ROTULO_CAMPO[f.campo] ?? f.campo}</th>
+                      <td>{f.canal}</td>
+                      <td>{f.ia}</td>
+                      <td>{f.pessoa}</td>
+                      <td>{f.importado}</td>
+                      <td>
+                        {f.taxaAceiteIa === null ? "—" : `${f.taxaAceiteIa}%`}
+                      </td>
+                      <td>{f.corrigidasIa}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Cartao>
       )}
-    </>
+    </div>
   );
 }

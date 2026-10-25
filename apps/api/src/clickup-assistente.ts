@@ -90,6 +90,57 @@ function texto(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+function idDe(v: unknown): string {
+  if (typeof v === "string" && v.trim()) return v.trim();
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return "";
+}
+
+function nomesStatus(brutos: unknown): string[] {
+  const out: string[] = [];
+  for (const s of lista(brutos)) {
+    const n = texto(s.status).trim();
+    if (n && !out.some((x) => norm(x) === norm(n))) out.push(n);
+  }
+  return out;
+}
+
+/** Lista que já existe no ClickUp. O SAC escolhe uma; não cria. */
+export interface ListaEmUso {
+  id: string;
+  nome: string;
+  space: string;
+  statuses: string[];
+}
+
+/** Junta as listas soltas e as de pasta. Status próprio da lista; senão, o do Space. */
+export function montarInventario(
+  spaces: Record<string, unknown>[],
+  porSpace: { spaceId: string; listas: Record<string, unknown>[] }[],
+): ListaEmUso[] {
+  const saida: ListaEmUso[] = [];
+  const vistos = new Set<string>();
+  for (const space of spaces) {
+    const spaceId = idDe(space.id);
+    const nomeSpace = texto(space.name).trim() || "Space";
+    const herdados = nomesStatus(space.statuses);
+    const extras = porSpace.find((p) => p.spaceId === spaceId)?.listas ?? [];
+    for (const item of [...lista(space.lists), ...extras]) {
+      const id = idDe(item.id);
+      if (!id || vistos.has(id)) continue;
+      vistos.add(id);
+      const proprios = nomesStatus(item.statuses);
+      saida.push({
+        id,
+        nome: texto(item.name).trim() || id,
+        space: nomeSpace,
+        statuses: proprios.length > 0 ? proprios : herdados,
+      });
+    }
+  }
+  return saida;
+}
+
 type Cliente = (
   metodo: "GET" | "POST" | "PUT" | "DELETE",
   caminho: string,
@@ -208,6 +259,55 @@ export class ServicoAssistenteClickup {
         id: String(t.id ?? ""),
         nome: texto(t.name),
       }));
+    } catch (e) {
+      throw new ErroIntegracao(
+        400,
+        removerSegredos(
+          e instanceof ErroApi ? e.message : "Falha ao consultar o ClickUp.",
+          [token],
+        ),
+      );
+    }
+  }
+
+  /** Lê spaces, pastas, listas e status do workspace. Não cria nada no ClickUp. */
+  async inventario(
+    usuario: UsuarioLogado,
+    workspaceId: string,
+  ): Promise<ListaEmUso[]> {
+    exigirAdministrador(usuario);
+    const token = await this.token();
+    const api = cliente(this.http, token);
+    try {
+      const r = await api("GET", `/team/${workspaceId}/space?archived=false`);
+      const spaces = lista(r.spaces);
+      const porSpace = await Promise.all(
+        spaces.map(async (space) => {
+          const spaceId = idDe(space.id);
+          if (!spaceId) return { spaceId: "", listas: [] };
+          const [soltas, pastas] = await Promise.all([
+            api("GET", `/space/${spaceId}/list?archived=false`),
+            api("GET", `/space/${spaceId}/folder?archived=false`),
+          ]);
+          const listas = [...lista(soltas.lists)];
+          for (const pasta of lista(pastas.folders)) {
+            const dentro = lista(pasta.lists);
+            if (dentro.length > 0) {
+              listas.push(...dentro);
+              continue;
+            }
+            const pastaId = idDe(pasta.id);
+            if (!pastaId) continue;
+            const mais = await api(
+              "GET",
+              `/folder/${pastaId}/list?archived=false`,
+            );
+            listas.push(...lista(mais.lists));
+          }
+          return { spaceId, listas };
+        }),
+      );
+      return montarInventario(spaces, porSpace);
     } catch (e) {
       throw new ErroIntegracao(
         400,

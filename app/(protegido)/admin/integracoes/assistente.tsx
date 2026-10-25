@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Botao, Selo } from "@/components/ui";
 import {
   type Integracao,
+  type ListaEmUso,
   mensagemIntegracao,
   type PassoAssistente,
   ROTULO_PASSO,
@@ -29,16 +30,38 @@ async function chamar(
   return { ok: r.ok, status: r.status, dados };
 }
 
-type Acao = "workspaces" | "configurar" | "remover" | "testar";
+type Acao = "workspaces" | "trazer" | "configurar" | "remover" | "testar";
+
+function listasDaResposta(dados: Record<string, unknown>): ListaEmUso[] {
+  if (!Array.isArray(dados.listas)) return [];
+  return dados.listas.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const o = item as Record<string, unknown>;
+    if (typeof o.id !== "string" || typeof o.nome !== "string") return [];
+    const statuses = Array.isArray(o.statuses)
+      ? o.statuses.filter((s): s is string => typeof s === "string")
+      : [];
+    return [
+      {
+        id: o.id,
+        nome: o.nome,
+        space: typeof o.space === "string" ? o.space : "",
+        statuses,
+      },
+    ];
+  });
+}
 
 export function AssistenteClickup({
   integracao,
   gravacaoLiberada,
   atualizar,
+  aoTrazer,
 }: {
   integracao: Integracao;
   gravacaoLiberada: boolean;
   atualizar: () => Promise<void>;
+  aoTrazer: (listas: ListaEmUso[], workspaceId: string) => void;
 }) {
   const [workspaces, setWorkspaces] = useState<{ id: string; nome: string }[]>(
     [],
@@ -94,6 +117,24 @@ export function AssistenteClickup({
           texto: "O token não enxerga nenhum workspace.",
         });
       }
+    });
+
+  const trazer = () =>
+    rodar("trazer", async () => {
+      const r = await chamar(
+        `/inventario?workspaceId=${encodeURIComponent(escolhido)}`,
+        "GET",
+      );
+      if (!r.ok) return falha(r);
+      const listas = listasDaResposta(r.dados);
+      aoTrazer(listas, escolhido);
+      setAviso({
+        tom: listas.length > 0 ? "ok" : "info",
+        texto:
+          listas.length > 0
+            ? `${listas.length} listas encontradas. Escolha a de cada setor e grave.`
+            : "Esse workspace não tem lista ativa.",
+      });
     });
 
   const configurar = (recriarWebhook = false) =>
@@ -154,14 +195,12 @@ export function AssistenteClickup({
 
   return (
     <div className="assistente">
-      <h3 className="integracao__sub">Assistente do ClickUp</h3>
+      <h3 className="integracao__sub">ClickUp em uso</h3>
       <p className="campo__ajuda">
-        Grave só o token. Depois busque o workspace e configure. O assistente
-        cria o Space “SAC AISA”, os sete status, uma lista por setor e o
-        webhook, e preenche o segredo e os IDs. Não cole esses dados à mão. Pode
-        rodar de novo sem duplicar nada. No ClickUp real, use o token de um
-        usuário de serviço: o webhook fica atrelado a quem o criou e para se
-        essa pessoa for desativada.
+        O ClickUp que a empresa já usa é a origem. Grave o token, busque o
+        workspace e traga as listas e os status. O SAC não cria Space, lista nem
+        status. O token de um usuário de serviço evita que o webhook pare quando
+        alguém sai.
       </p>
       {!token?.preenchido && (
         <p className="aviso aviso--info" role="status">
@@ -191,12 +230,8 @@ export function AssistenteClickup({
       </div>
 
       <div className="assistente__linha">
-        <Botao onClick={() => configurar()} disabled={!livre || !escolhido}>
-          {ocupado === "configurar"
-            ? "Configurando…"
-            : falhou
-              ? "Continuar configuração"
-              : "Configurar ClickUp automaticamente"}
+        <Botao onClick={trazer} disabled={!livre || !escolhido}>
+          {ocupado === "trazer" ? "Trazendo…" : "Trazer listas e status"}
         </Botao>
         <Botao variante="secundario" onClick={testar} disabled={!livre}>
           {ocupado === "testar" ? "Testando…" : "Testar fluxo"}
@@ -225,6 +260,26 @@ export function AssistenteClickup({
           <Selo tom="atencao">Webhook inativo</Selo>
         )}
       </div>
+
+      <details className="integracao__passos">
+        <summary>Conta de teste vazia</summary>
+        <p className="campo__ajuda">
+          Só quando o ClickUp ainda não tem lista nenhuma. Cria o Space “SAC
+          AISA”, uma lista por setor e o webhook. No ambiente real, use as
+          listas que já existem.
+        </p>
+        <Botao
+          variante="secundario"
+          onClick={() => configurar()}
+          disabled={!livre || !escolhido}
+        >
+          {ocupado === "configurar"
+            ? "Criando…"
+            : falhou
+              ? "Continuar a criação de teste"
+              : "Criar estrutura de teste"}
+        </Botao>
+      </details>
 
       {passos.length > 0 && (
         <ol className="assistente__passos" aria-label="Progresso">
