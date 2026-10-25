@@ -5,6 +5,7 @@ import { mesclarPermissoes, type Perfil } from "@sac-aisa/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CHAVE_REQUER } from "./auth.guard";
 import {
+  montarInventario,
   type RepositorioAssistente,
   ServicoAssistenteClickup,
   urlDoWebhook,
@@ -469,6 +470,7 @@ describe("permissão", () => {
   it("as rotas exigem a permissão de integrações", () => {
     for (const rota of [
       "workspaces",
+      "inventario",
       "configurar",
       "removerWebhook",
       "testar",
@@ -489,6 +491,9 @@ describe("permissão", () => {
       const u = usuario(perfil);
       const antes = ck.e.chamadas.length;
       await expect(s.workspaces(u)).rejects.toMatchObject({ status: 403 });
+      await expect(s.inventario(u, "90")).rejects.toMatchObject({
+        status: 403,
+      });
       await expect(s.configurar(u, ENTRADA)).rejects.toMatchObject({
         status: 403,
       });
@@ -497,4 +502,83 @@ describe("permissão", () => {
       expect(ck.e.chamadas.length).toBe(antes);
     },
   );
+});
+
+describe("inventário do ClickUp em uso", () => {
+  it("junta lista solta e de pasta e não duplica", () => {
+    expect(
+      montarInventario(
+        [
+          {
+            id: "sp",
+            name: "Operação",
+            statuses: [{ status: "aberto" }, { status: "Aberto" }],
+          },
+        ],
+        [
+          {
+            spaceId: "sp",
+            listas: [
+              {
+                id: "l1",
+                name: "Solda",
+                statuses: [{ status: "em tratativa" }],
+              },
+              { id: "l2", name: "Pintura" },
+              { id: "l1", name: "duplicada" },
+            ],
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        id: "l1",
+        nome: "Solda",
+        space: "Operação",
+        statuses: ["em tratativa"],
+      },
+      { id: "l2", nome: "Pintura", space: "Operação", statuses: ["aberto"] },
+    ]);
+  });
+
+  it("só lê o ClickUp e não cria space nem lista", async () => {
+    const repo = new RepoFalso();
+    const chamadas: string[] = [];
+    const http = (async (url: string | URL | Request, init?: RequestInit) => {
+      chamadas.push(`${init?.method ?? "GET"} ${String(url)}`);
+      const u = String(url);
+      const corpo = u.includes("/space?archived=false")
+        ? { spaces: [{ id: "sp1", name: "Operação" }] }
+        : u.includes("/space/sp1/list")
+          ? {
+              lists: [
+                {
+                  id: "l1",
+                  name: "Solda",
+                  statuses: [{ status: "Recebida" }],
+                },
+              ],
+            }
+          : u.includes("/folder?archived=false")
+            ? {
+                folders: [{ id: "f1", lists: [{ id: "l2", name: "Pintura" }] }],
+              }
+            : {};
+      return new Response(JSON.stringify(corpo), { status: 200 });
+    }) as typeof fetch;
+    const integr = new ServicoIntegracoes(repo, randomBytes(32), http);
+    await integr.salvar(adm, "clickup", { campos: { token: TOKEN } });
+    const s = new ServicoAssistenteClickup(
+      integr,
+      repo,
+      { eventosDaTask: async () => 0 },
+      http,
+    );
+    const listas = await s.inventario(adm, "90");
+    expect(listas.map((l) => l.nome)).toEqual(["Solda", "Pintura"]);
+    expect(listas[0]?.statuses).toEqual(["Recebida"]);
+    expect(chamadas.every((c) => c.startsWith("GET "))).toBe(true);
+    expect(chamadas.some((c) => c.includes("/team/90/space"))).toBe(true);
+    expect(JSON.stringify(listas)).not.toContain(TOKEN);
+  });
 });

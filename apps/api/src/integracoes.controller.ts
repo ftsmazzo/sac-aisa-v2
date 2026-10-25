@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Headers,
@@ -16,6 +17,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Req,
   ServiceUnavailableException,
 } from "@nestjs/common";
@@ -112,6 +114,7 @@ export class RepositorioIntegracoesPrisma implements RepositorioIntegracoes {
         create: { chave: args.chave, ...dados },
         update: dados,
       });
+      if (args.limparListas) await tx.clickupConfig.deleteMany({});
       for (const [setorId, listaId] of Object.entries(args.listas ?? {})) {
         if (listaId === "") {
           await tx.clickupConfig.deleteMany({ where: { setorId } });
@@ -723,6 +726,15 @@ export class ControladorIntegracoes {
     return this.comErros(() => this.servico.testar(usuarioDe(req), chave));
   }
 
+  @Requer("integracoes.gerir")
+  @Delete(":chave")
+  async esquecer(@Param("chave") chave: string, @Req() req: PedidoComUsuario) {
+    if (!chaveValida(chave))
+      throw new NotFoundException("Integração inexistente.");
+    await this.comErros(() => this.servico.esquecer(usuarioDe(req), chave));
+    return { ok: true };
+  }
+
   private async comErros<T>(f: () => Promise<T>): Promise<T> {
     try {
       return await f();
@@ -802,6 +814,21 @@ export class ControladorAssistenteClickup {
         this.servico.workspaces(usuarioDe(req)),
       ),
     };
+  }
+
+  @Requer("integracoes.gerir")
+  @Get("inventario")
+  inventario(
+    @Query("workspaceId") workspaceId: string,
+    @Req() req: PedidoComUsuario,
+  ) {
+    const ws = workspaceId?.trim() ?? "";
+    if (!/^\d{1,20}$/.test(ws)) {
+      throw new BadRequestException("Escolha um workspace.");
+    }
+    return this.comErros(async () => ({
+      listas: await this.servico.inventario(usuarioDe(req), ws),
+    }));
   }
 
   @Requer("integracoes.gerir")

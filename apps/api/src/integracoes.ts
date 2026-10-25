@@ -36,40 +36,40 @@ interface IntegracaoDef {
 export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
   clickup: {
     nome: "ClickUp",
-    resumo: "Cria o card da reclamação na lista do setor e acompanha o status.",
+    resumo:
+      "Envia o card da reclamação para uma lista que já existe no ClickUp.",
     passos: [
-      "No ClickUp, abra Configurações › Apps e gere um token pessoal (começa com pk_). Use um usuário de serviço, não uma pessoa: o token e o webhook ficam atrelados a esse usuário e param se ele for desativado.",
-      "Cole só o token no campo abaixo e clique em Gravar. Deixe segredo, lista padrão e ID do workspace vazios.",
-      "No assistente, clique em Buscar workspaces, escolha a conta e depois em Configurar ClickUp automaticamente. Ele cria o Space, as listas, os status e o webhook, e grava o segredo e os IDs.",
-      "O webhook só é criado se a variável URL_PUBLICA_WEB for um endereço HTTPS que o ClickUp consiga acessar. Sem isso, o Space e as listas nascem mesmo assim e o passo do webhook diz o que falta.",
+      "No ClickUp em uso, abra Configurações › Apps e gere um token pessoal (começa com pk_). Use um usuário de serviço: o token e o webhook ficam atrelados a ele.",
+      "Cole só o token e grave. O SAC não cria Space, lista nem status.",
+      "Abra a conexão, busque o workspace e traga as listas. Escolha, para cada setor, a lista que já recebe o trabalho. O status de cada etapa sai dos status que essa lista já tem.",
+      "O webhook, se a URL pública for HTTPS, avisa o SAC quando alguém move o card lá. Sem webhook, o SAC continua criando e atualizando os cards.",
     ],
     campos: [
       {
         nome: "token",
         rotulo: "Token da API",
         tipo: "segredo",
-        ajuda: "O único campo que você preenche. Cole o token e grave.",
+        ajuda: "O único segredo que você cola. O resto vem do ClickUp em uso.",
       },
       {
         nome: "segredoWebhook",
         rotulo: "Segredo do webhook",
         tipo: "segredo",
-        ajuda:
-          "Deixe vazio. O assistente grava o segredo quando cria o webhook.",
+        ajuda: "Deixe vazio. É preenchido se você ativar o webhook.",
       },
       {
         nome: "listaPadraoId",
         rotulo: "Lista padrão",
         tipo: "texto",
         ajuda:
-          "Deixe vazio. O assistente cria uma lista por setor. Este ID só serve de reserva.",
+          "Lista já existente, usada quando o setor ainda não tem a sua. Escolha depois de trazer as listas.",
       },
       {
         nome: "workspaceId",
         rotulo: "ID do workspace",
         tipo: "texto",
         ajuda:
-          "Deixe vazio. O assistente preenche com o número de app.clickup.com/NÚMERO/...",
+          "Número do workspace, o de app.clickup.com/NÚMERO. A busca preenche.",
       },
     ],
   },
@@ -340,6 +340,8 @@ export interface RepositorioIntegracoes {
     config: Record<string, unknown>;
     segredos: Record<string, SegredoGravado>;
     listas?: Record<string, string>;
+    /** Apaga o vínculo de lista de todos os setores. Usado ao excluir o ClickUp. */
+    limparListas?: boolean;
     usuarioId: string;
     auditoria: AuditoriaIntegracao;
   }): Promise<void>;
@@ -755,6 +757,30 @@ export class ServicoIntegracoes {
         alvo: def.nome,
         detalhe: `Campos alterados: ${alterados.join(", ")}.`,
         extra: { campos: alterados },
+      },
+    });
+  }
+
+  /** Apaga token, textos e, no ClickUp, a lista de cada setor. A auditoria não leva segredo. */
+  async esquecer(
+    usuario: UsuarioLogado,
+    chave: ChaveIntegracao,
+  ): Promise<void> {
+    exigirAdministrador(usuario);
+    const def = CATALOGO[chave];
+    await this.repo.gravar({
+      chave,
+      config: {},
+      segredos: {},
+      limparListas: chave === "clickup",
+      usuarioId: usuario.id,
+      auditoria: {
+        usuarioId: usuario.id,
+        usuarioNome: usuario.nome,
+        acao: "integracao.salvar",
+        alvo: def.nome,
+        detalhe: "Conexão excluída.",
+        extra: { campos: ["conexao"] },
       },
     });
   }
