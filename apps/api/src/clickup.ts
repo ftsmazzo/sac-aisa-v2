@@ -101,6 +101,8 @@ export interface ItemFila {
   ultimoErro: string | null;
   proximaTentativaEm: string | null;
   comentariosPendentes: number;
+  /** Setor responsável da reclamação. Vazio quando o card é de plano ou a reclamação não tem setor. */
+  setorNome: string | null;
 }
 
 export interface FilaDoClickup {

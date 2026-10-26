@@ -17,6 +17,7 @@ import {
   proximaTentativa,
   type RascunhoIntegracao,
   rascunhoInicial,
+  textoDaFilaSemLista,
 } from "@/lib/integracoes";
 import { ESTADOS, ROTULO_ESTADO } from "@/lib/reclamacoes-formato";
 import { AssistenteClickup } from "./assistente";
@@ -585,10 +586,7 @@ function FilaDoClickup({ inicial }: { inicial: FilaClickup }) {
 
         {fila.itens.some((i) => i.ultimoErro === ERRO_SEM_LISTA) && (
           <p className="aviso aviso--atencao" role="status">
-            Estes cards pararam porque o setor ainda não tem uma lista do
-            ClickUp em uso. Abra a conexão ClickUp, traga as listas, escolha a
-            de cada setor, grave e só então tente de novo. A tentativa não foi
-            gasta.
+            {textoDaFilaSemLista(fila.itens)}
           </p>
         )}
 
@@ -610,8 +608,16 @@ function FilaDoClickup({ inicial }: { inicial: FilaClickup }) {
                     Falta {oQueFalta(i)} · {i.tentativas} tentativa(s) ·
                     próxima: {proximaTentativa(i)}
                   </span>
-                  {i.ultimoErro && (
-                    <span className="fila-clickup__erro">{i.ultimoErro}</span>
+                  {i.ultimoErro === ERRO_SEM_LISTA ? (
+                    <span className="fila-clickup__erro">
+                      {i.setorNome
+                        ? `Falta gravar a lista do setor ${i.setorNome}.`
+                        : "Esta reclamação não tem setor responsável."}
+                    </span>
+                  ) : (
+                    i.ultimoErro && (
+                      <span className="fila-clickup__erro">{i.ultimoErro}</span>
+                    )
                   )}
                   {i.ultimoErro && (
                     <Botao
