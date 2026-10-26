@@ -34,6 +34,18 @@ export {
 
 // ---------- Card ao registrar ----------
 
+/**
+ * Ainda com o SAC: a reclamação não foi iniciada no setor.
+ * Não vira card e não entra na fila como erro.
+ */
+export const ESTADOS_ANTES_DE_INICIAR: readonly Estado[] = [
+  "triagem",
+  "aguardando_cliente",
+];
+
+export const reclamacaoIniciada = (estado: Estado) =>
+  !ESTADOS_ANTES_DE_INICIAR.includes(estado);
+
 /** Esperas, em minutos, depois de cada falha. Passou da última, a fila para e o erro fica visível. */
 export const ESPERAS_MIN = [1, 5, 15, 60, 180, 720];
 export const MAX_TENTATIVAS = ESPERAS_MIN.length + 1;
@@ -141,6 +153,8 @@ export interface RepositorioClickup {
     proxima: Date | null;
     contarTentativa: boolean;
   }): Promise<void>;
+  /** Tira da fila de erro a reclamação que ainda não foi iniciada. */
+  pausarAteIniciar(cardId: string): Promise<void>;
   /** Reclamações cujo card tem trabalho na fila (criar, atualizar ou comentar) e cuja hora chegou. */
   pendentes(
     agora: Date,
@@ -281,6 +295,7 @@ export type ResultadoTentativa =
   | "criado"
   | "sem_token"
   | "sem_lista"
+  | "nao_iniciada"
   | "treino_bloqueado"
   | "falhou";
 
@@ -382,6 +397,10 @@ export class ServicoClickup {
       if (!dados) return "sem_card";
     }
     if (dados.taskId) return "criado";
+    if (!reclamacaoIniciada(dados.reclamacao.estado)) {
+      await this.repo.pausarAteIniciar(dados.cardId);
+      return "nao_iniciada";
+    }
     if (dados.reclamacao.treino && !(await this.treinoLiberado())) {
       return "treino_bloqueado";
     }

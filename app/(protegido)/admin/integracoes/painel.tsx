@@ -574,7 +574,8 @@ function FilaDoClickup({ inicial }: { inicial: FilaClickup }) {
             <p className="integracao__resumo">
               Cards a criar ou atualizar e comentários a postar. Quem falha
               tenta de novo sozinho, com espera crescente; ao esgotar, fica aqui
-              até alguém mandar tentar de novo.
+              até alguém mandar tentar de novo. Reclamação ainda na triagem, ou
+              aguardando o cliente, não entra nesta fila.
             </p>
           </div>
           <div className="integracao__estado">

@@ -111,6 +111,10 @@ class RepoFalso implements RepositorioClickup {
   async registrarFalha(a: Parameters<RepositorioClickup["registrarFalha"]>[0]) {
     this.falhas.push(a);
   }
+  pausadas: string[] = [];
+  async pausarAteIniciar(cardId: string) {
+    this.pausadas.push(cardId);
+  }
   async pendentes() {
     return ["r1"];
   }
@@ -312,6 +316,20 @@ describe("card ao registrar", () => {
     expect(h.chamadas).toHaveLength(0);
     expect(repo.falhas).toHaveLength(0);
     expect(repo.criado).toBeNull();
+  });
+
+  it("reclamação ainda não iniciada não vira erro nem chama o ClickUp", async () => {
+    const repo = new RepoFalso();
+    const base = dadosCard();
+    repo.card = dadosCard({
+      reclamacao: { ...base.reclamacao, estado: "triagem" },
+    });
+    const h = http(200, { id: "t-1" });
+    const s = new ServicoClickup(repo, integr(), h.f, AGORA);
+    expect(await s.tentarCard("r1")).toBe("nao_iniciada");
+    expect(h.chamadas).toHaveLength(0);
+    expect(repo.falhas).toHaveLength(0);
+    expect(repo.pausadas).toEqual(["card1"]);
   });
 
   it("sem lista alguma, registra o erro sem contar tentativa", async () => {
