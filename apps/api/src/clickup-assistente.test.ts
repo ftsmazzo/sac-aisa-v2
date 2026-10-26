@@ -472,6 +472,7 @@ describe("permissão", () => {
       "workspaces",
       "inventario",
       "configurar",
+      "ativarWebhook",
       "removerWebhook",
       "testar",
     ] as const) {
@@ -497,11 +498,40 @@ describe("permissão", () => {
       await expect(s.configurar(u, ENTRADA)).rejects.toMatchObject({
         status: 403,
       });
+      await expect(s.ativarWebhook(u, ENTRADA)).rejects.toMatchObject({
+        status: 403,
+      });
       await expect(s.removerWebhook(u)).rejects.toMatchObject({ status: 403 });
       await expect(s.testar(u)).rejects.toMatchObject({ status: 403 });
       expect(ck.e.chamadas.length).toBe(antes);
     },
   );
+});
+
+describe("webhook do ClickUp em uso", () => {
+  it("registra o aviso do workspace e não cria space nem lista", async () => {
+    const { s, ck, integr } = await montar();
+    const r = await s.ativarWebhook(adm, ENTRADA);
+    expect(r.ativo).toBe(true);
+    expect(r.mensagem).toContain("Webhook ativo");
+    expect(ck.e.spaces).toHaveLength(0);
+    expect(ck.e.lists).toHaveLength(0);
+    const post = ck.e.corpos.find(
+      (c) =>
+        typeof c === "object" &&
+        c !== null &&
+        "endpoint" in c &&
+        c.endpoint === URL_HOOK,
+    );
+    expect(post).toMatchObject({
+      endpoint: URL_HOOK,
+      events: ["taskStatusUpdated"],
+    });
+    expect(post).not.toHaveProperty("space_id");
+    expect((await integr.config("clickup")).webhookUrl).toBe(URL_HOOK);
+    expect(JSON.stringify(r)).not.toContain(TOKEN);
+    expect(JSON.stringify(r)).not.toContain("SEGREDO");
+  });
 });
 
 describe("inventário do ClickUp em uso", () => {

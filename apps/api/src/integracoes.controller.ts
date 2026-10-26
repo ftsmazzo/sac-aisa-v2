@@ -850,6 +850,24 @@ export class ControladorAssistenteClickup {
   }
 
   @Requer("integracoes.gerir")
+  @Post("webhook/ativar")
+  @HttpCode(200)
+  ativarWebhook(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    const c = objeto(corpo);
+    const ws = typeof c.workspaceId === "string" ? c.workspaceId.trim() : "";
+    if (!/^\d{1,20}$/.test(ws)) {
+      throw new BadRequestException("Escolha um workspace.");
+    }
+    return this.comErros(() =>
+      this.servico.ativarWebhook(usuarioDe(req), {
+        workspaceId: ws,
+        recriar: c.recriar === true,
+        urlBase: urlPublica(req),
+      }),
+    );
+  }
+
+  @Requer("integracoes.gerir")
   @Post("webhook/remover")
   @HttpCode(200)
   async removerWebhook(@Req() req: PedidoComUsuario) {

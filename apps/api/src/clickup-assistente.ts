@@ -319,6 +319,73 @@ export class ServicoAssistenteClickup {
     }
   }
 
+  /**
+   * Registra o aviso do ClickUp para o workspace já escolhido.
+   * Não cria Space, lista nem status.
+   */
+  async ativarWebhook(
+    usuario: UsuarioLogado,
+    entrada: { workspaceId: string; urlBase?: string; recriar?: boolean },
+  ): Promise<{ ativo: true; mascara: string; mensagem: string }> {
+    exigirAdministrador(usuario);
+    const token = await this.token();
+    const api = cliente(this.http, token);
+    const segredos = [token];
+    try {
+      const url = urlDoWebhook(entrada.urlBase);
+      const base = `/team/${encodeURIComponent(entrada.workspaceId)}/webhook`;
+      const r = await api("GET", base);
+      const nosso = lista(r.webhooks).find(
+        (w) => texto(w.endpoint).replace(/\/+$/, "") === url,
+      );
+      let id = "";
+      let segredo = "";
+      let reaproveitado = false;
+      if (nosso && !entrada.recriar && texto(nosso.secret)) {
+        id = String(nosso.id);
+        segredo = texto(nosso.secret);
+        reaproveitado = true;
+      } else {
+        if (nosso) {
+          await api(
+            "DELETE",
+            `/webhook/${encodeURIComponent(String(nosso.id))}`,
+          );
+        }
+        const c = await api("POST", base, {
+          endpoint: url,
+          events: EVENTOS_WEBHOOK,
+        });
+        const w = objeto(c.webhook);
+        id = String(c.id ?? w.id ?? "");
+        segredo = texto(w.secret);
+        if (!id || !segredo) {
+          throw new ErroApi("O ClickUp não devolveu o webhook completo.");
+        }
+      }
+      segredos.push(segredo);
+      await this.integr.salvar(usuario, "clickup", {
+        campos: { segredoWebhook: segredo },
+        extra: { webhookId: id, webhookUrl: url },
+      });
+      return {
+        ativo: true,
+        mascara: mascarar(segredo.slice(-4)),
+        mensagem: reaproveitado
+          ? "Webhook ativo. O que já existia foi reaproveitado."
+          : "Webhook ativo. O ClickUp passa a avisar o SAC quando um card muda de status.",
+      };
+    } catch (e) {
+      throw new ErroIntegracao(
+        400,
+        removerSegredos(
+          e instanceof ErroApi ? e.message : "Falha ao ativar o webhook.",
+          segredos,
+        ),
+      );
+    }
+  }
+
   async configurar(
     usuario: UsuarioLogado,
     entrada: {
