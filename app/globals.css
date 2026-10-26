@@ -1570,6 +1570,21 @@ a.chip:hover {
   text-align: left;
   cursor: pointer;
 }
+.integracao__nome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.assistente__roteiro {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--cor-texto);
+  font-size: 0.9375rem;
+}
 .integracao__abre:focus-visible {
   outline: 2px solid var(--marca-texto);
   outline-offset: 4px;

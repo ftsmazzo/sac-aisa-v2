@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { montarCorpo, rascunhoNovo, validarRascunho } from "./usuarios";
+import {
+  mensagemUsuarios,
+  montarCorpo,
+  rascunhoNovo,
+  textoDaResposta,
+  validarRascunho,
+} from "./usuarios";
 
 describe("formulário de usuários", () => {
   it("responsável de setor exige ao menos um setor", () => {
@@ -43,5 +49,16 @@ describe("formulário de usuários", () => {
       setorIds: ["s1"],
       marcaIds: ["m1"],
     });
+  });
+
+  it("mostra a mensagem da API, mesmo quando ela vem em lista", () => {
+    expect(mensagemUsuarios(405)).toContain("não chegou");
+    expect(textoDaResposta({ message: "Setor inexistente." })).toBe(
+      "Setor inexistente.",
+    );
+    expect(textoDaResposta({ message: ["Nome curto.", " "] })).toBe(
+      "Nome curto.",
+    );
+    expect(textoDaResposta({})).toBeUndefined();
   });
 });

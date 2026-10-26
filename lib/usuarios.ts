@@ -102,6 +102,24 @@ export function montarCorpo(r: RascunhoUsuario, modo: "criar" | "editar") {
 export function mensagemUsuarios(status: number, mensagem?: string): string {
   if (status === 401) return "Sua sessão expirou. Entre de novo.";
   if (status === 403) return "Só o administrador pode gerir usuários.";
+  if (status === 405) {
+    return "A gravação não chegou ao servidor. Atualize a página e tente de novo.";
+  }
   if (status === 502) return "Serviço indisponível no momento.";
   return mensagem || "Não foi possível concluir. Tente de novo.";
+}
+
+/** A API às vezes devolve a mensagem como texto e às vezes como lista. */
+export function textoDaResposta(
+  dados: Record<string, unknown>,
+): string | undefined {
+  const m = dados.message;
+  if (typeof m === "string" && m.trim()) return m;
+  if (Array.isArray(m)) {
+    const partes = m.filter(
+      (x): x is string => typeof x === "string" && x.trim() !== "",
+    );
+    if (partes.length > 0) return partes.join(" ");
+  }
+  return undefined;
 }

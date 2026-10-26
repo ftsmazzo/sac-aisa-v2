@@ -132,7 +132,7 @@ export function AssistenteClickup({
         tom: listas.length > 0 ? "ok" : "info",
         texto:
           listas.length > 0
-            ? `${listas.length} listas encontradas. Escolha a de cada setor e grave.`
+            ? `${listas.length} listas do ClickUp. Onde o nome da lista é o do setor, ela já fica escolhida. Confira e grave.`
             : "Esse workspace não tem lista ativa.",
       });
     });
@@ -195,13 +195,27 @@ export function AssistenteClickup({
 
   return (
     <div className="assistente">
-      <h3 className="integracao__sub">ClickUp em uso</h3>
-      <p className="campo__ajuda">
-        O ClickUp que a empresa já usa é a origem. Grave o token, busque o
-        workspace e traga as listas e os status. O SAC não cria Space, lista nem
-        status. O token de um usuário de serviço evita que o webhook pare quando
-        alguém sai.
-      </p>
+      <h3 className="integracao__sub">
+        Trocar para o ClickUp que já está em uso
+      </h3>
+      <ol className="assistente__roteiro">
+        <li>
+          Se a conta ligada agora é a de teste, clique em Excluir conexão, no
+          fim deste cartão.
+        </li>
+        <li>
+          Cole o token novo, que começa com pk_, no campo Token da API e clique
+          em Gravar.
+        </li>
+        <li>
+          Clique em Buscar workspaces, escolha a conta e depois em Trazer listas
+          e status.
+        </li>
+        <li>
+          Confira a lista de cada setor e grave de novo. O SAC usa o que já
+          existe no ClickUp e não cria Space, lista nem status.
+        </li>
+      </ol>
       {!token?.preenchido && (
         <p className="aviso aviso--info" role="status">
           Grave o token do ClickUp primeiro.

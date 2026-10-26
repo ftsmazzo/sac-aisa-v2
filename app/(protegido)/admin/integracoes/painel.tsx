@@ -231,7 +231,15 @@ function CartaoIntegracao({
             aria-controls={`${idBase}-corpo`}
             onClick={() => setAberto((v) => !v)}
           >
-            <span>{integracao.nome}</span>
+            <span className="integracao__nome">
+              <span>{integracao.nome}</span>
+              {integracao.chave === "clickup" && (
+                <span className="integracao__resumo">
+                  Clique para desconectar, colar o token real e trazer as listas
+                  que já existem
+                </span>
+              )}
+            </span>
             <Selo tom={selo.tom}>{selo.rotulo}</Selo>
           </button>
         </h2>
@@ -315,7 +323,25 @@ function CartaoIntegracao({
                 atualizar={atualizar}
                 aoTrazer={(listas, workspaceId) => {
                   setListasEmUso(listas);
-                  campo("workspaceId", workspaceId);
+                  const ids = new Set(listas.map((l) => l.id));
+                  setRascunho((r) => {
+                    const proximas = { ...r.listas };
+                    for (const s of integracao.clickup?.setores ?? []) {
+                      const atual = proximas[s.id] ?? "";
+                      if (atual && ids.has(atual)) continue;
+                      const achou = listas.find(
+                        (l) =>
+                          l.nome.trim().toLowerCase() ===
+                          s.nome.trim().toLowerCase(),
+                      );
+                      proximas[s.id] = achou?.id ?? "";
+                    }
+                    return {
+                      ...r,
+                      listas: proximas,
+                      campos: { ...r.campos, workspaceId },
+                    };
+                  });
                 }}
               />
             )}

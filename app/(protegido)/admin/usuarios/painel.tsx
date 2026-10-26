@@ -9,6 +9,7 @@ import {
   type RascunhoUsuario,
   rascunhoDe,
   rascunhoNovo,
+  textoDaResposta,
   type UsuarioAdmin,
   usaSetoresEMarcas,
   validarRascunho,
@@ -285,12 +286,7 @@ export function Painel({ inicial }: { inicial: PainelUsuarios }) {
       if (!resp.ok) {
         setAviso({
           tom: "erro",
-          texto: mensagemUsuarios(
-            resp.status,
-            typeof resp.dados.message === "string"
-              ? resp.dados.message
-              : undefined,
-          ),
+          texto: mensagemUsuarios(resp.status, textoDaResposta(resp.dados)),
         });
         return;
       }

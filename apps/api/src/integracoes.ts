@@ -39,9 +39,9 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
     resumo:
       "Envia o card da reclamação para uma lista que já existe no ClickUp.",
     passos: [
-      "No ClickUp em uso, abra Configurações › Apps e gere um token pessoal (começa com pk_). Use um usuário de serviço: o token e o webhook ficam atrelados a ele.",
-      "Cole só o token e grave. O SAC não cria Space, lista nem status.",
-      "Abra a conexão, busque o workspace e traga as listas. Escolha, para cada setor, a lista que já recebe o trabalho. O status de cada etapa sai dos status que essa lista já tem.",
+      "Se a conta ligada é a de teste, abra o cartão e clique em Excluir conexão. No ClickUp real, gere um token pessoal (pk_) em Configurações › Apps, de um usuário de serviço.",
+      "Cole o token e grave. O SAC não cria Space, lista nem status.",
+      "Busque o workspace e traga as listas. Escolha, para cada setor, a lista que já recebe o trabalho. O status de cada etapa sai dos status que essa lista já tem.",
       "O webhook, se a URL pública for HTTPS, avisa o SAC quando alguém move o card lá. Sem webhook, o SAC continua criando e atualizando os cards.",
     ],
     campos: [
