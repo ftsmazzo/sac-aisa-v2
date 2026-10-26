@@ -1,0 +1,137 @@
+/* Planos de ação. Mesmo encaixe da administração da IA. */
+.planos {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+}
+.planos .pagina__apoio {
+  max-width: 68ch;
+  margin: 0;
+}
+.planos .cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px 24px 24px;
+}
+.planos .ficha__subtitulo {
+  margin: 0;
+}
+.planos__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.planos__campo label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.planos__campo input,
+.planos__campo select,
+.planos__campo textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio-m);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font: inherit;
+}
+.planos__campo textarea {
+  min-height: 6.5rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+.planos__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.planos__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.planos__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 16px;
+  align-items: start;
+  padding: 18px 20px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-g);
+  background: var(--cor-superficie);
+  box-shadow: var(--sombra);
+}
+.planos__item-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.planos__item-cab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.planos__item-cab strong {
+  line-height: 1.35;
+}
+.planos__meta,
+.planos__texto {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.planos__meta {
+  color: var(--cor-suave);
+  font-size: 0.875rem;
+}
+.planos__texto {
+  white-space: pre-wrap;
+}
+.planos__efeito {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+.planos__efeito span {
+  padding: 6px 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-p);
+  background: var(--cor-fundo);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.planos__item-acoes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.planos__resultado {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .planos .cartao {
+    padding: 18px 16px;
+  }
+  .planos__item {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+  .planos__item-acoes {
+    align-items: flex-start;
+  }
+}
