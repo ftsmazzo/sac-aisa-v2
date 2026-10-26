@@ -1,12 +1,19 @@
+import Link from "next/link";
 import type { CSSProperties } from "react";
 import { moeda } from "@/lib/reclamacoes-formato";
-import { type RelatorioApi, textoDias } from "@/lib/relatorios-formato";
+import {
+  listaDoRecorte,
+  type RelatorioApi,
+  recorte,
+  textoDias,
+} from "@/lib/relatorios-formato";
 
 interface ItemBarra {
   rotulo: string;
   valor: number;
   texto: string;
   apoio?: string;
+  href?: string;
 }
 
 /** Barras horizontais em HTML puro: o número fica escrito ao lado, a barra só reforça. */
@@ -17,7 +24,13 @@ function Barras({ itens, vazio }: { itens: ItemBarra[]; vazio: string }) {
     <ol className="barras">
       {itens.map((i) => (
         <li key={i.rotulo} className="barras__item">
-          <span className="barras__rotulo">{i.rotulo}</span>
+          {i.href ? (
+            <Link href={i.href} className="barras__rotulo">
+              {i.rotulo}
+            </Link>
+          ) : (
+            <span className="barras__rotulo">{i.rotulo}</span>
+          )}
           <span className="barras__trilho" aria-hidden="true">
             <span
               className="barras__barra"
@@ -37,7 +50,13 @@ function Barras({ itens, vazio }: { itens: ItemBarra[]; vazio: string }) {
 const TOP_PRODUTOS = 8;
 
 /** Visão de tela do relatório: gráficos e mapa de calor. No papel sai a versão numérica. */
-export function VisaoGrafica({ r }: { r: RelatorioApi }) {
+export function VisaoGrafica({
+  r,
+  filtros,
+}: {
+  r: RelatorioApi;
+  filtros: Partial<Record<string, string>>;
+}) {
   const t = r.totais;
   const situacao = [
     { chave: "resolvida", rotulo: "Resolvidas", n: t.resolvidas },
@@ -52,6 +71,11 @@ export function VisaoGrafica({ r }: { r: RelatorioApi }) {
 
   return (
     <div className="relatorio__visual sem-impressao">
+      <p className="pagina__apoio">
+        Um clique no gráfico filtra os outros e a{" "}
+        <Link href={listaDoRecorte(filtros)}>lista de reclamações</Link>. Outro
+        clique no mesmo valor solta o filtro.
+      </p>
       <dl className="relatorio__kpis">
         <div>
           <dt>Reclamações</dt>
@@ -102,7 +126,10 @@ export function VisaoGrafica({ r }: { r: RelatorioApi }) {
                       className={`situacao-legenda__ponto situacao-barra__parte--${s.chave}`}
                       aria-hidden="true"
                     />
-                    {s.rotulo} <strong>{s.n}</strong>
+                    <Link href={recorte(filtros, { situacao: s.chave })}>
+                      {s.rotulo}
+                    </Link>{" "}
+                    <strong>{s.n}</strong>
                   </li>
                 ))}
               </ul>
@@ -136,6 +163,9 @@ export function VisaoGrafica({ r }: { r: RelatorioApi }) {
               valor: s.total,
               texto: String(s.total),
               apoio: moeda(s.custo),
+              href: s.setorId
+                ? recorte(filtros, { setor: s.setorId })
+                : undefined,
             }))}
           />
         </section>
@@ -154,6 +184,9 @@ export function VisaoGrafica({ r }: { r: RelatorioApi }) {
               valor: p.total,
               texto: String(p.total),
               apoio: moeda(p.custo),
+              href: p.codigo
+                ? recorte(filtros, { produto: p.codigo })
+                : undefined,
             }))}
           />
         </section>
@@ -189,6 +222,13 @@ export function VisaoGrafica({ r }: { r: RelatorioApi }) {
                     <th scope="row">{l.bancada}</th>
                     {mapa.tipos.map((x) => {
                       const n = l.porTipo[x] ?? 0;
+                      const href =
+                        n > 0 && l.bancadaId
+                          ? recorte(filtros, {
+                              bancada: l.bancadaId,
+                              categoria: x,
+                            })
+                          : null;
                       return (
                         <td
                           key={x}
@@ -199,7 +239,7 @@ export function VisaoGrafica({ r }: { r: RelatorioApi }) {
                             } as CSSProperties
                           }
                         >
-                          {n}
+                          {href ? <Link href={href}>{n}</Link> : n}
                         </td>
                       );
                     })}

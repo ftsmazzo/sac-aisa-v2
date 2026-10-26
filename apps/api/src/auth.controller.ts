@@ -51,7 +51,7 @@ function lerCredenciais(corpo: unknown): { login: string; senha: string } {
 
 @Controller()
 export class ControladorSaude {
-  /** Não consulta banco nem devolve dado do negócio. */
+  /** Monitor HTTP. Não consulta banco nem devolve dado do negócio. */
   @Publico()
   @Get("health")
   saude() {

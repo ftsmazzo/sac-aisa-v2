@@ -10,6 +10,7 @@ import { manipuladorSimulado, type ServicoCanais } from "./canais.controller";
 import {
   assinaturaShopee,
   avisoMLValido,
+  cabecalhoAvisoML,
   hmacHex,
   pushShopeeValido,
 } from "./canal-assinatura";
@@ -232,11 +233,17 @@ describe("assinatura", () => {
     expect(pushShopeeValido("k", URL_PUSH, corpo, undefined)).toBe(false);
   });
 
-  it("o aviso do Mercado Livre vale só com a assinatura do corpo cru", () => {
-    const corpo = '{"topic":"post_purchase"}';
-    expect(avisoMLValido("s", corpo, hmacHex("s", corpo))).toBe(true);
-    expect(avisoMLValido("s", corpo, hmacHex("s", `${corpo} `))).toBe(false);
-    expect(avisoMLValido("s", corpo, undefined)).toBe(false);
+  it("o aviso do Mercado Livre vale com o manifesto ts/v1, não com o corpo cru", () => {
+    const partes = { id: "99", requestId: "req-99", ts: "1700000000" };
+    const ok = cabecalhoAvisoML("s", partes);
+    expect(avisoMLValido("s", ok, partes)).toBe(true);
+    expect(
+      avisoMLValido("s", hmacHex("s", '{"topic":"post_purchase"}'), partes),
+    ).toBe(false);
+    expect(avisoMLValido("s", ok, { id: "100", requestId: "req-99" })).toBe(
+      false,
+    );
+    expect(avisoMLValido("s", undefined, partes)).toBe(false);
   });
 });
 
@@ -294,6 +301,8 @@ describe("Mercado Livre simulado", () => {
         .order_items[0].item.seller_sku,
     ).toBe("G48");
     expect(c.anexos.length).toBe(2);
+    expect(c.anexos[0]?.url).toContain("/attachments/");
+    expect(c.anexos[0]?.url).toContain("/download");
     const etapas = m.registro.listar().map((p) => p.etapa);
     expect(etapas).toEqual(
       expect.arrayContaining([
@@ -771,7 +780,10 @@ describe("avisos (webhooks)", () => {
     const id = m.sim.novoCaso("mercadolivre");
     const a = m.sim.avisoML(id);
     const inicio = performance.now();
-    const r = await m.captura.receberAvisoML(a.corpo, a.assinatura);
+    const r = await m.captura.receberAvisoML(a.corpo, a.assinatura, {
+      dataId: a.dataId,
+      requestId: a.requestId,
+    });
     expect(performance.now() - inicio).toBeLessThan(500);
     expect(r.status).toBe(200);
     await m.captura.fila.ocioso();
@@ -798,18 +810,16 @@ describe("avisos (webhooks)", () => {
   it("aviso de outro tópico ou corpo inválido não vira reclamação", async () => {
     const m = montar();
     const segredo = CREDENCIAIS_SIMULADAS.mercadolivre.segredo;
+    const header = cabecalhoAvisoML(segredo, { ts: "1700000000" });
     const corpo = JSON.stringify({
       resource: "orders/1",
       topic: "orders_v2",
       actions: [],
     });
-    expect(
-      (await m.captura.receberAvisoML(corpo, hmacHex(segredo, corpo))).status,
-    ).toBe(200);
-    const ruim = "não é json";
-    expect(
-      (await m.captura.receberAvisoML(ruim, hmacHex(segredo, ruim))).status,
-    ).toBe(400);
+    expect((await m.captura.receberAvisoML(corpo, header)).status).toBe(200);
+    expect((await m.captura.receberAvisoML("não é json", header)).status).toBe(
+      400,
+    );
     expect(await canalReclamacoes()).toBe(0);
   });
 
@@ -866,8 +876,14 @@ describe("avisos (webhooks)", () => {
     const id = m.sim.novoCaso("mercadolivre");
     const a = m.sim.avisoML(id);
     await Promise.all([
-      m.captura.receberAvisoML(a.corpo, a.assinatura),
-      m.captura.receberAvisoML(a.corpo, a.assinatura),
+      m.captura.receberAvisoML(a.corpo, a.assinatura, {
+        dataId: a.dataId,
+        requestId: a.requestId,
+      }),
+      m.captura.receberAvisoML(a.corpo, a.assinatura, {
+        dataId: a.dataId,
+        requestId: a.requestId,
+      }),
     ]);
     await m.captura.fila.ocioso();
     expect(await canalReclamacoes()).toBe(1);

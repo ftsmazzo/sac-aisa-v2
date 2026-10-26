@@ -1,9 +1,10 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import type { UsuarioLogado } from "@sac-aisa/auth";
 import {
   ALERT_CONFIG_PADRAO,
   type AlertConfig,
   type AlertTipo,
+  chaveDoAlerta,
   compararUrgencia,
   ESTADOS_NA_FILA_DO_SETOR,
   type Estado,
@@ -52,6 +53,65 @@ export interface RepositorioFila {
   abertas(where: Prisma.ReclamacaoWhereInput): Promise<LinhaAberta[]>;
 }
 
+export interface AlertaGravado {
+  chaveDedupe: string;
+  tipo: AlertTipo;
+  titulo: string;
+  mensagem: string;
+  reclamacaoId: string;
+  setor: string | null;
+}
+
+/** Grava o que a regra acabou de calcular e fecha o que ela já não confirma. */
+export interface GravadorAlertas {
+  sincronizar(args: {
+    atuais: AlertaGravado[];
+    vistas: string[];
+    agora: Date;
+  }): Promise<void>;
+}
+
+export class GravadorAlertasPrisma implements GravadorAlertas {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async sincronizar(args: {
+    atuais: AlertaGravado[];
+    vistas: string[];
+    agora: Date;
+  }) {
+    for (const a of args.atuais) {
+      await this.prisma.alerta.upsert({
+        where: { chaveDedupe: a.chaveDedupe },
+        create: {
+          tipo: a.tipo,
+          titulo: a.titulo,
+          mensagem: a.mensagem,
+          reclamacaoId: a.reclamacaoId,
+          setor: a.setor ?? "",
+          chaveDedupe: a.chaveDedupe,
+          status: "aberto",
+        },
+        update: {
+          status: "aberto",
+          resolvidoEm: null,
+          titulo: a.titulo,
+          mensagem: a.mensagem,
+          setor: a.setor ?? "",
+        },
+      });
+    }
+    const chaves = args.atuais.map((a) => a.chaveDedupe);
+    await this.prisma.alerta.updateMany({
+      where: {
+        status: "aberto",
+        reclamacaoId: { in: args.vistas },
+        ...(chaves.length > 0 ? { chaveDedupe: { notIn: chaves } } : {}),
+      },
+      data: { status: "resolvido", resolvidoEm: args.agora },
+    });
+  }
+}
+
 function paraDominio(l: LinhaAberta): ReclamacaoLike {
   return {
     data: l.dataAbertura,
@@ -92,8 +152,13 @@ export class ServicoFilaAlertas {
   constructor(
     private readonly repo: RepositorioFila,
     private readonly agora: () => Date = () => new Date(),
-    private readonly cfg: AlertConfig = ALERT_CONFIG_PADRAO,
+    private readonly cfg: AlertConfig | undefined = ALERT_CONFIG_PADRAO,
+    private readonly gravador?: GravadorAlertas,
   ) {}
+
+  private config(): AlertConfig {
+    return this.cfg ?? ALERT_CONFIG_PADRAO;
+  }
 
   private abertas(
     usuario: UsuarioLogado,
@@ -133,7 +198,7 @@ export class ServicoFilaAlertas {
       .filter((l) => l.setorResp)
       .map((l) => ({
         l,
-        u: urgenciaDe(paraDominio(l), this.cfg, hoje, agora),
+        u: urgenciaDe(paraDominio(l), this.config(), hoje, agora),
       }))
       .sort((a, b) => compararUrgencia(a.u, b.u) || a.l.numero - b.l.numero)
       .map(({ l, u }) => ({
@@ -168,7 +233,7 @@ export class ServicoFilaAlertas {
     const hoje = hojeEmSaoPaulo(agora);
     const linhas = await this.abertas(usuario, filtroDeMarca(marcaId));
     const itens = linhas.flatMap((l) => {
-      const u = urgenciaDe(paraDominio(l), this.cfg, hoje, agora);
+      const u = urgenciaDe(paraDominio(l), this.config(), hoje, agora);
       return u.alertas.map((tipo: AlertTipo) => ({
         tipo,
         titulo: ROTULO_ALERTA[tipo],
@@ -184,6 +249,20 @@ export class ServicoFilaAlertas {
     itens.sort(
       (a, b) => b.diasEmAberto - a.diasEmAberto || a.numero - b.numero,
     );
+    if (this.gravador) {
+      await this.gravador.sincronizar({
+        atuais: itens.map((i) => ({
+          chaveDedupe: chaveDoAlerta(i.reclamacaoId, i.tipo),
+          tipo: i.tipo,
+          titulo: i.titulo,
+          mensagem: `Reclamação #${i.numero}`,
+          reclamacaoId: i.reclamacaoId,
+          setor: i.setor,
+        })),
+        vistas: linhas.map((l) => l.id),
+        agora,
+      });
+    }
     const porTipo: Partial<Record<AlertTipo, number>> = {};
     for (const i of itens) porTipo[i.tipo] = (porTipo[i.tipo] ?? 0) + 1;
     return { itens, total: itens.length, porTipo };

@@ -322,18 +322,29 @@ export class ClienteML {
               ),
           ).catch(() => null)
         : null;
-    // O contrato dos anexos não está no levantamento: conferir no console do Mercado Livre.
+    // O anexo público traz filename, não uma URL. O download é o caminho documentado.
     const anexos = await this.med(
       "buscou os anexos",
       `GET ${base}/attachments`,
       () => this.obter<CasoCompletoML["anexos"]>(`${base}/attachments`),
     ).catch(() => []);
+    const lista = Array.isArray(anexos) ? anexos : [];
     return {
       claim,
       detail,
       motivo,
       order,
-      anexos: Array.isArray(anexos) ? anexos : [],
+      anexos: lista.map((a) => ({
+        filename: a.filename,
+        url:
+          a.url ??
+          (a.filename
+            ? juntar(
+                this.cfg.baseUrl,
+                `${base}/attachments/${encodeURIComponent(a.filename)}/download`,
+              )
+            : undefined),
+      })),
     };
   }
 }

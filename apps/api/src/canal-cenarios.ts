@@ -77,7 +77,10 @@ export class CenariosSimulados {
       canal === "mercadolivre"
         ? await (async () => {
             const a = this.sim.avisoML(id);
-            return this.captura.receberAvisoML(a.corpo, a.assinatura);
+            return this.captura.receberAvisoML(a.corpo, a.assinatura, {
+              dataId: a.dataId,
+              requestId: a.requestId,
+            });
           })()
         : await (async () => {
             const url = this.urlPush();

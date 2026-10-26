@@ -331,15 +331,15 @@ A IA sugere e a pessoa copia. O tom inicial está marcado como exemplo de teste.
 
 Sem rodeios:
 
-- **Resposta final pela IA, com casos parecidos: não existe.** A triagem por IA existe: sugere causa, setor e a pergunta, com Copiar, e não grava. O padrão de tom é exemplo de teste.
-- **Conta real do Mercado Livre e da Shopee: não autorizada.** O código da captura e o marketplace simulado existem. Dois pontos do Mercado Livre ainda são suposição: anexos e a assinatura do aviso.
+- **Resposta final pela IA, com casos parecidos: existe como sugestão.** A ficha pede a sugestão, a pessoa revisa e grava. Sem chave, a ficha segue. A busca é por palavras em comum, sem pgvector. Nome, e-mail, telefone e pedido não entram no prompt. A triagem por IA continua: sugere causa, setor e a pergunta, com Copiar, e não grava.
+- **Conta real do Mercado Livre e da Shopee: não autorizada.** Isso é do dono. O mesmo cliente fala com a API real quando o modo simulado está desligado. O anexo do Mercado Livre usa o download documentado (`filename`, sem URL inventada). O aviso usa o manifesto `id;request-id;ts` no header `x-signature`.
 - **WhatsApp: não existe** no sistema novo. O sistema atual tem, parcialmente.
-- **Fotos enviadas pela operação: não existem.** A captura guarda o endereço da foto que o canal mandar. A pergunta do tipo foto, na IA, vale como "a atendente marca que recebeu".
-- **Painel com filtro cruzado completo: não existe.** A tela inicial mostra prazo, setor e o que está em movimento. Os relatórios e o mapa de calor da bancada existem.
-- **Plano de ação com acompanhamento do efeito (estágio 2): não existe.**
-- **ClickUp:** falta o card dos planos de ação. O card da reclamação, a fila, o "Tentar de novo", a troca de lista quando o setor muda e o webhook no workspace existem. O caminho normal traz as listas que já existem. Criar Space fica no jeito antigo, recolhido.
-- **Alertas** são calculados na hora; ainda não são gravados nem enviados ao gestor por WhatsApp ou ClickUp.
-- **Monitoramento de erros e de disponibilidade: pendente.**
+- **Fotos enviadas pela operação: existem** na ficha, com tipo e tamanho conferidos (JPEG, PNG ou WebP, até 5 MB). A URL que o canal já manda continua.
+- **Filtro cruzado: existe nos relatórios.** Um clique no gráfico filtra os outros gráficos e a lista. A tela inicial segue com prazo, setor e o que está em movimento.
+- **Plano de ação com efeito: existe.** Se a ocorrência não caiu, o plano reabre. O card do plano vai ao ClickUp pela lista já gravada. Reclamação de treino não vai, salvo o interruptor já existente.
+- **ClickUp:** o card da reclamação, a fila, o "Tentar de novo", a troca de lista quando o setor muda, o webhook no workspace e o card do plano existem. O caminho normal traz as listas que já existem. Criar Space fica no jeito antigo, recolhido.
+- **Alertas** de prazo, custo e fila são gravados quando a tela do gestor os abre, e somem quando a regra já não confirma. Não saem por WhatsApp.
+- **Erros:** com `SENTRY_DSN`, o GlitchTip recebe. Sem DSN, a aplicação sobe e não envia erro para fora. `GET /health` continua `{status:"ok"}`, sem dado do negócio, para o monitor.
 - **Tela de usuários sem teste de interface.**
 - **Ensaio no navegador com o banco real:** ainda é o passo antes de apresentar. O roteiro está em `/admin/roteiro-treino`.
 - **Fim do sistema atual (virada):** nada feito. Depende de todas as fases.
@@ -382,7 +382,7 @@ Sem rodeios:
 - Na ficha, aponta causa, setor e o que falta, e redige a pergunta
 - A pessoa confirma e copia. A IA não grava
 - Dados do comprador ficam fora do modelo
-- A resposta no tom da empresa, com casos parecidos, é a etapa seguinte. O tom atual é exemplo de teste
+- A resposta final, com casos parecidos, é sugestão: a pessoa revisa e grava. O tom atual ainda é exemplo de teste
 
 **7. Decisões que tomamos**
 - Reclamação antiga com data de ação: Finalizada no SAC
@@ -391,10 +391,8 @@ Sem rodeios:
 - Segredos cifrados; IA só propõe; modo treino isolado
 
 **8. O que falta construir**
-- Resposta final pela IA, com casos parecidos
 - Autorizar as contas reais do Mercado Livre e da Shopee
-- Fotos enviadas pela operação e o filtro cruzado do painel
-- WhatsApp e plano de ação com efeito
+- WhatsApp, Magalu, resposta automática ao marketplace e desligar o sistema atual
 
 **9. O que precisamos do dono**
 - Metas, indicadores e o que é "demora"

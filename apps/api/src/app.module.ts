@@ -15,6 +15,7 @@ import {
 } from "./canais.controller";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
 import { ServicoAssistenteClickup } from "./clickup-assistente";
+import { ControladorFotos } from "./fotos";
 import { ControladorIa, ControladorIaAdmin } from "./ia/ia.controller";
 import { ControladorImportacao } from "./importacao.controller";
 import { ServicoIntegracoes } from "./integracoes";
@@ -29,6 +30,7 @@ import {
 } from "./integracoes.controller";
 import { ControladorJornada } from "./jornada.controller";
 import { ControladorPainel } from "./painel.controller";
+import { ControladorPlanos } from "./planos";
 import { ControladorReclamacoes } from "./reclamacoes.controller";
 import { ControladorRelatorios } from "./relatorios.controller";
 import { RepositorioPrisma } from "./repositorio-prisma";
@@ -42,6 +44,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorAuth,
     ControladorImportacao,
     ControladorReclamacoes,
+    ControladorFotos,
     ControladorJornada,
     ControladorIa,
     ControladorIaAdmin,
@@ -52,6 +55,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorAnalise,
     ControladorFilaAlertas,
     ControladorRelatorios,
+    ControladorPlanos,
     ControladorPainel,
     ControladorTreino,
     ControladorWebhooksCanais,

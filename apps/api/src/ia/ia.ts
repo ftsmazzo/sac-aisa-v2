@@ -1,20 +1,30 @@
 import type { UsuarioLogado } from "@sac-aisa/auth";
 import {
   CAUSA_POR_ID,
+  casosParecidos,
   classificar,
+  consultaSemPessoa,
   type PerguntaDef,
   perguntasAplicaveis,
   perguntasFaltantes,
+  respostaPermitida,
   type TipoPergunta,
   temPermissao,
 } from "@sac-aisa/domain";
 import type { z } from "zod";
-import { esquemaPergunta, esquemaTriagem, lerJson } from "./esquemas";
+import {
+  esquemaPergunta,
+  esquemaResposta,
+  esquemaTriagem,
+  lerJson,
+} from "./esquemas";
 import {
   type PerfilPrompt,
   sistemaPergunta,
+  sistemaResposta,
   sistemaTriagem,
   usuarioPergunta,
+  usuarioResposta,
   usuarioTriagem,
   VERSAO_PROMPT,
 } from "./prompts";
@@ -115,6 +125,24 @@ export interface RegistroGravado extends RegistroNovo {
   criadoEm: string;
 }
 
+export interface CasoParaResposta {
+  id: string;
+  descricao: string;
+  solucao: string;
+  causa: string;
+  produto: string;
+  clienteNome: string;
+  pedido: string;
+  marca: string;
+}
+
+export interface CasoFinalizado {
+  id: string;
+  descricao: string;
+  causa: string;
+  solucao: string;
+}
+
 export interface AuditoriaIa {
   usuarioId: string;
   usuarioNome: string;
@@ -139,6 +167,15 @@ export interface RepositorioIa {
   registro(id: string): Promise<RegistroGravado | null>;
   /** Do mais novo para o mais antigo. */
   ultimos(reclamacaoId: string): Promise<RegistroGravado[]>;
+  casoParaResposta(
+    id: string,
+    usuario: UsuarioLogado,
+  ): Promise<CasoParaResposta | null>;
+  /** Até 50 reclamações finalizadas, sem nome, e-mail, telefone ou pedido. */
+  casosFinalizados(
+    excetoId: string,
+    usuario: UsuarioLogado,
+  ): Promise<CasoFinalizado[]>;
   aceitar(
     id: string,
     d: {
@@ -987,6 +1024,89 @@ export class ServicoIa {
         setor: c.setorNome,
       })),
     };
+  }
+
+  /**
+   * Sugere a resposta final com casos parecidos. Não grava.
+   * Sem chave, ou fora do limite, a ficha segue e a pessoa escreve.
+   */
+  async sugerirResposta(usuario: UsuarioLogado, reclamacaoId: string) {
+    exigirPermissao(usuario, "ia.usar");
+    const caso = await this.repo.casoParaResposta(reclamacaoId, usuario);
+    if (!caso) throw new ErroIa(404, "Reclamação não encontrada.");
+    const cfg = await resolverConfig(this.fonte, this.env);
+    if (cfg.chave === null || (await this.consumo(cfg)).limiteAtingido) {
+      return {
+        disponivel: false,
+        aviso: cfg.chave === null ? SEM_CHAVE : "Limite diário da IA atingido.",
+      };
+    }
+    const texto = redigir(
+      consultaSemPessoa({
+        descricao: caso.descricao,
+        causa: caso.causa,
+        solucao: caso.solucao,
+      }).slice(0, TEXTO_MAX),
+      {
+        nomes: caso.clienteNome ? [caso.clienteNome] : [],
+        literais: caso.pedido ? [caso.pedido] : [],
+      },
+    );
+    const amostra = await this.repo.casosFinalizados(reclamacaoId, usuario);
+    const parecidos = casosParecidos(
+      texto,
+      amostra.map((c) => ({
+        id: c.id,
+        texto: redigir(
+          consultaSemPessoa({
+            descricao: c.descricao,
+            causa: c.causa,
+            solucao: c.solucao,
+          }),
+        ),
+        solucao: redigir(c.solucao),
+      })),
+    );
+    const perfil = await this.repo.perfil();
+    try {
+      const resp = await comNovaTentativa(this.criarProvedor(cfg.chave), {
+        sistema: sistemaResposta(
+          perfil ?? {
+            tomDeVoz: "",
+            dizer: "",
+            evitar: "",
+            exemplos: [],
+          },
+        ),
+        usuario: usuarioResposta({
+          produto: caso.produto,
+          causa: caso.causa,
+          solucao: redigir(caso.solucao),
+          texto,
+          casos: parecidos.map((c) => ({ texto: c.texto, solucao: c.solucao })),
+        }),
+        modelo: cfg.modelo,
+        timeoutMs: TIMEOUT_MS,
+        maxTokens: 500,
+      });
+      const saida = esquemaResposta().parse(lerJson(resp.texto));
+      const bloqueio = respostaPermitida(saida.mensagem, caso.solucao);
+      if (bloqueio) return { disponivel: false, aviso: bloqueio };
+      return {
+        disponivel: true,
+        texto: trocarMarcadores(saida.mensagem, {
+          nomeCliente: caso.clienteNome,
+          marca: caso.marca,
+        }),
+        casos: parecidos.map((c) => c.id),
+      };
+    } catch {
+      return {
+        disponivel: false,
+        aviso:
+          "A IA não sugeriu a resposta agora. Escreva na ficha e grave você.",
+      };
+    }
   }
 }
 

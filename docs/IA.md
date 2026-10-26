@@ -338,6 +338,8 @@ Ordem sugerida, cada fatia com critério de pronto. Respeita a ordem do plano: a
 
 As fatias 2 e 3 não usam modelo e podem andar em paralelo com a 1. O pedido de **exemplos aprovados** e da **lista de perguntas** ao cliente deve sair já, porque as fatias 2 e 3 dependem deles.
 
+Em 26/10/2026 as fatias 6 e 7 entraram sem a extensão `vector`: a busca compara palavras em comum em até 50 reclamações finalizadas, já sem nome, e-mail, telefone e pedido. A ficha sugere a resposta; a pessoa grava. Sem chave, ou no limite do dia, a ficha segue. URL e prazo que a solução não cita são recusados. As fatias 8 a 10 continuam de fora. O `pgvector` segue como confirmação no Postgres, não como requisito desta leva.
+
 ## 8. Pendências que dependem do cliente
 
 - **Exemplos de resposta aprovados:** de 5 a 15, por tipo de caso (falta de item, avaria, voltagem, atraso, produto com defeito), sem dado de cliente. Sem eles o tom fica genérico.

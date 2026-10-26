@@ -31,6 +31,9 @@ export interface ConsultaLista {
   canalId?: string;
   setorId?: string;
   causaId?: string;
+  bancadaId?: string;
+  categoria?: string;
+  produto?: string;
   situacao?: Situacao;
   estado?: Estado;
   busca?: string;
@@ -80,15 +83,18 @@ export function lerConsulta(query: Record<string, unknown>): ResultadoConsulta {
     return { ok: false, mensagem: "O início do período vem depois do fim." };
   }
 
-  for (const [campo, chave] of [
-    ["marca", "marcaId"],
-    ["canal", "canalId"],
-    ["setor", "setorId"],
-    ["causa", "causaId"],
+  for (const [campo, chave, limite] of [
+    ["marca", "marcaId", ID_MAX],
+    ["canal", "canalId", ID_MAX],
+    ["setor", "setorId", ID_MAX],
+    ["causa", "causaId", ID_MAX],
+    ["bancada", "bancadaId", ID_MAX],
+    ["categoria", "categoria", 80],
+    ["produto", "produto", ID_MAX],
   ] as const) {
     const v = texto(query[campo]);
     if (v === undefined) continue;
-    if (v.length > ID_MAX) {
+    if (v.length > limite) {
       return { ok: false, mensagem: `Filtro "${campo}" inválido.` };
     }
     consulta[chave] = v;
@@ -217,6 +223,16 @@ export function montarFiltro(
       ],
     });
   }
+  if (consulta.bancadaId) e.push({ bancadaId: consulta.bancadaId });
+  if (consulta.categoria) {
+    e.push({
+      OR: [
+        { causa: { categoria: consulta.categoria } },
+        { causas: { some: { causa: { categoria: consulta.categoria } } } },
+      ],
+    });
+  }
+  if (consulta.produto) e.push({ produto: { codigo: consulta.produto } });
   if (consulta.situacao) e.push(filtroDeSituacao(consulta.situacao));
   if (consulta.estado) e.push({ estado: consulta.estado });
 
@@ -368,6 +384,7 @@ export interface FichaBanco extends Omit<LinhaBanco, "causa"> {
   }[];
   historicoEstados: { para: Estado; quando: Date }[];
   _count: { fotos: number };
+  fotos?: { id: string; nome: string; caminho: string }[];
 }
 
 function hojeEmSaoPaulo(agora: Date): string {
@@ -446,6 +463,11 @@ export function paraFicha(
       criadoEm: a.criadoEm.toISOString(),
     })),
     fotos: f._count.fotos,
+    anexos: (f.fotos ?? []).map((foto) => ({
+      id: foto.id,
+      nome: foto.nome,
+      local: !foto.caminho.startsWith("https://"),
+    })),
   };
 }
 

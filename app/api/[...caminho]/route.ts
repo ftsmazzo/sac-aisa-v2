@@ -12,6 +12,7 @@ const CABECALHOS_DE_ENTRADA = [
   "origin",
   "user-agent",
   "x-signature",
+  "x-request-id",
   "x-forwarded-host",
   "x-forwarded-proto",
 ];

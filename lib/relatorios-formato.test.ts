@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   consultaRelatorio,
   lerFiltrosUrl,
+  listaDoRecorte,
   type RelatorioApi,
+  recorte,
   relatorioParaCsv,
   textoDias,
 } from "./relatorios-formato";
@@ -53,8 +55,14 @@ describe("lerFiltrosUrl e consultaRelatorio", () => {
       busca: "x",
       situacao: "resolvida",
     });
-    expect(f).toEqual({ de: "2026-01-01", marca: "m1" });
-    expect(consultaRelatorio(f)).toBe("de=2026-01-01&marca=m1");
+    expect(f).toEqual({
+      de: "2026-01-01",
+      marca: "m1",
+      situacao: "resolvida",
+    });
+    expect(consultaRelatorio(f)).toBe(
+      "de=2026-01-01&marca=m1&situacao=resolvida",
+    );
   });
 });
 
@@ -107,5 +115,22 @@ describe("relatorioParaCsv", () => {
       "Aviso;Resultado limitado",
     );
     expect(csv).not.toContain("Aviso;");
+  });
+});
+
+describe("recorte", () => {
+  it("um clique filtra e o segundo clique no mesmo valor solta", () => {
+    const primeiro = recorte({ de: "2026-01-01" }, { setor: "s1" });
+    expect(primeiro).toContain("setor=s1");
+    expect(primeiro).toContain("de=2026-01-01");
+    expect(recorte({ de: "2026-01-01", setor: "s1" }, { setor: "s1" })).toBe(
+      "/relatorios?de=2026-01-01",
+    );
+  });
+
+  it("a lista recebe o mesmo recorte", () => {
+    expect(
+      listaDoRecorte({ setor: "s1", categoria: "Fabricação", marca: "todas" }),
+    ).toBe("/reclamacoes?setor=s1&categoria=Fabrica%C3%A7%C3%A3o");
   });
 });

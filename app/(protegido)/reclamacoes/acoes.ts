@@ -208,10 +208,59 @@ async function postJson(
   }
 }
 
+export async function sugerirResposta(id: string) {
+  const token = (await cookies()).get("sac_sessao")?.value;
+  if (!token) {
+    return { ok: false as const, mensagem: MENSAGEM_POR_STATUS[401] };
+  }
+  try {
+    const r = await fetch(
+      `${urlDaApi()}/reclamacoes/${encodeURIComponent(id)}/ia/resposta`,
+      {
+        method: "POST",
+        headers: {
+          cookie: `sac_sessao=${encodeURIComponent(token)}`,
+          "content-type": "application/json",
+        },
+        body: "{}",
+        cache: "no-store",
+      },
+    );
+    const dados = (await r.json().catch(() => ({}))) as {
+      disponivel?: boolean;
+      texto?: string;
+      aviso?: string;
+      message?: string;
+    };
+    if (!r.ok) {
+      return {
+        ok: false as const,
+        mensagem: dados.message ?? MENSAGEM_GENERICA,
+      };
+    }
+    if (!dados.disponivel || !dados.texto) {
+      return {
+        ok: false as const,
+        mensagem: dados.aviso ?? "A IA não sugeriu agora. Escreva você.",
+      };
+    }
+    return { ok: true as const, texto: dados.texto };
+  } catch {
+    return { ok: false as const, mensagem: MENSAGEM_GENERICA };
+  }
+}
+
 export async function enviarResposta(id: string, texto: string) {
   return postJson(`/reclamacoes/${encodeURIComponent(id)}/resposta`, {
     texto,
   });
+}
+
+export async function enviarFoto(
+  id: string,
+  corpo: { nome: string; tipo: string; conteudo: string },
+) {
+  return postJson(`/reclamacoes/${encodeURIComponent(id)}/fotos`, corpo);
 }
 
 export async function registrarAcompanhamento(id: string, valor: string) {

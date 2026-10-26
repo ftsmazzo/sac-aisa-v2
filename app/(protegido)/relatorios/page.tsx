@@ -165,6 +165,18 @@ export default async function Relatorios({
             valor={filtros.causa}
             opcoes={opcoes?.causas ?? []}
           />
+          {filtros.bancada && (
+            <input type="hidden" name="bancada" value={filtros.bancada} />
+          )}
+          {filtros.categoria && (
+            <input type="hidden" name="categoria" value={filtros.categoria} />
+          )}
+          {filtros.produto && (
+            <input type="hidden" name="produto" value={filtros.produto} />
+          )}
+          {filtros.situacao && (
+            <input type="hidden" name="situacao" value={filtros.situacao} />
+          )}
           <button type="submit" className="botao botao--primario">
             Aplicar
           </button>
@@ -217,7 +229,7 @@ export default async function Relatorios({
             </p>
           )}
 
-          <VisaoGrafica r={r} />
+          <VisaoGrafica r={r} filtros={filtros} />
 
           <div className="so-impressao relatorio__papel">
             <section className="relatorio__bloco">

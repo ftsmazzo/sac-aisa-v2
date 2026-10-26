@@ -93,3 +93,41 @@ Resumo do caso (feito pela triagem): <reclamacao>${entrada.sintese}</reclamacao>
 O que falta perguntar:
 ${lista}`;
 }
+
+export const VERSAO_RESPOSTA = "ia-resposta-1";
+
+export function sistemaResposta(perfil: PerfilPrompt): string {
+  return `Você escreve a resposta final ao comprador, para a atendente copiar no marketplace.
+${REGRA_DADO}
+Tom da empresa: ${perfil.tomDeVoz || "cordial, direto e humano"}
+O que dizer: ${perfil.dizer || "o que o setor fez"}
+O que evitar: ${perfil.evitar || "prometer prazo, estorno ou troca que a solução não diga"}
+Use {{nome_cliente}} só na saudação, escrito exatamente assim. Não invente prazo, valor, link, e-mail nem telefone. Só diga o que a solução do setor e os casos parecidos sustentam.
+
+Responda somente JSON:
+{"mensagem": "<texto pronto>"}`;
+}
+
+export function usuarioResposta(entrada: {
+  produto: string;
+  causa: string;
+  solucao: string;
+  texto: string;
+  casos: { texto: string; solucao: string }[];
+}): string {
+  const casos = entrada.casos
+    .slice(0, 5)
+    .map(
+      (c, i) =>
+        `Caso ${i + 1}: ${c.texto}\nSolução usada: ${c.solucao || "não informada"}`,
+    )
+    .join("\n\n");
+  return `Produto: ${entrada.produto || "não informado"}
+Causa: ${entrada.causa || "não informada"}
+Solução do setor: ${entrada.solucao || "ainda sem solução"}
+
+<reclamacao>
+${entrada.texto}
+</reclamacao>
+${casos ? `\nCasos parecidos já resolvidos:\n${casos}` : ""}`;
+}
