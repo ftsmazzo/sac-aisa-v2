@@ -27,11 +27,13 @@ import {
   type DadosAnalise,
   type DadosCard,
   ErroWebhook,
+  ESTADOS_ANTES_DE_INICIAR,
   type FilaDoClickup,
   type ItemFila,
   iniciarFila,
   MAX_TENTATIVAS,
   type RepositorioClickup,
+  reclamacaoIniciada,
   ServicoClickup,
   ServicoWebhookClickup,
 } from "./clickup";
@@ -272,6 +274,17 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     });
   }
 
+  async pausarAteIniciar(cardId: string) {
+    await this.prisma.clickupCard.update({
+      where: { id: cardId },
+      data: {
+        ultimoErro: null,
+        proximaTentativaEm: null,
+        precisaSync: false,
+      },
+    });
+  }
+
   async marcarSync(args: Parameters<RepositorioClickup["marcarSync"]>[0]) {
     const c = await this.prisma.clickupCard.findUnique({
       where: { reclamacaoId: args.reclamacaoId },
@@ -360,29 +373,39 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
         ultimoErro: true,
         proximaTentativaEm: true,
         reclamacao: {
-          select: { numero: true, setorResp: { select: { nome: true } } },
+          select: {
+            numero: true,
+            estado: true,
+            setorResp: { select: { nome: true } },
+          },
         },
         plano: { select: { titulo: true } },
         _count: { select: { comentarios: { where: { enviadoEm: null } } } },
       },
     });
-    const itens: ItemFila[] = cards.map((c) => ({
-      cardId: c.id,
-      titulo: c.reclamacao
-        ? `Reclamação #${c.reclamacao.numero}`
-        : (c.plano?.titulo ?? "Card"),
-      estado: !c.ultimoErro
-        ? "pendente"
-        : c.proximaTentativaEm
-          ? "erro"
-          : "esgotado",
-      taskId: c.taskId,
-      tentativas: c.tentativas,
-      ultimoErro: c.ultimoErro,
-      proximaTentativaEm: c.proximaTentativaEm?.toISOString() ?? null,
-      comentariosPendentes: c._count.comentarios,
-      setorNome: c.reclamacao?.setorResp?.nome?.trim() || null,
-    }));
+    const itens: ItemFila[] = cards.flatMap((c) => {
+      const iniciada = !c.reclamacao || reclamacaoIniciada(c.reclamacao.estado);
+      if (!iniciada && !c.taskId) return [];
+      return [
+        {
+          cardId: c.id,
+          titulo: c.reclamacao
+            ? `Reclamação #${c.reclamacao.numero}`
+            : (c.plano?.titulo ?? "Card"),
+          estado: !c.ultimoErro
+            ? "pendente"
+            : c.proximaTentativaEm
+              ? "erro"
+              : "esgotado",
+          taskId: c.taskId,
+          tentativas: c.tentativas,
+          ultimoErro: c.ultimoErro,
+          proximaTentativaEm: c.proximaTentativaEm?.toISOString() ?? null,
+          comentariosPendentes: c._count.comentarios,
+          setorNome: c.reclamacao?.setorResp?.nome?.trim() || null,
+        },
+      ];
+    });
     const totais = { pendente: 0, erro: 0, esgotado: 0 };
     for (const i of itens) totais[i.estado] += 1;
     return { itens, totais };
@@ -439,6 +462,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
     const l = await this.prisma.reclamacao.findMany({
       where: {
         card: { is: null },
+        estado: { notIn: [...ESTADOS_ANTES_DE_INICIAR] },
         ...(args.incluirTreino ? {} : { treino: false }),
         OR: [
           { origemRegistro: { not: "importado" } },
@@ -463,7 +487,14 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
   async pendentes(agora: Date, limite: number, incluirTreino = false) {
     const l = await this.prisma.clickupCard.findMany({
       where: {
-        ...(incluirTreino ? {} : { reclamacao: { treino: false } }),
+        ...(incluirTreino
+          ? { reclamacao: { estado: { notIn: [...ESTADOS_ANTES_DE_INICIAR] } } }
+          : {
+              reclamacao: {
+                treino: false,
+                estado: { notIn: [...ESTADOS_ANTES_DE_INICIAR] },
+              },
+            }),
         reclamacaoId: { not: null },
         proximaTentativaEm: { lte: agora },
         OR: [

@@ -531,7 +531,7 @@ export class ControladorReclamacoes {
     const criada = await this.comErros(() =>
       this.escrita.criar(r.entrada, usuarioDe(req)),
     );
-    // O card nasce na coluna do estado (Triagem, na chegada). Se falhar, a fila tenta de novo.
+    // O card nasce quando a reclamação é iniciada no setor. Na triagem, a fila não trata isso como erro.
     void this.clickup.reclamacaoMudou(criada.id).catch(() => undefined);
     return criada;
   }
