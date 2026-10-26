@@ -68,6 +68,7 @@ async function repassar(req: Request, ctx: Contexto): Promise<Response> {
 export {
   repassar as DELETE,
   repassar as GET,
+  repassar as PATCH,
   repassar as POST,
   repassar as PUT,
 };
