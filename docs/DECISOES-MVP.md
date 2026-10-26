@@ -3,7 +3,7 @@
 > Documento para apresentar o MVP ao dono e montar a proposta com orçamento.
 > Depende de: [PRD](PRD.md), [TRD](TRD.md), [Fluxo do App](FLUXO-APP.md), [UI/UX](UIUX.md), [Esquema Backend](ESQUEMA-BACKEND.md), [Plano de Implementação](PLANO-IMPLEMENTACAO.md), [IA](IA.md), e o levantamento das APIs do Mercado Livre e da Shopee (22/10/2026).
 
-**Data**: 22/10/2026
+**Data**: 22/10/2026. Atualizado em 26/10/2026 com o que entrou na `main` depois que o trabalho saiu do Claude (seção 9).
 
 **Como ler os selos**
 
@@ -29,15 +29,16 @@ O SAC AISA v2 recebe a reclamação, direciona ao setor responsável, abre o car
 - Login com perfis (operação, responsável de setor, gestor, administrador) e as 402 reclamações reais do sistema atual, importadas.
 - Lista, ficha, cadastro e edição, com registro de quem mudou o quê.
 - Análise do setor, fila por urgência e alertas de demora e de custo.
-- Card automático no ClickUp, que acompanha cada passo da reclamação.
-- Relatórios com impressão (A4) e CSV, relatório visual e impressão de várias fichas. Tema e logo por marca (AISA, ARTMAQ, ARAUCA).
+- Card no ClickUp quando a reclamação é iniciada no setor. Na triagem, ou aguardando o cliente, não há card e isso não aparece como erro.
+- Relatórios com impressão (A4) e CSV, relatório visual e impressão de várias fichas. A tela inicial é o painel de decisão (prazo, setor e o que está em movimento), no recorte da marca escolhida.
+- Tema e logo por marca (AISA, ARTMAQ, ARAUCA). A troca de marca aplica cor e logo na hora. No cabeçalho, cada logo usa a própria proporção.
 - Triagem enxuta de 13 campos, solução registrada pelo setor, sete estados da jornada, relógio por etapa, setores e marcas por usuário e prazo do marketplace.
 - Modo treino com dados fictícios, isolado das 402 reclamações reais, e marketplace simulado do Mercado Livre e da Shopee. O caso inventado entra em Triagem com pedido, SKU, texto, prazo, comprador e valor.
 - Triagem por IA na ficha: sugere causa, setor e a pergunta, com botão Copiar. Não grava sozinha. O padrão de tom é exemplo de teste.
 
 **O que o MVP ainda não faz**
 
-Resposta final pela IA com casos parecidos, autorização das contas reais dos canais, WhatsApp, fotos enviadas pela operação e o painel com filtro cruzado completo (seção 7). Dois pontos do Mercado Livre ainda são suposição e pedem conferência no console: anexos e a assinatura do aviso.
+Resposta final pela IA com casos parecidos, autorização das contas reais dos canais, WhatsApp, fotos enviadas pela operação e o filtro cruzado em que clicar num gráfico filtra os demais (seção 7). Dois pontos do Mercado Livre ainda são suposição e pedem conferência no console: anexos e a assinatura do aviso.
 
 **O que precisamos do dono** para ir da demonstração à execução real: metas e indicadores, textos e exemplos para a IA, acessos às contas (ClickUp, Mercado Livre, Shopee, IA), regras de dados pessoais, pessoas e a forma da virada (seção 4).
 
@@ -91,12 +92,14 @@ Resposta final pela IA com casos parecidos, autorização das contas reais dos c
 
 | Item | Selo |
 |---|---|
-| Card criado ao registrar; fila de nova tentativa; erro visível no card | Pronto |
-| Atualização do card a cada movimento no SAC | Pronto |
-| Webhook com assinatura validada: mover o card atualiza a situação aqui | Pronto |
-| Um status do card por estado da jornada (mapa configurável); mudança no card só vale para Recebida, Em tratativa e Resolvida, para a frente | Pronto |
-| Assistente que cria espaço, listas e webhook pela tela | Pronto |
-| Card dos planos de ação; trocar a lista do card quando o setor muda; botão "tentar de novo agora" | Não existe |
+| Card quando a reclamação sai da triagem ou de aguardando o cliente; fila de nova tentativa; erro visível | Pronto. Antes disso não entra na fila |
+| Atualização do card a cada movimento no SAC, inclusive a lista quando o setor muda e o workspace está gravado | Pronto |
+| Webhook no workspace já em uso, com assinatura validada: mover o card atualiza a situação aqui | Pronto. O botão é "Ativar webhook". Não cria Space nem lista |
+| Um status do card por estado da jornada (mapa configurável); mudança no card só vale para Recebida, Em tratativa e Resolvida, para a frente | Pronto. O status precisa já existir na lista |
+| Trazer listas e status do ClickUp que a empresa já usa, gravar o mapa setor → lista e excluir a conexão | Pronto |
+| Botão "Tentar de novo" (um card ou todos) | Pronto |
+| Jeito antigo: criar o Space "SAC AISA", uma lista por setor e os status | Pronto, recolhido na tela. Não é o caminho da conta em uso |
+| Card dos planos de ação | Não existe |
 
 ### Indicadores
 
@@ -105,7 +108,8 @@ Resposta final pela IA com casos parecidos, autorização das contas reais dos c
 | Totais, tempo médio por etapa, ocorrências por setor e por produto, bancada × tipo de ocorrência, com filtro por período, marca, setor e causa | Pronto |
 | Relatório visual (cartões, barras, mapa de calor bancada × tipo) | Pronto |
 | Tempos por estado e relógio até recebimento, tratativa e finalização | Pronto |
-| Painel com filtro cruzado (clicar num gráfico filtra os demais), canal e plano de ação com efeito | Não existe (fase 4 e fase 7) |
+| Tela inicial com prazo, setor e o que está em movimento, no recorte da marca | Pronto |
+| Filtro cruzado (clicar num gráfico filtra os demais) e plano de ação com efeito | Não existe (fase 4 completa e fase 7) |
 
 ### Impressão e relatório
 
@@ -120,7 +124,7 @@ Resposta final pela IA com casos parecidos, autorização das contas reais dos c
 | Item | Selo |
 |---|---|
 | Login com hash forte (Argon2id) e cookie httpOnly; perfil conferido no servidor em toda ação | Pronto |
-| Tema e logo por marca, seletor de marca no cabeçalho | Pronto |
+| Tema e logo por marca, seletor no cabeçalho, troca na hora e quadro da logo na proporção de cada marca | Pronto |
 | Tela de integrações do administrador com segredos cifrados | Pronto |
 | Modo treino com dados de demonstração, isolado dos dados reais | Pronto. A visão de treino vale só para administrador e gestor |
 | Monitoramento de erros (GlitchTip) e de disponibilidade (Uptime Kuma) | Pendente. Precisa de `SENTRY_DSN` e do monitor em `/health` |
@@ -137,7 +141,7 @@ Cada decisão pode ser revertida. A coluna "Quando reverter" diz o sinal que ped
 | 2 | **Lista de marcas vazia no cadastro do usuário significa todas as marcas.** Só limita o responsável de setor; operação, gestor e administrador veem tudo. | Evita que um cadastro esquecido tranque o usuário fora de tudo e deixa a regra simples de explicar. | Se a empresa quiser operação separada por marca. |
 | 3 | **Criamos o campo de prazo do marketplace e a tela de usuários** (`/admin/usuarios`, com setores e marcas). Não existiam. | O prazo do canal (ex.: `due_date` no Mercado Livre) corre à parte do prazo interno e precisa de alerta. Sem tela, o administrador não tinha como definir quem vê o quê. | Se a captura real do canal trouxer o prazo já preenchido e o campo digitado ficar redundante. |
 | 4 | **Gestor e administrador só informam motivo fora do fluxo normal.** Setor e SAC andam só pelo caminho previsto. | Quem precisa corrigir um caso não fica travado, e o motivo fica na auditoria. | Se o uso mostrar excesso de passagens fora do fluxo (sinal de que o fluxo não serve). |
-| 5 | **Os status do ClickUp precisam existir na lista.** Se o ClickUp recusar o nome, o erro fica no card e a fila tenta de novo a cada 5 minutos. | O ClickUp só aceita status que a lista já tem; a recusa não pode perder a reclamação nem travar o registro. | Quando o assistente do ClickUp passar a criar os status e o botão "tentar de novo agora" existir. |
+| 5 | **Os status do ClickUp precisam existir na lista.** Se o ClickUp recusar o nome, o erro fica no card e a fila tenta de novo. O botão "Tentar de novo" existe. O caminho da conta em uso traz os status que a lista já tem; não cria status. | O ClickUp só aceita status que a lista já tem; a recusa não pode perder a reclamação nem travar o registro. | Se a empresa pedir que o sistema crie status. Hoje isso só existe no jeito antigo, recolhido, para uma conta de teste vazia. |
 | 6 | **A linha do tempo antiga da ficha convive com o novo bloco de tempos e o histórico de estados.** | A linha do tempo (PR 25) vem da auditoria e serve também para reclamação importada sem histórico. O bloco de tempos (PR 27) vem do histórico de estados. Os dois PRs andaram em paralelo. | Quando o histórico de estados cobrir todas as reclamações: unificar numa só visão. |
 | 7 | **A tela de usuários não tem teste de interface.** A regra por trás tem teste; a tela só foi conferida no código. | Prazo do MVP. Tela de uso raro, só do administrador. | Antes da virada. Incluir teste de interface na fase 8. |
 | 8 | **Segredos de integração ficam cifrados na tela do administrador** (AES-256-GCM). Só a chave de cifra, `INTEGRACOES_CHAVE`, vai no ambiente. | O administrador troca token sem pedir deploy, e o segredo não fica no Git, em log ou na resposta da API. | Se a empresa exigir cofre de segredos próprio. |
@@ -234,8 +238,8 @@ Cada item diz por que importa e quem pode responder. "Quem pode responder" é su
 |---|---|---|---|
 | 1. Base de dados e acesso | Esquema, API, login e perfis, importação do sistema atual, domínio com testes, sistema de design e tema por marca | M | Feita |
 | 2. Núcleo da reclamação | Lista, ficha, cadastro e edição, análise do setor, fila, alertas, estados e relógios, triagem enxuta, usuários por setor e marca; **falta: fotos enviadas pela operação** | M | Feita, salvo as fotos |
-| 3. ClickUp | Card automático, webhook, estados no card, assistente de configuração; **falta: card dos planos, trocar lista quando o setor muda, botão de nova tentativa** | M | Quase toda feita |
-| 4. Painel de indicadores | Filtro cruzado, bancada × ocorrência, tempo por setor, custo, atrasadas | G | Relatórios feitos; painel não |
+| 3. ClickUp | Card quando a reclamação é iniciada, webhook no workspace, listas e status já existentes, fila com o nome do setor; **falta: card dos planos** | M | Quase toda feita |
+| 4. Painel de indicadores | Tela inicial com prazo, setor e movimento; relatórios e bancada × ocorrência. **Falta o filtro cruzado** (clicar num gráfico filtra os demais) | G | Começada |
 | 5. IA no registro | Jornada guiada, rascunho, taxa de aceite, registro de custo, limite diário | M | Fatia 1 feita: triagem, pergunta, registro e limite. A jornada guiada completa não |
 | 5a. Triagem por IA | Perguntas obrigatórias, apontar o que falta, Copiar, causa e setor sugeridos | G | Fatia 1 feita. O padrão inicial é exemplo de teste |
 | 5b. Conhecimento da empresa | Casos resolvidos e busca, resposta sugerida no tom da empresa, aviso de repetida, resumo semanal | G | Não começou |
@@ -251,7 +255,8 @@ O MVP do plano são as fases 1 a 4. A triagem por IA e a captura dos marketplace
 
 - Base completa: login, perfis, importação de dados reais, cadastros, tema por marca, impressão e relatórios.
 - Regras de negócio testadas (situação, custo, direcionamento, estados e relógios).
-- ClickUp de ponta a ponta no estado atual, com fila de nova tentativa.
+- ClickUp de ponta a ponta na conta que a empresa já usa: traz listas e status, liga o webhook no workspace e cria o card quando o setor começa.
+- Tela inicial de decisão e relatórios, com a tabela de bancada na largura do bloco.
 - Estudo das APIs do Mercado Livre e da Shopee feito, e o código da captura junto com o marketplace simulado para demonstrar sem a conta real.
 - Triagem por IA na ficha, com registro de custo, limite diário e padrão inicial de teste. A arquitetura completa está em `IA.md`.
 - Tela de integrações do administrador e estrutura de auditoria.
@@ -261,7 +266,7 @@ O MVP do plano são as fases 1 a 4. A triagem por IA e a captura dos marketplace
 
 - Aprovação da Shopee para o aplicativo (portão da fase 6). Pedir já.
 - Conta administradora do Mercado Livre para autorizar o aplicativo.
-- Token e estrutura de listas do ClickUp (espaços e listas por setor).
+- Token do ClickUp de um usuário de serviço e as listas que a empresa já usa (o sistema não cria o Space no caminho normal).
 - Metas, indicadores e critério de demora aprovados pelo dono (fase 4).
 - Exemplos de resposta, perguntas obrigatórias, catálogo com especificações e política de soluções (fases 5a e 5b).
 - Decisão de LGPD (retenção e IA).
@@ -330,9 +335,9 @@ Sem rodeios:
 - **Conta real do Mercado Livre e da Shopee: não autorizada.** O código da captura e o marketplace simulado existem. Dois pontos do Mercado Livre ainda são suposição: anexos e a assinatura do aviso.
 - **WhatsApp: não existe** no sistema novo. O sistema atual tem, parcialmente.
 - **Fotos enviadas pela operação: não existem.** A captura guarda o endereço da foto que o canal mandar. A pergunta do tipo foto, na IA, vale como "a atendente marca que recebeu".
-- **Painel com filtro cruzado completo: não existe.** Há relatórios e o relatório visual.
+- **Painel com filtro cruzado completo: não existe.** A tela inicial mostra prazo, setor e o que está em movimento. Os relatórios e o mapa de calor da bancada existem.
 - **Plano de ação com acompanhamento do efeito (estágio 2): não existe.**
-- **ClickUp:** faltam o card dos planos de ação, a troca de lista quando o setor muda e o botão "tentar de novo agora". O assistente de espaço, listas e webhook existe.
+- **ClickUp:** falta o card dos planos de ação. O card da reclamação, a fila, o "Tentar de novo", a troca de lista quando o setor muda e o webhook no workspace existem. O caminho normal traz as listas que já existem. Criar Space fica no jeito antigo, recolhido.
 - **Alertas** são calculados na hora; ainda não são gravados nem enviados ao gestor por WhatsApp ou ClickUp.
 - **Monitoramento de erros e de disponibilidade: pendente.**
 - **Tela de usuários sem teste de interface.**
@@ -388,7 +393,7 @@ Sem rodeios:
 **8. O que falta construir**
 - Resposta final pela IA, com casos parecidos
 - Autorizar as contas reais do Mercado Livre e da Shopee
-- Fotos enviadas pela operação e painel com filtro cruzado
+- Fotos enviadas pela operação e o filtro cruzado do painel
 - WhatsApp e plano de ação com efeito
 
 **9. O que precisamos do dono**
@@ -408,3 +413,40 @@ Sem rodeios:
 - Dono responde à seção de decisões
 - Proposta com orçamento por fase
 - Definir o período em paralelo e a data de lançamento (a definir)
+
+---
+
+## 9. O que entrou depois que o trabalho saiu do Claude
+
+De 23 a 26/10/2026, na `main`, depois dos documentos de 21 e 22/10. O que já estava escrito acima e contradizia isto foi corrigido nas seções 2, 3, 5 e 7.
+
+### ClickUp passa a usar a conta que já existe
+
+O caminho da tela é: excluir a conexão de teste, colar o token, gravar, buscar os workspaces, trazer listas e status, conferir a lista de cada setor (o nome igual já vem marcado) e gravar de novo. Nada disso cria Space, lista ou status. O card usa a lista gravada daquele setor; se não houver, uma lista do espaço cujo nome é o do setor, e por último a lista padrão. Sem nenhuma, a fila diz o nome do setor e pede para gravar a lista que já existe. Não se cria card à mão no ClickUp.
+
+O webhook liga no workspace (`POST /team/{id}/webhook`, evento `taskStatusUpdated`, sem `space_id`). O botão é **Ativar webhook**. Recriar o webhook não recria a estrutura. **Testar fluxo** cria um card de teste, confere o status e apaga o card; se o webhook ainda não estiver ativo, essa etapa aparece como não rodada.
+
+Criar o Space "SAC AISA", uma lista por setor e os status continua no sistema, dentro de **Jeito antigo: criar o Space de teste**. Serve para uma conta vazia. Não é o caminho da produção.
+
+A conexão pode ser excluída. A exclusão do ClickUp também limpa as listas gravadas.
+
+### Quando o card nasce
+
+Reclamação em **Triagem** ou **Aguardando cliente** não gera card e não entra na fila como erro. O card é tentado quando o atendimento começa no setor (encaminhada em diante). Reclamação de treino continua fora do ClickUp, salvo se o administrador ligar "Criar cards para reclamações de treino".
+
+Se o setor responsável mudar e o workspace estiver gravado, o card muda de lista. Sem workspace, o erro fica no card e a fila tenta de novo, sem gastar a tentativa. **Tentar de novo** vale para um card ou para todos.
+
+### Tela
+
+- Início: painel de decisão com prazo, setor e o que está em movimento, no recorte da marca escolhida. Clicar num gráfico para filtrar o resto ainda não existe.
+- Troca de marca: logo e cor mudam na hora, sem recarregar a página.
+- Logo do cabeçalho: a altura é a mesma e a largura é a da própria marca. AISA e ARTMAQ deixam de ficar numa caixa larga com faixa vazia.
+- Relatório: a tabela bancada × tipo ocupa a largura do bloco.
+- Integrações: o cartão abre no nome e no estado; o consumo da IA cabe no cartão; a fila nomeia o setor sem lista.
+- Página **Padrão da IA**: usa a largura da tela, com recuo no cartão. Em cada pergunta, o texto fica de um lado e os selos com Editar do outro.
+- Ficha: os botões são os do passo atual. Gravar o diagnóstico leva a Em tratativa. A resposta ao cliente fica em rascunho na ficha; o fechamento pede a solução.
+- Usuários: gravar setor e ativar a conta chegam ao servidor. Setor e marca só são enviados para o perfil responsável de setor.
+
+### O que isto não muda
+
+Resposta final da IA com casos parecidos, fotos enviadas pela operação, WhatsApp, plano de ação com efeito, filtro cruzado, contas reais do Mercado Livre e da Shopee, GlitchTip, Uptime Kuma, metas do dono e a virada continuam como na seção 7.

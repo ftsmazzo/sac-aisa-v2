@@ -4,9 +4,9 @@
 > Fonte: [x] Entrevista com usuário  [x] Leitura de código existente (sac-renato)  [x] Áudio do cliente (21/10/2026)
 > Depende de: [Fluxo do App](FLUXO-APP.md)
 
-**Data**: 21/10/2026
+**Data**: 21/10/2026. Atualizado em 26/10/2026.
 
-Estado geral: **rascunho**. As logos das marcas já entraram. O resto foi aprovado como sugestão ("gostei das sugestões").
+Estado geral: a casca, as logos, a lista com ficha, a jornada, os relatórios e a tela inicial estão na `main`. O filtro cruzado (clicar num gráfico filtra os demais) continua proposta.
 
 ## 1. Referências e tom
 
@@ -40,6 +40,8 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
 - **Cookie `marca`** (`aisa`, `artmaq`, `arauca` ou `todas`): preferência de tela, não sensível, por isso sem `httpOnly` (o seletor a grava no navegador). O `app/layout.tsx` a lê no servidor e já devolve o `<html data-marca>` certo, sem piscar. Valor desconhecido ou marca que o perfil não enxerga vira "todas". "Todas" usa o tema padrão AISA e o símbolo neutro no cabeçalho; com uma marca escolhida, o cabeçalho mostra a logo dela.
 - **Filtro padrão**: a marca escolhida filtra por padrão `/reclamacoes`, a fila, os alertas (e o número do menu). A API de fila e alertas aceita `?marca=<id>` (parametrizado no Prisma, id inválido é recusado). Na lista, a marca na URL manda sobre o padrão e `marca=todas` tira o padrão só naquela consulta. Trocar a marca no seletor limpa o `marca` da URL.
 - **Logo no lugar do texto**: cada linha da lista e a ficha lateral mostram a logo pequena (altura 20 na linha, 24 na ficha) com `alt` igual ao nome. Marca sem logo (ex.: WORK) continua em texto.
+- **Logo no cabeçalho**: altura fixa e largura da própria imagem. AISA, ARTMAQ e ARAUCA não compartilham uma caixa mais larga que o desenho.
+- **Troca de marca**: cor e logo mudam na hora, sem recarregar a página. A cookie `marca` continua sendo a preferência.
 - **Contraste**: no cabeçalho, texto claro sobre `--marca-casca` e item ativo em branco com texto na cor da casca (acima de 12:1 nas três marcas, claro e escuro). Os tokens de cor não mudaram.
 - **Folha impressa e relatórios**: a folha A4 da reclamação usa a logo da marca da reclamação (`marcaVisual`, por nome sem acento). `/relatorios` e o CSV usam a marca escolhida como padrão quando a URL não traz `marca`; "Todos" no filtro envia `marca=todas`.
 
@@ -49,7 +51,7 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
 
 ### Componentes centrais
 
-- **Painel com filtro cruzado.** Gráficos ligados entre si: clicar em uma barra, fatia ou célula filtra todos os outros e a lista. Filtros globais no topo: período, problema (causa), setor responsável, produto, e também canal, marca e bancada. Filtros ativos aparecem como chips removíveis, com um "limpar tudo".
+- **Painel com filtro cruzado.** Continua sendo a referência do cliente e ainda não está feito por completo. A tela inicial já mostra prazo, setor e o que está em movimento, no recorte da marca. Os relatórios têm o mapa de calor bancada × tipo na largura do bloco. O que falta é clicar numa barra, fatia ou célula e filtrar os outros gráficos e a lista. Filtros globais previstos: período, problema (causa), setor responsável, produto, canal, marca e bancada, com chips removíveis e um "limpar tudo".
 - **Lista de reclamações.** Tabela com busca, ordenação e colunas escolhidas. Cor e texto indicam a situação e o atraso. Seleção em massa para o gestor.
 - **Ficha na frente da lista.** Clicar numa linha abre um painel lateral largo (ou página sobreposta, em tela cheia no celular). É a mesma ficha para **cadastro e edição**. A lista continua visível por trás.
 - **Conversa guiada da IA.** Para registrar, a pessoa conversa e a IA preenche a ficha ao lado, campo a campo, com destaque no que foi sugerido.
@@ -58,7 +60,7 @@ Dois princípios do cliente guiam o resto: **painel que filtra clicando** e **li
 ### Triagem enxuta e jornada na ficha
 
 - **Cadastro e edição** (`Nova reclamação`, `Editar triagem`) têm quatro grupos curtos: Entrada, Consumidor, O caso e, só para quem troca setor, Encaminhamento (setor e motivo). Não há campo de causa, devolução, laudo, solução nem custo.
-- **Aba "Ficha"**: abre com a **Jornada da reclamação** (seis etapas: entrada, triagem, encaminhamento, análise do setor, produto, resolução; cada uma feita, agora, a fazer ou dispensada; mais o "próximo passo") e a linha do tempo com autor e data. Abaixo vêm Triagem, Encaminhamento (setor e causa, dizendo se vieram da regra ou de troca manual) e Setor responsável.
+- **Aba "Ficha"**: abre com o passo atual da jornada e o próximo passo (só os botões daquela etapa). A linha do tempo traz autor e data. Abaixo vêm Triagem, Encaminhamento (setor e causa, dizendo se vieram da regra ou de troca manual) e Setor responsável. Gravar o diagnóstico passa a reclamação para Em tratativa. A resposta ao cliente fica em rascunho na ficha; fechar pede a solução.
 - **Aba "Análise e solução"**: a análise (o produto volta?) e, na mesma rolagem, a solução e o encerramento (causa final, procedência, garantia, peça, data de ação, laudo, solução e o custo recolhido).
 - Estados nunca só por cor: cada etapa tem texto (feita, agora, a fazer, dispensada).
 

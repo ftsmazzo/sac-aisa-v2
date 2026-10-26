@@ -4,7 +4,7 @@
 > Fonte: [x] Entrevista com usuário  [x] Leitura de código existente (sac-renato)
 > Depende de: [PRD](PRD.md)
 
-**Data**: 21/10/2026
+**Data**: 21/10/2026. Atualizado em 26/10/2026 no ponto do ClickUp, que deixou de ser sugestão e está na `main`.
 
 Nenhuma pergunta técnica foi respondida na entrevista. Tudo abaixo vem do código do sac-renato e é **sugestão, não decisão**, até confirmação.
 
@@ -27,7 +27,7 @@ Fonte: código atual. Stack de preferência da empresa não foi informada.
 
 | Integração | Finalidade | Observações |
 |---|---|---|
-| ClickUp (API e webhooks) | O SAC é a origem: cria o card ao registrar e o atualiza a cada movimento da reclamação (status, setor, prazo, comentários); recebe a movimentação e a resolução por webhook, sem devolver o que veio de lá | Novo. Precisa do mapa entre setor responsável e lista ou espaço do ClickUp. Token da empresa, fora do Git |
+| ClickUp (API e webhooks) | O SAC é a origem: cria o card quando a reclamação sai da triagem ou de aguardando o cliente, na lista já gravada do setor, e o atualiza a cada movimento (status, lista do setor, prazo, comentários). O webhook é do workspace em uso. Reclamação não iniciada não entra na fila como erro | Na `main`. O caminho normal não cria Space, lista nem status |
 | Mercado Livre (API de pós-venda) | Capturar reclamações e mensagens do comprador | Novo. MVP. Verificar na documentação oficial o escopo de reclamações e a autorização OAuth |
 | Shopee (Open Platform) | Capturar devoluções e reclamações | Novo. MVP. Verificar o que a API expõe e o processo de aprovação do app |
 | Magalu | Idem | Fase posterior (5 de 402 reclamações) |
