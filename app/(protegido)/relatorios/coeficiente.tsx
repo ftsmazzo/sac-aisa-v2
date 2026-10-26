@@ -55,38 +55,41 @@ function Grupo({
 }) {
   if (linhas.length === 0) return null;
   return (
-    <div className="tabela-caixa">
-      <table className="tabela-simples coeficiente">
-        <caption className="ficha__subtitulo">{titulo}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{primeira}</th>
-            <th scope="col" className="num">
-              SKUs
-            </th>
-            <th scope="col" className="num">
-              Vendas
-            </th>
-            <th scope="col" className="num">
-              Reclamações
-            </th>
-            <th scope="col" className="num">
-              PPM
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {linhas.map((l) => (
-            <tr key={l.nome} className={l.acimaLimite ? "acima" : undefined}>
-              <th scope="row">{l.nome}</th>
-              <td className="num">{num(l.skus)}</td>
-              <td className="num">{num(l.vendas)}</td>
-              <td className="num">{num(l.reclamacoes)}</td>
-              <td className="num">{ppm(l.ppm)}</td>
+    <div className="coeficiente-grupo">
+      <h4 className="ficha__subtitulo">{titulo}</h4>
+      <div className="tabela-caixa">
+        <table className="tabela-simples coeficiente">
+          <caption className="sr-only">{titulo}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{primeira}</th>
+              <th scope="col" className="num">
+                SKUs
+              </th>
+              <th scope="col" className="num">
+                Vendas
+              </th>
+              <th scope="col" className="num">
+                Reclamações
+              </th>
+              <th scope="col" className="num">
+                PPM
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {linhas.map((l) => (
+              <tr key={l.nome} className={l.acimaLimite ? "acima" : undefined}>
+                <th scope="row">{l.nome}</th>
+                <td className="num">{num(l.skus)}</td>
+                <td className="num">{num(l.vendas)}</td>
+                <td className="num">{num(l.reclamacoes)}</td>
+                <td className="num">{ppm(l.ppm)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -97,7 +100,10 @@ export function PainelCoeficiente({ dados }: { dados: CoeficienteApi }) {
   const comCaso = dados.porSku.filter((l) => l.reclamacoes > 0);
   const amostra = comCaso.slice(0, 80);
   return (
-    <section className="relatorio__bloco" aria-label="Coeficiente de defeito">
+    <section
+      className="relatorio__bloco coeficiente-bloco"
+      aria-label="Coeficiente de defeito"
+    >
       <h3 className="ficha__subtitulo">Coeficiente de defeito</h3>
       <p className="pagina__apoio">
         Reclamações divididas pelas vendas, em peças por milhão. Limite{" "}

@@ -336,7 +336,7 @@ Sem rodeios:
 - **WhatsApp: não existe** no sistema novo. O sistema atual tem, parcialmente.
 - **Fotos enviadas pela operação: existem** na ficha, com tipo e tamanho conferidos (JPEG, PNG ou WebP, até 5 MB). A URL que o canal já manda continua.
 - **Filtro cruzado: existe nos relatórios.** Um clique no gráfico filtra os outros gráficos e a lista. A tela inicial segue com prazo, setor e o que está em movimento.
-- **Coeficiente de defeito: existe no relatório.** Não consulta o INMETRO. PPM = reclamações / vendas × 1.000.000, limite padrão 1000. Com pelo menos 30% dos casos classificados, conta só PROCEDE. SKU com reclamação e sem venda fica marcado, sem PPM. A cola do ERP (código, descrição, data, quantidade) mostra prévia e, no mesmo SKU e dia, substitui a quantidade.
+- **Coeficiente de defeito: existe no relatório.** Não consulta o INMETRO. PPM = reclamações / vendas × 1.000.000, limite padrão 1000. Com pelo menos 30% dos casos classificados, conta só PROCEDE. SKU com reclamação e sem venda fica marcado, sem PPM. O arquivo .txt do ERP (código, descrição, data, quantidade) mostra prévia e, no mesmo SKU e dia, substitui a quantidade.
 - **Plano de ação com efeito: existe.** Se a ocorrência não caiu, o plano reabre. O card do plano vai ao ClickUp pela lista já gravada. Reclamação de treino não vai, salvo o interruptor já existente.
 - **ClickUp:** o card da reclamação, a fila, o "Tentar de novo", a troca de lista quando o setor muda, o webhook no workspace e o card do plano existem. O caminho normal traz as listas que já existem. Criar Space fica no jeito antigo, recolhido.
 - **Alertas** de prazo, custo e fila são gravados quando a tela do gestor os abre, e somem quando a regra já não confirma. Não saem por WhatsApp.

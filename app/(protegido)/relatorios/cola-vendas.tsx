@@ -5,34 +5,63 @@ import { useState, useTransition } from "react";
 import { Botao } from "@/components/ui";
 import { gravarVendas, type LinhaPrevia, previaVendas } from "./vendas-acoes";
 
+const MAX_BYTES = 1_500_000;
+
 function dataBr(iso: string) {
   const [ano, mes, dia] = iso.split("-");
   return `${dia}/${mes}/${ano}`;
 }
 
+function erroDoArquivo(arquivo: File): string | null {
+  if (!arquivo.name.toLowerCase().endsWith(".txt")) {
+    return "Envie um arquivo .txt.";
+  }
+  if (arquivo.size === 0) return "O arquivo está vazio.";
+  if (arquivo.size > MAX_BYTES) return "O arquivo passa de 1,5 MB.";
+  return null;
+}
+
 export function ColaVendas() {
   const router = useRouter();
+  const [nome, setNome] = useState("");
   const [texto, setTexto] = useState("");
   const [visto, setVisto] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<LinhaPrevia[]>([]);
   const [erros, setErros] = useState<{ linha: number; mensagem: string }[]>([]);
   const [somadas, setSomadas] = useState(0);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [avisoOk, setAvisoOk] = useState(false);
   const [pendente, iniciar] = useTransition();
   const previaAtual = visto === texto && linhas.length > 0;
 
-  function prever() {
+  function escolher(arquivo: File | undefined) {
     setAviso(null);
+    setAvisoOk(false);
+    setVisto(null);
+    setLinhas([]);
+    setErros([]);
+    setSomadas(0);
+    if (!arquivo) {
+      setNome("");
+      setTexto("");
+      return;
+    }
+    const erro = erroDoArquivo(arquivo);
+    setNome(arquivo.name);
+    if (erro) {
+      setTexto("");
+      setAviso(erro);
+      return;
+    }
     iniciar(async () => {
-      const r = await previaVendas(texto);
+      const lido = await arquivo.text();
+      setTexto(lido);
+      const r = await previaVendas(lido);
       if (!r.ok) {
-        setVisto(null);
-        setLinhas([]);
-        setErros([]);
         setAviso(r.mensagem);
         return;
       }
-      setVisto(texto);
+      setVisto(lido);
       setLinhas(r.linhas);
       setErros(r.erros);
       setSomadas(r.somadas);
@@ -42,12 +71,14 @@ export function ColaVendas() {
 
   function gravar() {
     setAviso(null);
+    setAvisoOk(false);
     iniciar(async () => {
       const r = await gravarVendas(texto);
       if (!r.ok) {
         setAviso(r.mensagem);
         return;
       }
+      setAvisoOk(true);
       setAviso(
         `${r.gravadas.toLocaleString("pt-BR")} ${r.gravadas === 1 ? "linha gravada" : "linhas gravadas"}. O mesmo código e dia substituiu a quantidade.`,
       );
@@ -64,45 +95,39 @@ export function ColaVendas() {
     >
       <h2 className="ficha__subtitulo">Vendas do ERP</h2>
       <p className="pagina__apoio">
-        Cole código, descrição, data (DD/MM/AAAA) e quantidade. A prévia mostra
-        o que será gravado. O mesmo código e dia substitui a quantidade.
+        Envie um .txt com código, descrição, data (DD/MM/AAAA) e quantidade. A
+        prévia mostra o que será gravado. O mesmo código e dia substitui a
+        quantidade.
       </p>
-      <label className="filtro__rotulo" htmlFor="cola-vendas">
-        Planilha
-      </label>
-      <textarea
-        id="cola-vendas"
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        spellCheck={false}
-        placeholder={
-          "Código\tDescrição\tData\tQuantidade\nG48\tGuincho\t26/10/2026\t12"
-        }
-      />
-      <div className="ficha__acoes">
+      <div className="cola-vendas__arquivo">
+        <label htmlFor="arquivo-vendas">Arquivo .txt</label>
+        <input
+          id="arquivo-vendas"
+          type="file"
+          accept=".txt,text/plain"
+          onChange={(e) => escolher(e.target.files?.[0])}
+        />
+        {nome && <p className="pagina__apoio">{nome}</p>}
+      </div>
+      <div className="cola-vendas__acoes">
         <Botao
           type="button"
-          disabled={pendente || !texto.trim()}
-          onClick={prever}
-        >
-          Ver prévia
-        </Botao>
-        <Botao
-          type="button"
-          variante="secundario"
           disabled={pendente || !previaAtual}
           onClick={gravar}
         >
-          Gravar
+          {pendente ? "Aguarde" : "Gravar"}
         </Botao>
       </div>
       {aviso && (
-        <p className="aviso aviso--info" role="status">
+        <p
+          className={avisoOk ? "aviso aviso--ok" : "aviso aviso--erro"}
+          role="status"
+        >
           {aviso}
         </p>
       )}
       {erros.length > 0 && (
-        <ul className="pagina__apoio">
+        <ul className="cola-vendas__erros">
           {erros.slice(0, 8).map((e) => (
             <li key={`${e.linha}-${e.mensagem}`}>
               {e.linha > 0 ? `Linha ${e.linha}: ` : ""}
