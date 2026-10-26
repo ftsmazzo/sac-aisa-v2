@@ -13,6 +13,8 @@ import {
   textoDias,
 } from "@/lib/relatorios-formato";
 import { obterUsuario } from "@/lib/sessao";
+import { type CoeficienteApi, PainelCoeficiente } from "./coeficiente";
+import { ColaVendas } from "./cola-vendas";
 import { VisaoGrafica } from "./visual";
 
 function Seletor({
@@ -78,13 +80,16 @@ export default async function Relatorios({
     marcaEscolhida.idNoCadastro,
   ) as ReturnType<typeof lerFiltrosUrl>;
   const consulta = consultaRelatorio(filtros);
-  const [rel, opcoesResp] = await Promise.all([
+  const [rel, opcoesResp, coef] = await Promise.all([
     buscarNaApi<RelatorioApi>(`/relatorios?${consulta}`),
     buscarNaApi<OpcoesFiltro>("/reclamacoes/filtros"),
+    buscarNaApi<CoeficienteApi>(`/relatorios/coeficiente?${consulta}`),
   ]);
   if (!rel.ok && rel.status === 401) redirect("/login");
   const opcoes = opcoesResp.ok ? opcoesResp.dados : null;
   const r = rel.ok ? rel.dados : null;
+  const podeColar =
+    usuario.perfil === "administrador" || usuario.perfil === "gestor";
 
   const marcaNome = filtros.marca
     ? opcoes?.marcas.find((m) => m.id === filtros.marca)?.nome
@@ -190,6 +195,8 @@ export default async function Relatorios({
         )}
       </section>
 
+      {podeColar && <ColaVendas />}
+
       {!r && (
         <section className="vazio">
           <h2 className="vazio__titulo">
@@ -230,6 +237,14 @@ export default async function Relatorios({
           )}
 
           <VisaoGrafica r={r} filtros={filtros} />
+
+          {coef.ok ? (
+            <PainelCoeficiente dados={coef.dados} />
+          ) : (
+            <p className="aviso aviso--erro" role="alert">
+              Não foi possível calcular o coeficiente de defeito.
+            </p>
+          )}
 
           <div className="so-impressao relatorio__papel">
             <section className="relatorio__bloco">

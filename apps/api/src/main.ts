@@ -69,6 +69,39 @@ async function iniciar() {
     );
   }
 
+  // Cola da planilha de vendas: o corpo só é lido depois da sessão.
+  // Gestor e administrador. O responsável de setor vê o coeficiente, não grava venda.
+  app.use("/relatorios", (req: Request, res: Response, next: NextFunction) => {
+    const caminho = req.path;
+    const cola =
+      req.method === "POST" &&
+      (caminho === "/vendas" ||
+        caminho === "/vendas/previa" ||
+        caminho.endsWith("/relatorios/vendas") ||
+        caminho.endsWith("/relatorios/vendas/previa"));
+    if (!cola) {
+      next();
+      return;
+    }
+    void (async () => {
+      const usuario = await auth
+        .validar(lerCookie(req.headers.cookie, COOKIE_SESSAO))
+        .catch(() => null);
+      if (!usuario) {
+        res.status(401).json({ message: "Entre para continuar." });
+        return;
+      }
+      if (
+        !temPermissao(usuario.permissoes, "relatorios.ver") ||
+        (usuario.perfil !== "administrador" && usuario.perfil !== "gestor")
+      ) {
+        res.status(403).json({ message: "Sem permissão para esta ação." });
+        return;
+      }
+      json({ limit: "2mb" })(req, res, next);
+    })();
+  });
+
   // Foto da ficha: o corpo só é lido depois da sessão e da permissão.
   app.use("/reclamacoes", (req: Request, res: Response, next: NextFunction) => {
     if (req.method !== "POST" || !req.path.endsWith("/fotos")) {
