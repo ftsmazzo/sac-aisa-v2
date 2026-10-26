@@ -15,6 +15,7 @@ import {
 } from "./canais.controller";
 import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
 import { ServicoAssistenteClickup } from "./clickup-assistente";
+import { ControladorCoeficiente } from "./coeficiente";
 import { ControladorFotos } from "./fotos";
 import { ControladorIa, ControladorIaAdmin } from "./ia/ia.controller";
 import { ControladorImportacao } from "./importacao.controller";
@@ -55,6 +56,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorAnalise,
     ControladorFilaAlertas,
     ControladorRelatorios,
+    ControladorCoeficiente,
     ControladorPlanos,
     ControladorPainel,
     ControladorTreino,
