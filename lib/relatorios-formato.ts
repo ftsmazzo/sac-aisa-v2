@@ -21,7 +21,12 @@ export interface RelatorioApi {
     n: number;
     mediaDias: number | null;
   }[];
-  porSetor: { setor: string; total: number; custo: number }[];
+  porSetor: {
+    setor: string;
+    setorId?: string | null;
+    total: number;
+    custo: number;
+  }[];
   porProduto: {
     codigo: string;
     produto: string;
@@ -32,6 +37,7 @@ export interface RelatorioApi {
     tipos: string[];
     linhas: {
       bancada: string;
+      bancadaId?: string | null;
       total: number;
       porTipo: Record<string, number>;
       daMontagem: number;
@@ -48,6 +54,10 @@ export const CAMPOS_RELATORIO = [
   "marca",
   "setor",
   "causa",
+  "bancada",
+  "categoria",
+  "produto",
+  "situacao",
 ] as const;
 export type CampoRelatorio = (typeof CAMPOS_RELATORIO)[number];
 
@@ -64,6 +74,39 @@ export function lerFiltrosUrl(
     if (v) out[c] = v;
   }
   return out;
+}
+
+/**
+ * Um clique no gráfico liga ou desliga o recorte. Os outros gráficos e a lista
+ * leem os mesmos campos.
+ */
+export function recorte(
+  atual: Partial<Record<string, string>>,
+  mudar: Record<string, string>,
+): string {
+  const proximo: Record<string, string> = {};
+  for (const [k, v] of Object.entries(atual)) {
+    if (v) proximo[k] = v;
+  }
+  const ja = Object.entries(mudar).every(([k, v]) => proximo[k] === v);
+  for (const [k, v] of Object.entries(mudar)) {
+    if (ja) delete proximo[k];
+    else proximo[k] = v;
+  }
+  const q = new URLSearchParams(proximo);
+  const s = q.toString();
+  return s ? `/relatorios?${s}` : "/relatorios";
+}
+
+/** A lista de reclamações usa o mesmo recorte do gráfico. */
+export function listaDoRecorte(atual: Partial<Record<string, string>>): string {
+  const q = new URLSearchParams();
+  for (const c of CAMPOS_RELATORIO) {
+    const v = atual[c];
+    if (v && v !== "todas") q.set(c, v);
+  }
+  const s = q.toString();
+  return s ? `/reclamacoes?${s}` : "/reclamacoes";
 }
 
 export function consultaRelatorio(

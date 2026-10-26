@@ -132,6 +132,15 @@ export class ControladorIa {
   }
 
   @Requer("ia.usar")
+  @Post(":id/ia/resposta")
+  @HttpCode(200)
+  sugerir(@Param("id") id: string, @Req() req: PedidoComUsuario) {
+    return comErros(() =>
+      this.servico.sugerirResposta(usuarioDe(req), idValido(id)),
+    );
+  }
+
+  @Requer("ia.usar")
   @Post(":id/ia/pergunta")
   @HttpCode(200)
   pergunta(@Param("id") id: string, @Req() req: PedidoComUsuario) {

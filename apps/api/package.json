@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "esbuild src/main.ts src/criar-admin.ts src/importar.ts src/redefinir-senha.ts src/treino-demo.ts --bundle --platform=node --format=cjs --outdir=dist --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express",
+    "build": "esbuild src/main.ts src/criar-admin.ts src/importar.ts src/redefinir-senha.ts src/treino-demo.ts --bundle --platform=node --format=cjs --outdir=dist --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express --external:@sentry/node",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
     "admin:criar": "tsx src/criar-admin.ts",
@@ -16,6 +16,7 @@
     "@prisma/client": "^6.19.3",
     "@sac-aisa/auth": "*",
     "@sac-aisa/domain": "*",
+    "@sentry/node": "^9.47.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76"

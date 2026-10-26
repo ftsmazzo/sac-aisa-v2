@@ -11,6 +11,7 @@ import {
   tomDoEstado,
 } from "@/lib/reclamacoes-formato";
 import { Acompanhamento } from "./acompanhamento";
+import { FotosDaFicha } from "./fotos-ficha";
 import { JornadaDaFicha } from "./linha-do-tempo";
 import { ProximoPasso } from "./proximo-passo";
 import { RespostaSac } from "./resposta-sac";
@@ -313,6 +314,8 @@ export function ConteudoFicha({
             </ul>
           </section>
         )}
+
+        <FotosDaFicha id={ficha.id} anexos={ficha.anexos ?? []} />
 
         <p className="ficha__rodape">
           {ficha.fotos > 0 &&

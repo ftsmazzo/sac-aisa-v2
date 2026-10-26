@@ -34,9 +34,9 @@ export class RepositorioRelatoriosPrisma implements RepositorioRelatorios {
         dataAcao: true,
         devolucao: true,
         produto: { select: { codigo: true, nome: true } },
-        bancada: { select: { codigo: true, nome: true } },
+        bancada: { select: { id: true, codigo: true, nome: true } },
         causa: { select: { nome: true, categoria: true, origem: true } },
-        setorResp: { select: { nome: true } },
+        setorResp: { select: { id: true, nome: true } },
         custo: true,
         analises: {
           orderBy: { criadoEm: "asc" },

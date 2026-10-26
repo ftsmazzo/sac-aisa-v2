@@ -8,7 +8,7 @@ import { buscarNaApi } from "@/lib/reclamacoes";
 import { moeda, ROTULO_ESTADO, tomDoEstado } from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
 
-/** Alertas calculados na hora pelas regras de demora e custo, sobre o que está em aberto. */
+/** Alertas de prazo, custo e fila. A tela grava o que a regra confirma e mostra ao gestor. */
 export default async function Alertas() {
   const usuario = await obterUsuario();
   if (!usuario) redirect("/login");

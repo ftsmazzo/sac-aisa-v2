@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Botao } from "@/components/ui";
 import { rascunhoDeResposta } from "@/lib/resposta-fechamento";
-import { enviarResposta } from "./acoes";
+import { enviarResposta, sugerirResposta } from "./acoes";
 
 /** A volta ao SAC: a resposta de fechamento, com hora de envio. */
 export function RespostaSac({
@@ -30,6 +30,18 @@ export function RespostaSac({
   function gerar() {
     setTexto(rascunhoDeResposta({ solucao, conclusoes, custoTotal }));
     setErro(null);
+  }
+
+  function sugerir() {
+    setErro(null);
+    iniciar(async () => {
+      const r = await sugerirResposta(id);
+      if (!r.ok) {
+        setErro(r.mensagem);
+        return;
+      }
+      setTexto(r.texto);
+    });
   }
 
   function enviar() {
@@ -78,6 +90,9 @@ export function RespostaSac({
         </div>
       </div>
       <div className="passo__botoes">
+        <Botao variante="secundario" disabled={pendente} onClick={sugerir}>
+          Sugerir com casos parecidos
+        </Botao>
         <Botao variante="secundario" disabled={pendente} onClick={gerar}>
           Gerar resposta
         </Botao>

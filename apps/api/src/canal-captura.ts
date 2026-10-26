@@ -482,9 +482,15 @@ export class ServicoCaptura {
   async receberAvisoML(
     corpoCru: string,
     assinatura: string | undefined,
+    partes: { dataId?: string; requestId?: string } = {},
   ): Promise<RespostaAviso> {
     const ctx = await this.contexto();
-    if (!avisoMLValido(ctx.segredoML, corpoCru, assinatura)) {
+    if (
+      !avisoMLValido(ctx.segredoML, assinatura, {
+        id: partes.dataId,
+        requestId: partes.requestId,
+      })
+    ) {
       this.registro.registrar({
         canal: "mercadolivre",
         etapa: "aviso recusado",

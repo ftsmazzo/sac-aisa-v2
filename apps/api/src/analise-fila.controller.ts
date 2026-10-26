@@ -13,6 +13,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { type Prisma, PrismaClient } from "@prisma/client";
+import { ALERT_CONFIG_PADRAO } from "@sac-aisa/domain";
 import {
   type AuditoriaAnalise,
   lerAnalise,
@@ -22,6 +23,7 @@ import {
 import { type PedidoComUsuario, Requer } from "./auth.guard";
 import { ServicoClickup } from "./clickup";
 import {
+  GravadorAlertasPrisma,
   type LinhaAberta,
   type RepositorioFila,
   ServicoFilaAlertas,
@@ -290,7 +292,12 @@ export class ControladorFilaAlertas {
   private readonly servico: ServicoFilaAlertas;
 
   constructor(@Inject(PrismaClient) prisma: PrismaClient) {
-    this.servico = new ServicoFilaAlertas(new RepositorioFilaPrisma(prisma));
+    this.servico = new ServicoFilaAlertas(
+      new RepositorioFilaPrisma(prisma),
+      () => new Date(),
+      ALERT_CONFIG_PADRAO,
+      new GravadorAlertasPrisma(prisma),
+    );
   }
 
   @Requer("reclamacoes.analisar")

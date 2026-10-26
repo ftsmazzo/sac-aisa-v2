@@ -377,11 +377,17 @@ export class ControladorWebhooksCanais {
   async mercadolivre(
     @Req() req: PedidoBruto,
     @Headers("x-signature") assinatura: string | undefined,
+    @Headers("x-request-id") requestId: string | undefined,
   ) {
     if (!req.rawBody) throw new BadRequestException("Corpo ausente.");
+    const url = new URL(req.originalUrl ?? req.url ?? "/", "http://local");
     const r = await this.canais.captura.receberAvisoML(
       req.rawBody.toString("utf8"),
       assinatura,
+      {
+        dataId: url.searchParams.get("data.id") ?? undefined,
+        requestId,
+      },
     );
     if (r.status !== 200) throw new HttpException("Aviso recusado.", r.status);
     return { ok: true };

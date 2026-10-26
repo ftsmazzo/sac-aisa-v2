@@ -643,6 +643,28 @@ describe("ServicoFilaAlertas", () => {
       setorResp: { nome: { in: ["Solda"] } },
     });
   });
+
+  it("grava prazo, custo e fila e pede para resolver o que saiu", async () => {
+    const { repo } = repoFila([
+      linha({
+        id: "velha",
+        numero: 2,
+        dataAbertura: "2026-10-01",
+        devolucao: "AGUARDANDO",
+      }),
+    ]);
+    const gravados: { chaveDedupe: string; vistas: string[] }[] = [];
+    await new ServicoFilaAlertas(repo, AGORA, undefined, {
+      async sincronizar(args) {
+        gravados.push({
+          chaveDedupe: args.atuais.map((a) => a.chaveDedupe).join(","),
+          vistas: args.vistas,
+        });
+      },
+    }).alertas(usuario("gestor"));
+    expect(gravados[0]?.vistas).toEqual(["velha"]);
+    expect(gravados[0]?.chaveDedupe).toContain("velha:AGUARDANDO_DIAS");
+  });
 });
 
 describe("rotas", () => {

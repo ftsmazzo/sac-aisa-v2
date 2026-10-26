@@ -84,6 +84,9 @@ export default async function LayoutProtegido({
             {usuario.permissoes.includes("relatorios.ver") && (
               <NavLink href="/relatorios">Relatórios</NavLink>
             )}
+            {usuario.permissoes.includes("planos.ver") && (
+              <NavLink href="/planos">Planos</NavLink>
+            )}
             {conduzTreino && <NavLink href="/admin/treino">Treino</NavLink>}
             {conduzTreino && (
               <NavLink href="/admin/simulacao-canais">Simulação</NavLink>

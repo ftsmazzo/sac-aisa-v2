@@ -51,6 +51,9 @@ const ROTULO_CAMPO: Record<CampoFiltro, string> = {
   canal: "Canal",
   setor: "Setor",
   causa: "Causa",
+  bancada: "Bancada",
+  categoria: "Tipo",
+  produto: "Produto",
   situacao: "Situação",
   estado: "Estado",
   busca: "Busca",
@@ -73,6 +76,13 @@ function textoDoFiltro(
       return achar(o?.setores);
     case "causa":
       return achar(o?.causas);
+    case "bancada":
+      return (
+        o?.bancadas.find((b) => b.id === valor)?.codigo ?? achar(o?.bancadas)
+      );
+    case "categoria":
+    case "produto":
+      return valor;
     case "situacao":
       return ROTULO_SITUACAO[valor as keyof typeof ROTULO_SITUACAO] ?? valor;
     case "estado":
@@ -239,6 +249,11 @@ function Filtros({
           <input type="hidden" name="situacao" value={f.situacao} />
         )}
         {f.estado && <input type="hidden" name="estado" value={f.estado} />}
+        {f.bancada && <input type="hidden" name="bancada" value={f.bancada} />}
+        {f.categoria && (
+          <input type="hidden" name="categoria" value={f.categoria} />
+        )}
+        {f.produto && <input type="hidden" name="produto" value={f.produto} />}
         <button type="submit" className="botao botao--primario">
           Filtrar
         </button>

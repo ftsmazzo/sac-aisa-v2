@@ -13,8 +13,10 @@ import {
 import { ModuloApp } from "./app.module";
 import { origensPermitidas } from "./auth.guard";
 import { manipuladorSimulado, ServicoCanais } from "./canais.controller";
+import { vigiarErros } from "./erros";
 
 async function iniciar() {
+  await vigiarErros(process.env.SENTRY_DSN);
   const app = await NestFactory.create<NestExpressApplication>(ModuloApp);
 
   // Atrás do proxy do EasyPanel, o IP real vem no cabeçalho do proxy.
@@ -66,6 +68,28 @@ async function iniciar() {
       }),
     );
   }
+
+  // Foto da ficha: o corpo só é lido depois da sessão e da permissão.
+  app.use("/reclamacoes", (req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== "POST" || !req.path.endsWith("/fotos")) {
+      next();
+      return;
+    }
+    void (async () => {
+      const usuario = await auth
+        .validar(lerCookie(req.headers.cookie, COOKIE_SESSAO))
+        .catch(() => null);
+      if (!usuario) {
+        res.status(401).json({ message: "Entre para continuar." });
+        return;
+      }
+      if (!temPermissao(usuario.permissoes, "reclamacoes.editar")) {
+        res.status(403).json({ message: "Sem permissão para esta ação." });
+        return;
+      }
+      json({ limit: "8mb" })(req, res, next);
+    })();
+  });
 
   // Marketplace simulado (só responde com o modo ligado). Aceita o formulário do OAuth do Mercado Livre.
   app.use(

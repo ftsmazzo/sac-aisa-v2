@@ -207,6 +207,12 @@ export function repoFalso(parcial: Partial<EstadoRepo> = {}) {
     async ultimos(id) {
       return e.registros.filter((r) => r.reclamacaoId === id);
     },
+    async casoParaResposta() {
+      return null;
+    },
+    async casosFinalizados() {
+      return [];
+    },
     async aceitar(id, d, auditoria) {
       const r = e.registros.find((x) => x.id === id);
       if (r) {

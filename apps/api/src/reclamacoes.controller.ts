@@ -84,6 +84,10 @@ const FICHA = {
     select: { para: true, quando: true },
   },
   _count: { select: { fotos: true } },
+  fotos: {
+    orderBy: { criadoEm: "asc" },
+    select: { id: true, nome: true, caminho: true },
+  },
 } as const;
 
 /** Consultas pelo Prisma, sempre parametrizadas. */

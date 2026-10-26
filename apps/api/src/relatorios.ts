@@ -20,7 +20,15 @@ export const LIMITE_RELATORIO = 5000;
 
 export type FiltrosRelatorio = Pick<
   ConsultaLista,
-  "de" | "ate" | "marcaId" | "setorId" | "causaId"
+  | "de"
+  | "ate"
+  | "marcaId"
+  | "setorId"
+  | "causaId"
+  | "bancadaId"
+  | "categoria"
+  | "produto"
+  | "situacao"
 >;
 
 export type ResultadoFiltros =
@@ -31,8 +39,28 @@ export type ResultadoFiltros =
 export function lerFiltrosRelatorio(
   query: Record<string, unknown>,
 ): ResultadoFiltros {
-  const { de, ate, marca, setor, causa } = query;
-  const r = lerConsulta({ de, ate, marca, setor, causa });
+  const {
+    de,
+    ate,
+    marca,
+    setor,
+    causa,
+    bancada,
+    categoria,
+    produto,
+    situacao,
+  } = query;
+  const r = lerConsulta({
+    de,
+    ate,
+    marca,
+    setor,
+    causa,
+    bancada,
+    categoria,
+    produto,
+    situacao,
+  });
   if (!r.ok) return r;
   const { consulta } = r;
   return {
@@ -43,6 +71,10 @@ export function lerFiltrosRelatorio(
       ...(consulta.marcaId ? { marcaId: consulta.marcaId } : {}),
       ...(consulta.setorId ? { setorId: consulta.setorId } : {}),
       ...(consulta.causaId ? { causaId: consulta.causaId } : {}),
+      ...(consulta.bancadaId ? { bancadaId: consulta.bancadaId } : {}),
+      ...(consulta.categoria ? { categoria: consulta.categoria } : {}),
+      ...(consulta.produto ? { produto: consulta.produto } : {}),
+      ...(consulta.situacao ? { situacao: consulta.situacao } : {}),
     },
   };
 }
@@ -65,9 +97,9 @@ export interface LinhaRelatorio {
   /** Data da primeira análise de qualquer setor. */
   primeiraAnalise: string | null;
   produto: { codigo: string; nome: string } | null;
-  bancada: { codigo: string; nome: string } | null;
+  bancada: { id?: string; codigo: string; nome: string } | null;
   causa: { nome: string; categoria: string; origem: string | null } | null;
-  setorResp: { nome: string } | null;
+  setorResp: { id?: string; nome: string } | null;
   custos: {
     freteEnvio: number;
     freteRetorno: number;
@@ -112,6 +144,7 @@ const LIMITE_PRODUTOS = 15;
 
 export interface LinhaBancada {
   bancada: string;
+  bancadaId: string | null;
   total: number;
   porTipo: Record<string, number>;
   /** Causa de origem "montagem": a bancada responde por ela. */
@@ -135,7 +168,12 @@ export interface Relatorio {
     n: number;
     mediaDias: number | null;
   }[];
-  porSetor: { setor: string; total: number; custo: number }[];
+  porSetor: {
+    setor: string;
+    setorId: string | null;
+    total: number;
+    custo: number;
+  }[];
   porProduto: {
     codigo: string;
     produto: string;
@@ -176,7 +214,10 @@ export function calcularRelatorio(
     if (tt !== null) total.push(tt);
   }
 
-  const setores = new Map<string, { total: number; custo: number }>();
+  const setores = new Map<
+    string,
+    { setorId: string | null; total: number; custo: number }
+  >();
   const produtos = new Map<
     string,
     { codigo: string; produto: string; total: number; custo: number }
@@ -186,7 +227,11 @@ export function calcularRelatorio(
 
   linhas.forEach((l, i) => {
     const nomeSetor = l.setorResp?.nome ?? SEM_SETOR;
-    const s = setores.get(nomeSetor) ?? { total: 0, custo: 0 };
+    const s = setores.get(nomeSetor) ?? {
+      setorId: l.setorResp?.id ?? null,
+      total: 0,
+      custo: 0,
+    };
     s.total += 1;
     s.custo += custos[i];
     setores.set(nomeSetor, s);
@@ -207,6 +252,7 @@ export function calcularRelatorio(
       : SEM_BANCADA;
     const b = bancadas.get(nomeBancada) ?? {
       bancada: nomeBancada,
+      bancadaId: l.bancada?.id ?? null,
       total: 0,
       porTipo: {},
       daMontagem: 0,
@@ -256,7 +302,12 @@ export function calcularRelatorio(
       },
     ],
     porSetor: [...setores.entries()]
-      .map(([setor, v]) => ({ setor, total: v.total, custo: arred(v.custo) }))
+      .map(([setor, v]) => ({
+        setor,
+        setorId: v.setorId,
+        total: v.total,
+        custo: arred(v.custo),
+      }))
       .sort((a, b) => b.total - a.total || porNome(a.setor, b.setor)),
     porProduto: [...produtos.values()]
       .map((p) => ({ ...p, custo: arred(p.custo) }))

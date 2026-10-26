@@ -51,3 +51,17 @@ export function esquemaPergunta(chavesFaltantes: string[]) {
     .strict();
 }
 export type SaidaPergunta = z.infer<ReturnType<typeof esquemaPergunta>>;
+
+export function esquemaResposta() {
+  return z
+    .object({
+      mensagem: z
+        .string()
+        .trim()
+        .min(10)
+        .max(1500)
+        .refine((m) => !temMarcadorDesconhecido(m), "marcador desconhecido")
+        .refine((m) => !temMarcadorDeRedacao(m), "marcador de redação"),
+    })
+    .strict();
+}

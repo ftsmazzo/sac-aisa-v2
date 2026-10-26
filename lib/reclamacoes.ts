@@ -106,6 +106,7 @@ export interface Ficha extends ItemLista {
     criadoEm: string;
   }[];
   fotos: number;
+  anexos?: { id: string; nome: string; local: boolean }[];
 }
 
 export interface EventoLinha {

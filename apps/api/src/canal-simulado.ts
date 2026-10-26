@@ -1,5 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { assinaturaShopee, hmacHex, iguais } from "./canal-assinatura";
+import {
+  assinaturaShopee,
+  cabecalhoAvisoML,
+  hmacHex,
+  iguais,
+} from "./canal-assinatura";
 
 /**
  * Marketplace simulado: responde como as APIs reais do Mercado Livre e da Shopee, no formato do
@@ -7,9 +12,9 @@ import { assinaturaShopee, hmacHex, iguais } from "./canal-assinatura";
  * em conta de verdade. É o código REAL de captura que consome isto; trocar para o canal real é só
  * mudar a URL base e as credenciais.
  *
- * Tudo é inventado: nomes "Fictício", e-mails `.invalid`, telefones com DDD 00. Os contratos que
- * o levantamento não confirma (anexos do Mercado Livre, assinatura do aviso do Mercado Livre)
- * estão marcados no código e precisam de conferência no console de cada canal.
+ * Tudo é inventado: nomes "Fictício", e-mails `.invalid`, telefones com DDD 00.
+ * Anexos do Mercado Livre seguem o contrato público: filename, sem URL solta.
+ * O aviso usa o manifesto `id;request-id;ts` assinado no header `x-signature`.
  */
 
 export const CREDENCIAIS_SIMULADAS = {
@@ -351,7 +356,11 @@ const CIDADES: { cidade: string; uf: string }[] = [
 
 interface Anexo {
   filename: string;
-  url: string;
+  original_filename?: string;
+  size?: number;
+  date_created?: string;
+  type?: string;
+  url?: string;
 }
 
 interface CasoML {
@@ -549,19 +558,15 @@ export class MarketplaceSimulado {
           },
         },
       },
-      // O levantamento não confirma o contrato dos anexos: conferir no console do Mercado Livre.
       anexos:
         m.sku && indice % 3 === 0
-          ? [
-              {
-                filename: `foto-${claimId}-1.jpg`,
-                url: `https://exemplo.invalid/ml/${claimId}/1.jpg`,
-              },
-              {
-                filename: `foto-${claimId}-2.jpg`,
-                url: `https://exemplo.invalid/ml/${claimId}/2.jpg`,
-              },
-            ]
+          ? [1, 2].map((n) => ({
+              filename: `foto-${claimId}-${n}.jpg`,
+              original_filename: `foto-${claimId}-${n}.jpg`,
+              size: 1200,
+              date_created: criada.toISOString(),
+              type: "image/jpeg",
+            }))
           : [],
       motivo: { id: m.motivoId, name: m.motivo, detail: m.titulo },
     };
@@ -681,8 +686,13 @@ export class MarketplaceSimulado {
 
   // ----- Avisos que o canal enviaria -----
 
-  /** O POST do tópico post_purchase. Assinatura simplificada (HMAC do corpo): conferir o formato real no console. */
-  avisoML(claimId: string): { corpo: string; assinatura: string } {
+  /** O POST do tópico post_purchase, com o manifesto oficial no header x-signature. */
+  avisoML(claimId: string): {
+    corpo: string;
+    assinatura: string;
+    dataId: string;
+    requestId: string;
+  } {
     const corpo = JSON.stringify({
       resource: `post-purchase/v1/claims/${claimId}`,
       user_id: CREDENCIAIS_SIMULADAS.mercadolivre.userId,
@@ -690,9 +700,17 @@ export class MarketplaceSimulado {
       actions: ["claims"],
       sent: this.agora().toISOString(),
     });
+    const requestId = `req-${claimId}`;
+    const ts = String(Math.floor(this.agora().getTime() / 1000));
     return {
       corpo,
-      assinatura: hmacHex(CREDENCIAIS_SIMULADAS.mercadolivre.segredo, corpo),
+      dataId: claimId,
+      requestId,
+      assinatura: cabecalhoAvisoML(CREDENCIAIS_SIMULADAS.mercadolivre.segredo, {
+        id: claimId,
+        requestId,
+        ts,
+      }),
     };
   }
 

@@ -164,6 +164,32 @@ describe("escopo e filtro", () => {
     });
   });
 
+  it("bancada, categoria e produto do gráfico entram no mesmo filtro", () => {
+    const w = montarFiltro(
+      {
+        pagina: 1,
+        porPagina: 25,
+        bancadaId: "b1",
+        categoria: "Fabricação",
+        produto: "G48",
+      },
+      { perfil: "gestor", setores: [] },
+    );
+    expect(w).toEqual({
+      AND: [
+        { treino: false },
+        { bancadaId: "b1" },
+        {
+          OR: [
+            { causa: { categoria: "Fabricação" } },
+            { causas: { some: { causa: { categoria: "Fabricação" } } } },
+          ],
+        },
+        { produto: { codigo: "G48" } },
+      ],
+    });
+  });
+
   it("sem filtro e sem restrição, não filtra nada", () => {
     expect(
       montarFiltro(

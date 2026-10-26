@@ -43,12 +43,42 @@ export function pushShopeeValido(
   );
 }
 
-/** O aviso do Mercado Livre (formato simplificado: HMAC do corpo cru com a Secret Key). */
+/**
+ * Manifesto do aviso do Mercado Livre: `id`, `request-id` e `ts`, separados
+ * por `;` e com `;` no fim. Parte vazia fica de fora. A Secret Key assina isso,
+ * e o header traz `ts=...,v1=<hex>`.
+ */
+export function manifestoAvisoML(partes: {
+  id?: string;
+  requestId?: string;
+  ts: string;
+}): string {
+  const linhas: string[] = [];
+  if (partes.id) linhas.push(`id:${partes.id}`);
+  if (partes.requestId) linhas.push(`request-id:${partes.requestId}`);
+  linhas.push(`ts:${partes.ts}`);
+  return `${linhas.join(";")};`;
+}
+
+export function cabecalhoAvisoML(
+  segredo: string,
+  partes: { id?: string; requestId?: string; ts: string },
+): string {
+  return `ts=${partes.ts},v1=${hmacHex(segredo, manifestoAvisoML(partes))}`;
+}
+
+/** Confere o header `x-signature` contra o manifesto. O corpo cru não entra na conta. */
 export function avisoMLValido(
   segredo: string,
-  corpoCru: string,
   assinatura: string | undefined,
+  partes: { id?: string; requestId?: string },
 ): boolean {
-  if (!assinatura) return false;
-  return iguais(assinatura.trim(), hmacHex(segredo, corpoCru));
+  if (!assinatura || !segredo) return false;
+  const ts = /(?:^|,)\s*ts=(\d+)/.exec(assinatura)?.[1];
+  const v1 = /(?:^|,)\s*v1=([0-9a-f]+)/i.exec(assinatura)?.[1];
+  if (!ts || !v1) return false;
+  return iguais(
+    v1.toLowerCase(),
+    hmacHex(segredo, manifestoAvisoML({ ...partes, ts })),
+  );
 }

@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { UsuarioLogado } from "@sac-aisa/auth";
 import type { RegraPergunta, TipoPergunta } from "@sac-aisa/domain";
-import { filtroDeEscopo } from "../reclamacoes";
+import { filtroDeEscopo, filtroPorId } from "../reclamacoes";
 import type {
   EntradaPerfil,
   EntradaPergunta,
@@ -305,6 +305,72 @@ export class RepositorioIaPrisma implements RepositorioIa, RepositorioIaAdmin {
   async registro(id: string) {
     const r = await this.prisma.iaRegistro.findUnique({ where: { id } });
     return r ? paraRegistro(r) : null;
+  }
+
+  private escopo(usuario: UsuarioLogado) {
+    return {
+      perfil: usuario.perfil,
+      setores: usuario.setores,
+      marcas: usuario.marcas,
+      treino: usuario.modoTreino === true,
+    };
+  }
+
+  async casoParaResposta(id: string, usuario: UsuarioLogado) {
+    const r = await this.prisma.reclamacao.findFirst({
+      where: filtroPorId(id, this.escopo(usuario)),
+      select: {
+        id: true,
+        descricao: true,
+        solucao: true,
+        clienteNome: true,
+        pedido: true,
+        causa: { select: { nome: true } },
+        produto: { select: { nome: true } },
+        marca: { select: { nome: true } },
+      },
+    });
+    if (!r) return null;
+    return {
+      id: r.id,
+      descricao: r.descricao,
+      solucao: r.solucao,
+      causa: r.causa?.nome ?? "",
+      produto: r.produto?.nome ?? "",
+      clienteNome: r.clienteNome,
+      pedido: r.pedido,
+      marca: r.marca?.nome ?? "",
+    };
+  }
+
+  async casosFinalizados(excetoId: string, usuario: UsuarioLogado) {
+    const l = await this.prisma.reclamacao.findMany({
+      where: {
+        AND: [
+          filtroDeEscopo(this.escopo(usuario)) ?? {},
+          {
+            id: { not: excetoId },
+            estado: "finalizada",
+            treino: usuario.modoTreino === true,
+            solucao: { not: "" },
+          },
+        ],
+      },
+      orderBy: { dataAcao: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        descricao: true,
+        solucao: true,
+        causa: { select: { nome: true } },
+      },
+    });
+    return l.map((r) => ({
+      id: r.id,
+      descricao: r.descricao,
+      causa: r.causa?.nome ?? "",
+      solucao: r.solucao,
+    }));
   }
 
   async ultimos(reclamacaoId: string) {
