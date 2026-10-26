@@ -2243,6 +2243,24 @@ a.chip:hover {
 .tabela-simples.coeficiente {
   max-width: none;
 }
+.tabela-simples.coeficiente th,
+.tabela-simples.coeficiente td {
+  padding: 10px 14px;
+  vertical-align: top;
+}
+.coeficiente-bloco {
+  gap: 16px;
+}
+.coeficiente-bloco .pagina__apoio,
+.coeficiente-grupo .ficha__subtitulo {
+  margin: 0;
+}
+.coeficiente-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
 .coeficiente td.num,
 .coeficiente th.num {
   text-align: right;
@@ -2258,19 +2276,52 @@ a.chip:hover {
 .cola-vendas {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px 24px 24px;
 }
-.cola-vendas textarea {
+.cola-vendas .ficha__subtitulo,
+.cola-vendas .pagina__apoio {
+  margin: 0;
+}
+.cola-vendas .pagina__apoio {
+  max-width: 68ch;
+}
+.cola-vendas__arquivo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.cola-vendas__arquivo label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.cola-vendas__arquivo input[type="file"] {
   width: 100%;
-  min-height: 8rem;
-  padding: 10px 12px;
+  min-height: 44px;
+  padding: 8px 12px;
   border: 1px solid var(--cor-borda-forte);
   border-radius: var(--raio-m);
   background: var(--cor-fundo);
   color: var(--cor-texto);
   font: inherit;
-  line-height: 1.45;
-  resize: vertical;
+}
+.cola-vendas__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cola-vendas__erros {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--cor-perigo);
+}
+@media (max-width: 720px) {
+  .cola-vendas {
+    padding: 18px 16px;
+  }
 }
 .calor th,
 .calor td {
