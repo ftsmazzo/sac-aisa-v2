@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+import { Selo } from "@/components/ui";
 import type { OpcoesFiltro } from "@/lib/reclamacoes";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { obterUsuario } from "@/lib/sessao";
 import { BotaoEfeito, FormularioPlano } from "./formulario";
+import "./planos.css";
 
 interface Plano {
   id: string;
@@ -26,6 +28,13 @@ const STATUS: Record<string, string> = {
   cancelado: "Cancelado",
 };
 
+const TOM: Record<string, "ok" | "atencao" | "perigo" | "info"> = {
+  aberto: "info",
+  em_andamento: "atencao",
+  concluido: "ok",
+  cancelado: "perigo",
+};
+
 export default async function Planos() {
   const usuario = await obterUsuario();
   if (!usuario) redirect("/login");
@@ -45,7 +54,7 @@ export default async function Planos() {
   const podeGerir = usuario.permissoes.includes("planos.gerir");
 
   return (
-    <>
+    <div className="planos">
       <div className="pagina__cab">
         <h1 className="pagina__titulo">Planos de ação</h1>
         <p className="pagina__apoio">
@@ -57,33 +66,49 @@ export default async function Planos() {
         <FormularioPlano causas={opcoes.ok ? opcoes.dados.causas : []} />
       )}
       {itens.length === 0 ? (
-        <p className="pagina__apoio">Nenhum plano gravado.</p>
+        <section className="vazio">
+          <h2 className="vazio__titulo">Nenhum plano gravado</h2>
+          <p className="vazio__texto">
+            O plano novo aparece aqui, com o efeito e o card do ClickUp.
+          </p>
+        </section>
       ) : (
-        <ul className="ficha__analises">
+        <ul className="planos__lista">
           {itens.map((p) => (
-            <li key={p.id} className="cartao">
-              <strong>{p.titulo}</strong>
-              <p>
-                {STATUS[p.status] ?? p.status}
-                {p.causa ? ` · ${p.causa}` : ""}
-              </p>
-              {p.descricao && <p>{p.descricao}</p>}
-              {p.efeito && (
-                <p>
-                  {p.efeito.antes} antes, {p.efeito.depois} depois (
-                  {p.efeito.quedaPercentual}%).{" "}
-                  {p.efeito.resultado === "caiu"
-                    ? "A ocorrência caiu."
-                    : "A ocorrência não caiu."}
-                </p>
-              )}
-              {p.card === "criado" && <p>Card no ClickUp criado.</p>}
-              {p.card && p.card !== "criado" && <p>{p.card}</p>}
+            <li key={p.id} className="planos__item">
+              <div className="planos__item-corpo">
+                <div className="planos__item-cab">
+                  <strong>{p.titulo}</strong>
+                  <Selo tom={TOM[p.status] ?? "info"}>
+                    {STATUS[p.status] ?? p.status}
+                  </Selo>
+                </div>
+                {p.causa && <p className="planos__meta">{p.causa}</p>}
+                {p.descricao && <p className="planos__texto">{p.descricao}</p>}
+                {p.efeito && (
+                  <p className="planos__efeito">
+                    <span>{p.efeito.antes} antes</span>
+                    <span>{p.efeito.depois} depois</span>
+                    <span>{p.efeito.quedaPercentual}%</span>
+                    <span>
+                      {p.efeito.resultado === "caiu"
+                        ? "A ocorrência caiu"
+                        : "A ocorrência não caiu"}
+                    </span>
+                  </p>
+                )}
+                {p.card === "criado" && (
+                  <p className="planos__meta">Card no ClickUp criado.</p>
+                )}
+                {p.card && p.card !== "criado" && (
+                  <p className="planos__meta">{p.card}</p>
+                )}
+              </div>
               {podeGerir && <BotaoEfeito id={p.id} />}
             </li>
           ))}
         </ul>
       )}
-    </>
+    </div>
   );
 }

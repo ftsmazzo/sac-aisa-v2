@@ -31,24 +31,19 @@ export function FormularioPlano({
   }
 
   return (
-    <form action={gravar} className="cartao formulario">
+    <form action={gravar} className="cartao">
       <h2 className="ficha__subtitulo">Novo plano</h2>
-      <label className="filtro">
-        <span className="filtro__rotulo">Título</span>
-        <input
-          name="titulo"
-          required
-          className="filtro__campo"
-          maxLength={160}
-        />
-      </label>
-      <label className="filtro">
-        <span className="filtro__rotulo">O que vai ser feito</span>
-        <textarea name="descricao" className="filtro__campo" rows={3} />
-      </label>
-      <label className="filtro">
-        <span className="filtro__rotulo">Causa que o plano ataca</span>
-        <select name="causaId" className="filtro__campo" required>
+      <div className="planos__campo">
+        <label htmlFor="plano-titulo">Título</label>
+        <input id="plano-titulo" name="titulo" required maxLength={160} />
+      </div>
+      <div className="planos__campo">
+        <label htmlFor="plano-descricao">O que vai ser feito</label>
+        <textarea id="plano-descricao" name="descricao" rows={4} />
+      </div>
+      <div className="planos__campo">
+        <label htmlFor="plano-causa">Causa que o plano ataca</label>
+        <select id="plano-causa" name="causaId" required>
           <option value="">Escolha</option>
           {causas.map((c) => (
             <option key={c.id} value={c.id}>
@@ -56,15 +51,17 @@ export function FormularioPlano({
             </option>
           ))}
         </select>
-      </label>
+      </div>
       {erro && (
-        <p className="formulario__erro" role="alert">
+        <p className="aviso aviso--erro" role="alert">
           {erro}
         </p>
       )}
-      <Botao type="submit" disabled={pendente}>
-        Gravar plano
-      </Botao>
+      <div className="planos__acoes">
+        <Botao type="submit" disabled={pendente}>
+          Gravar plano
+        </Botao>
+      </div>
     </form>
   );
 }
@@ -75,30 +72,36 @@ export function BotaoEfeito({ id }: { id: string }) {
   const [pendente, iniciar] = useTransition();
 
   return (
-    <div>
-      <button
-        type="button"
-        className="botao"
-        disabled={pendente}
-        onClick={() =>
-          iniciar(async () => {
-            const r = await medirPlano(id);
-            if (!r.ok) {
-              setTexto(r.mensagem);
-              return;
-            }
-            setTexto(
-              r.reabrir
-                ? "A ocorrência não caiu. O plano voltou para andamento."
-                : "A ocorrência caiu. O plano foi concluído.",
-            );
-            router.refresh();
-          })
-        }
-      >
-        Medir efeito
-      </button>
-      {texto && <p className="pagina__apoio">{texto}</p>}
-    </div>
+    <>
+      <div className="planos__item-acoes">
+        <button
+          type="button"
+          className="botao botao--secundario"
+          disabled={pendente}
+          onClick={() =>
+            iniciar(async () => {
+              const r = await medirPlano(id);
+              if (!r.ok) {
+                setTexto(r.mensagem);
+                return;
+              }
+              setTexto(
+                r.reabrir
+                  ? "A ocorrência não caiu. O plano voltou para andamento."
+                  : "A ocorrência caiu. O plano foi concluído.",
+              );
+              router.refresh();
+            })
+          }
+        >
+          Medir efeito
+        </button>
+      </div>
+      {texto && (
+        <p className="planos__resultado pagina__apoio" role="status">
+          {texto}
+        </p>
+      )}
+    </>
   );
 }
