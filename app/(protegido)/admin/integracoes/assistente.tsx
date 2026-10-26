@@ -30,7 +30,13 @@ async function chamar(
   return { ok: r.ok, status: r.status, dados };
 }
 
-type Acao = "workspaces" | "trazer" | "configurar" | "remover" | "testar";
+type Acao =
+  | "workspaces"
+  | "trazer"
+  | "ativar"
+  | "configurar"
+  | "remover"
+  | "testar";
 
 function listasDaResposta(dados: Record<string, unknown>): ListaEmUso[] {
   if (!Array.isArray(dados.listas)) return [];
@@ -173,13 +179,30 @@ export function AssistenteClickup({
     });
   }
 
+  const ativar = (recriarWebhook = false) =>
+    rodar("ativar", async () => {
+      const r = await chamar("/webhook/ativar", "POST", {
+        workspaceId: escolhido,
+        recriar: recriarWebhook,
+      });
+      if (!r.ok) return falha(r);
+      await atualizar();
+      setAviso({
+        tom: "ok",
+        texto:
+          typeof r.dados.mensagem === "string"
+            ? r.dados.mensagem
+            : "Webhook ativo.",
+      });
+    });
+
   function recriar() {
     if (
       window.confirm(
-        "Recriar o webhook? O atual é apagado e um novo, com outro segredo, é criado.",
+        "Recriar o webhook? O atual é apagado e um novo, com outro segredo, é criado. Nenhuma lista é criada.",
       )
     ) {
-      void configurar(true);
+      void ativar(true);
     }
   }
 
@@ -271,16 +294,25 @@ export function AssistenteClickup({
             </Botao>
           </>
         ) : (
-          <Selo tom="atencao">Webhook inativo</Selo>
+          <>
+            <Selo tom="atencao">Webhook inativo</Selo>
+            <Botao onClick={() => ativar()} disabled={!livre || !escolhido}>
+              {ocupado === "ativar" ? "Ativando…" : "Ativar webhook"}
+            </Botao>
+            <span className="campo__ajuda">
+              O ClickUp avisa o SAC quando alguém move um card. Isso só registra
+              o aviso no workspace escolhido.
+            </span>
+          </>
         )}
       </div>
 
       <details className="integracao__passos">
-        <summary>Conta de teste vazia</summary>
+        <summary>Jeito antigo: criar o Space de teste</summary>
         <p className="campo__ajuda">
-          Só quando o ClickUp ainda não tem lista nenhuma. Cria o Space “SAC
-          AISA”, uma lista por setor e o webhook. No ambiente real, use as
-          listas que já existem.
+          Era assim que o sistema fazia com a conta vazia: criava o Space “SAC
+          AISA”, uma lista por setor, os status e o webhook. No ClickUp que já
+          está em uso, não use isto.
         </p>
         <Botao
           variante="secundario"
