@@ -3,7 +3,7 @@
 > Product Requirements Document — o quê e por quê, não como.
 > Fonte: [x] Entrevista com usuário  [x] Leitura de código existente (sac-renato)  [x] Briefing e transcrição da reunião com o dono (gravação 82088628-1048-42c7-bd4c-d8e059124755, 21/10/2026)
 
-**Data**: 21/10/2026
+**Data**: 21/10/2026. Atualizado em 26/10/2026.
 **Responsável**: a definir (nome não informado na entrevista)
 
 ## 1. Resumo em uma frase
@@ -38,7 +38,7 @@ Fonte: entrevista. A frase sobre gestor e responsável foi registrada como dita;
 | Demais casos não ficam parados | Dias sem ação | Alerta em 3 dias (`ALERT_OUTROS_DIAS`) |
 | Custo alto vira prioridade | Valor da reclamação | Alerta acima de R$ 500 (`ALERT_CUSTO_ALTO`) |
 | O gestor decide com dados | Painel por setor, causa e produto, com tempo de resposta e resolução | Painel entregue com os KPIs aprovados pelo dono |
-| Cada reclamação aparece no ClickUp | Reclamações registradas com card criado automaticamente | 100% |
+| Cada reclamação iniciada no setor aparece no ClickUp | Reclamações encaminhadas com card criado automaticamente | 100% |
 
 Fonte: briefing (objetivos) + código atual (valores). Os valores marcados como sugestão vêm do sac-renato e foram aceitos na entrevista ("use todas sugeridas"); o dono ainda não os validou.
 
@@ -48,7 +48,7 @@ Fonte: briefing (objetivos) + código atual (valores). Os valores marcados como 
 
 - Preenchimento da reclamação com IA, em jornada interativa com a pessoa.
 - Direcionamento automático ao setor responsável, com ajuste manual.
-- Card criado automaticamente no ClickUp ao registrar.
+- Card no ClickUp quando a reclamação é iniciada no setor (sai da triagem ou de aguardando o cliente).
 - Acompanhamento do card no ClickUp (movimentação e resolução).
 - Notificação ao gestor quando a reclamação fica pendente além do limite.
 - Painel de KPIs e relatórios para decisão.
@@ -68,7 +68,7 @@ Fonte: briefing + entrevista.
 |---|---|---|
 | Registro assistido por IA | MVP | A IA conduz a jornada, pré-trata os dados e entrega o registro quase pronto |
 | Direcionamento por causa e setor | MVP | Causa define o setor, com troca manual (regra já existe no sistema atual) |
-| Integração ClickUp | MVP | Cria o card, lê a movimentação e a resolução |
+| Integração ClickUp | MVP | Cria o card quando o setor começa, na lista que já existe; lê a movimentação e a resolução |
 | Alertas ao gestor | MVP | Aviso por demora, com limites configuráveis |
 | Painel de KPIs | MVP | Tempo de resposta e de tratativa, setores e produtos com mais reclamação, custo |
 | Plano de ação por produto | MVP | Modelagem, embalagem, elétrica e outras categorias (existe em parte) |

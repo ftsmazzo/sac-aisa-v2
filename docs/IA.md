@@ -4,9 +4,9 @@
 > Fonte: [x] Reunião com o cliente (22/10/2026)  [x] PRD, TRD, Fluxo, Esquema e Plano  [x] Catálogo importado (`packages/importacao/dados/catalogo-produtos.txt`) e causas do domínio (`packages/domain/src/causas.ts`)
 > Depende de: [PRD](PRD.md), [TRD](TRD.md), [Fluxo do App](FLUXO-APP.md), [Esquema Backend](ESQUEMA-BACKEND.md), [Plano de Implementação](PLANO-IMPLEMENTACAO.md)
 
-**Data**: 22/10/2026
+**Data**: 22/10/2026. Atualizado em 26/10/2026.
 
-Este documento detalha as fases 5, 5a, 5b e 5c do plano. Só documentação: nenhum código foi escrito. Tudo aqui é **sugestão, não decisão**, até o cliente e o gestor confirmarem; o que já está decidido aparece na seção 1. A regra de fundo vem do `CLAUDE.md`: o modelo sugere, quem grava é a regra do sistema.
+A fatia 1 está na `main`: triagem na ficha, perguntas obrigatórias, perfil da empresa em `/admin/ia` e o registro de custo. A resposta final com casos parecidos (seção 5b) ainda não foi construída. O que segue além da fatia 1 continua **sugestão, não decisão**, até o cliente e o gestor confirmarem. A regra de fundo vem do `CLAUDE.md`: o modelo sugere, quem grava é a regra do sistema.
 
 ## 1. Visão
 

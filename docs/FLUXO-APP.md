@@ -4,7 +4,7 @@
 > Fonte: [x] Entrevista com usuário  [x] Leitura de código existente (sac-renato)
 > Depende de: [PRD](PRD.md)
 
-**Data**: 21/10/2026
+**Data**: 21/10/2026. Atualizado em 26/10/2026.
 
 Os perfis, as regras de decisão e as exceções abaixo são **sugestão**, não decisão: a pergunta sobre eles não foi respondida. As jornadas 3 e 4 seguem o que o cliente confirmou (dois estágios, setor definido pelo sistema, retorno do produto decidido pela análise).
 
@@ -42,7 +42,13 @@ A regra mora no domínio (`packages/domain/src/jornada.ts`) e o servidor a confe
 
 **ClickUp acompanha**: cada estado tem um status do card (mapa configurável em Integrações, com padrão). Mudar o estado no sistema atualiza o card. Mudar o card no ClickUp só vale para Recebida, Em tratativa e Resolvida no setor técnico, andando para a frente; mover para um estado do SAC, voltar atrás ou mexer antes de encaminhar é recusado e o card volta ao status certo. "Complete" no ClickUp vale como Resolvida no setor técnico, nunca como Finalizada.
 
-**Assistente do ClickUp** (Integrações, só administrador): com o token já gravado, o botão "Configurar ClickUp automaticamente" lista os workspaces, deixa a pessoa escolher um e monta o Space "SAC AISA" com os sete status, uma lista por setor ativo, o mapa setor → lista, o mapa estado → status e o webhook (HTTPS, evento de mudança de status). Cada passo aparece numa lista de progresso (ok, erro, atenção, não rodou); se um falha, o que já foi criado fica e "Continuar configuração" retoma sem duplicar. A tela mostra só "Webhook ativo" e os 4 últimos caracteres do segredo, com "Recriar webhook", "Remover webhook" e "Testar fluxo" (cria um card de teste, move o status e confere se o aviso chegou). No ClickUp real, use o token de um usuário de serviço: o webhook fica atrelado a quem o criou e para se essa pessoa for desativada.
+**Assistente do ClickUp** (Integrações, só administrador). O caminho da conta em uso, com o token já gravado: buscar os workspaces, trazer listas e status que já existem, conferir a lista de cada setor e gravar. Não cria Space, lista nem status. **Ativar webhook** registra o aviso no workspace (evento de mudança de status, sem `space_id`). Recriar o webhook não recria estrutura. A tela mostra "Webhook ativo" e os 4 últimos caracteres do segredo, com "Remover webhook" e "Testar fluxo" (cria um card de teste, move o status e confere se o aviso chegou; se o webhook não estiver ativo, essa etapa não roda e o card de teste é apagado). A conexão pode ser excluída, e a do ClickUp limpa as listas gravadas.
+
+**Jeito antigo**, recolhido na mesma tela: "Configurar ClickUp automaticamente" monta o Space "SAC AISA" com os sete status e uma lista por setor. Serve para uma conta de teste vazia.
+
+No ClickUp real, use o token de um usuário de serviço: o webhook fica atrelado a quem o criou e para se essa pessoa for desativada.
+
+O card nasce quando a reclamação sai de Triagem ou de Aguardando cliente. Até lá ela não aparece como erro na fila. Sem lista gravada para o setor, a fila diz o nome do setor e pede para gravar a lista que já existe; não se cria card à mão. Há lista padrão como reserva. Reclamação de treino não vai ao ClickUp, salvo se "Criar cards para reclamações de treino" estiver ligado.
 
 **Escopo**: SAC, gestor e administrador veem tudo. O responsável de setor vê só os setores do seu cadastro e, se o cadastro tiver marcas, só essas marcas (lista de marcas vazia = todas). O seletor de marca oferece só as marcas permitidas. O administrador define setores e marcas na tela de usuários.
 
@@ -77,7 +83,7 @@ Perfil: Operação
 3. A IA propõe o rascunho: produto, **bancada de origem**, causa e tipo de ocorrência.
 4. Decisão: se a IA tem confiança alta, o rascunho vem preenchido; se não, fica marcado "revisar causa" e não direciona sozinho.
 5. A pessoa confere, corrige e registra.
-6. O sistema sugere o **setor responsável** pela causa, cria o card no ClickUp e marca a reclamação como em tratativa. O gestor pode trocar o setor, e a troca fica registrada com autor e motivo. A ficha mostra a jornada: entrada, triagem, encaminhamento, análise, produto, resolução.
+6. O sistema sugere o **setor responsável** pela causa. A reclamação fica em Triagem. O card no ClickUp nasce quando ela é encaminhada ao setor. O gestor pode trocar o setor, e a troca fica registrada com autor e motivo. A ficha mostra o passo atual e a linha do tempo.
 
 Telas: nova reclamação, conferência do rascunho, detalhe da reclamação.
 Exceção: se a IA estiver fora do ar, o formulário funciona sem sugestão, com as regras de causa e setor do sistema.
@@ -118,7 +124,7 @@ Perfil: Responsável de setor, Operação, Gestor
 
 Prazos: meta de 2 dias até a ação; alerta aos 7 dias em "aguardando produto" e aos 3 dias nos demais casos. Custo acima de R$ 500 notifica o gestor na hora. Valores são sugestão do sistema atual.
 Telas: fila do setor, detalhe da reclamação, registro de análise e solução.
-Exceção: se o card no ClickUp for movido sem registro aqui, o sistema reflete a mudança e marca "atualizado pelo ClickUp". Se o setor não tiver lista no ClickUp, o card cai numa lista padrão e o administrador é avisado.
+Exceção: se o card no ClickUp for movido sem registro aqui, o sistema reflete a mudança e marca "atualizado pelo ClickUp". Se o setor não tiver lista gravada nem lista padrão, a fila nomeia o setor e a tentativa não é gasta; o card não se cria à mão.
 
 ### Jornada 4: Estágio 2, melhorar o produto ou o processo
 
@@ -153,7 +159,8 @@ Exceção: se faltar dado de bancada ou de causa, o painel mostra a reclamação
 Chegada (site | Mercado Livre | Shopee)
    -> IA monta o rascunho
    -> Operação confere e registra          (alerta ao gestor se demorar)
-   -> Sistema define setor responsável + cria card no ClickUp
+   -> Sistema define setor responsável
+   -> Ao encaminhar ao setor, cria o card no ClickUp
    -> ESTÁGIO 1  Setor analisa
         - produto volta?  sim -> aguardando produto -> recebido -> análise do produto
                           não -> segue

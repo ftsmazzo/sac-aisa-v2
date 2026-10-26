@@ -3,7 +3,7 @@
 > Roteiro de execução.
 > Depende de: [PRD](PRD.md), [TRD](TRD.md), [Fluxo do App](FLUXO-APP.md), [UI/UX](UIUX.md), [Esquema Backend](ESQUEMA-BACKEND.md)
 
-**Data**: 21/10/2026
+**Data**: 21/10/2026. Atualizado em 26/10/2026.
 
 A ordem das fases é **sugestão**, não decisão. Prazo e orçamento ficaram para depois; este plano é a base para montar o orçamento que o dono pediu. O escopo do PRD permanece: registro assistido por IA, direcionamento, ClickUp, marketplaces, painel de indicadores e interface nova.
 
@@ -15,7 +15,9 @@ A ordem das fases é **sugestão**, não decisão. Prazo e orçamento ficaram pa
 - Fase 2, fatia 1 (leitura): lista de reclamações com filtros, busca e paginação e ficha lateral somente leitura, sobre os dados importados.
 - Fase 2, fatia 2 (escrita): cadastro e edição de reclamação na ficha lateral (`POST` e `PATCH /reclamacoes`), com causa, setor e situação calculados pelo servidor e auditoria de quem mudou o quê.
 - Fase 2, fatia 3 (análise, fila e alertas): análise do setor na aba da ficha (`POST /reclamacoes/:id/analise` e `PATCH /reclamacoes/:id/analise/:analiseId`), com a decisão de retorno do produto comandando a devolução e a situação, setor tirado da reclamação e auditoria na mesma transação. Fila do setor (`GET /fila`, tela `/fila`) por urgência e alertas calculados na hora pelas regras do domínio (`GET /alertas`, tela `/alertas`, contagem no menu). Alerta ainda não é gravado em `alertas` nem enviado por WhatsApp ou ClickUp; o alerta de rascunho parado espera as capturas. Faltam as fotos.
-- Fase 3, fatia A (ClickUp e conexões): página `/admin/integracoes` (só administrador) para guardar e testar ClickUp, Mercado Livre, Shopee e OpenRouter, com segredos cifrados (`INTEGRACOES_CHAVE`); card automático no ClickUp ao registrar, com fila de nova tentativa e erro visível; webhook `/webhooks/clickup` com assinatura validada que atualiza a situação. Mercado Livre e Shopee só têm configuração e teste de credenciais; autorização da conta e captura ficam para a fase 6. Falta: card dos planos de ação, trocar a lista do card quando o setor muda e botão "tentar de novo agora".
+- Fase 3, fatia A (ClickUp e conexões): página `/admin/integracoes` (só administrador) para guardar e testar ClickUp, Mercado Livre, Shopee e OpenRouter, com segredos cifrados (`INTEGRACOES_CHAVE`); card no ClickUp quando a reclamação é iniciada no setor, com fila de nova tentativa, botão "Tentar de novo" e erro visível; webhook `/webhooks/clickup` com assinatura validada que atualiza a situação. O caminho normal traz workspaces, listas e status que já existem e liga o webhook no workspace, sem criar Space. Criar o Space "SAC AISA" ficou como caminho antigo, recolhido. Mercado Livre e Shopee têm configuração, teste de credenciais e captura com marketplace simulado; a autorização da conta real ainda é do dono. Falta o card dos planos de ação.
+- Tela inicial (`/`) com prazo, setor e o que está em movimento, no recorte da marca. Relatórios e mapa de calor da bancada estão feitos. Falta o filtro cruzado em que um clique filtra os demais gráficos.
+- Página `/admin/ia` com perfil da empresa e perguntas obrigatórias. A triagem na ficha sugere causa, setor e a pergunta; quem grava é a pessoa.
 - Pendente da base: GlitchTip (erros) e Uptime Kuma (monitor em `/health`, 60 s).
 
 ## 1. MVP
@@ -28,7 +30,7 @@ O produto gera valor quando uma reclamação é registrada, vai ao setor certo, 
 |---|---|---|---|
 | 1. Base de dados e acesso | Esquema v2 no Prisma (cadastros e reclamação), API NestJS, login com Argon2id e perfis (operação, responsável de setor, gestor, administrador), importação do sac-renato (402 reclamações, 22 causas, regras, de-para, usuários), pacote de domínio com testes (situação, custo, direcionamento), sistema de design e tema por marca | Alta | Aprovação do esquema; logos podem chegar depois |
 | 2. Núcleo da reclamação | Lista com ficha na frente (cadastro e edição), nova reclamação, fotos, auditoria, fila do setor, análise do setor com a decisão de retorno do produto, estágio 1 completo, alertas de demora | Alta | Fase 1 |
-| 3. ClickUp | Card automático ao registrar, mapa setor → lista, webhook de movimentação, sincronização de status com nova tentativa e erro registrado | Alta | Fase 2; token do ClickUp e a lista de espaços e listas por setor |
+| 3. ClickUp | Card quando a reclamação é iniciada no setor, mapa setor → lista já existente, webhook no workspace, sincronização de status com nova tentativa e erro registrado | Alta | Fase 2; token do ClickUp e as listas que a empresa já usa |
 | 4. Painel de indicadores | Filtro cruzado, bancada × ocorrência, tempo por setor, setores e produtos com mais reclamação, custo, atrasadas, relatórios | Alta | Fases 2 e 3; KPIs e metas aprovados pelo dono |
 | 5. IA no registro | Jornada guiada, rascunho com produto, bancada, causa e origem, sugestões com confiança, `IaRegistro` e taxa de aceite; falha da IA cai nas regras | Média | Fase 2; chave do OpenRouter |
 | 5a. Triagem por IA | Com os dados que vêm da API do canal (texto, pedido, SKU), a IA aponta o que falta para a reclamação ficar correta e propõe as perguntas, cada uma com botão "Copiar" para o atendente; sugere causa, setor, produto e bancada com a confiança; a pessoa confirma, a IA nunca grava | Alta | Fase 5; chave do OpenRouter |
@@ -60,7 +62,7 @@ Fases 3 e 5 podem andar em paralelo depois da 2, assim como o front e o back den
 
 - **Fase 1:** esquema migrado e importação conferida contra os totais do sistema atual (402 reclamações, 22 causas); login e perfis funcionando, com perfil recusado no servidor; testes de domínio verdes; CI verde; deploy no EasyPanel com `/health` ok.
 - **Fase 2:** uma reclamação percorre registro, análise do setor e resolução sem sair do sistema; o responsável de setor só vê o próprio setor; alertas de 7, 3 e 2 dias e de custo disparam nos casos de teste.
-- **Fase 3:** toda reclamação registrada cria um card na lista do setor certo; mover o card no ClickUp atualiza a situação aqui; falha do ClickUp deixa pendência visível e com nova tentativa.
+- **Fase 3:** a reclamação iniciada no setor cria um card na lista gravada daquele setor; mover o card no ClickUp atualiza a situação aqui; falha do ClickUp deixa pendência visível e com nova tentativa. Reclamação ainda na triagem não entra nessa fila.
 - **Fase 4:** clicar em um gráfico filtra o painel inteiro; os números batem com a lista; o gestor consegue responder "qual bancada concentra qual tipo de problema" e "qual setor demora a responder".
 - **Fase 5:** a IA preenche produto, bancada e causa; a pessoa só confirma; a taxa de aceite aparece no painel; sem IA, o formulário continua funcionando.
 - **Fase 6:** uma reclamação nova do canal aparece como rascunho pendente sem digitação; duplicata não é criada; atraso no registro avisa o gestor.
