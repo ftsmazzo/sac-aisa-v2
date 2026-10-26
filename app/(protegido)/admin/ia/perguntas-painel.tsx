@@ -374,7 +374,7 @@ export function PerguntasPainel({ inicial }: { inicial: RespostaPerguntas }) {
         </p>
         {categorias.map((c) => (
           <div key={c}>
-            <p className="ia-bloco__grupo">
+            <p className="ia-admin__grupo">
               {ROTULO_CATEGORIA[c] ?? (c || "Sem categoria")}
             </p>
             <ul className="ia-admin__lista">
@@ -382,22 +382,23 @@ export function PerguntasPainel({ inicial }: { inicial: RespostaPerguntas }) {
                 .filter((p) => p.categoria === c)
                 .map((p) => (
                   <li key={p.id} className="ia-admin__item">
-                    <span>
+                    <div className="ia-admin__item-corpo">
                       <strong>{p.texto}</strong>
-                      <br />
-                      <span className="pagina__apoio">
+                      <span className="ia-admin__item-regra">
                         {p.regras.map(resumoRegra).join("  ·  ") || "sem regra"}
                       </span>
-                    </span>
-                    {p.padrao && <Selo tom="atencao">Padrão</Selo>}
-                    {!p.ativa && <Selo tom="info">Desligada</Selo>}
-                    {!p.obrigatoria && <Selo tom="info">Opcional</Selo>}
-                    <Botao
-                      variante="secundario"
-                      onClick={() => setEdicao({ p, novo: false })}
-                    >
-                      Editar
-                    </Botao>
+                    </div>
+                    <div className="ia-admin__item-acoes">
+                      {p.padrao && <Selo tom="atencao">Padrão</Selo>}
+                      {!p.ativa && <Selo tom="info">Desligada</Selo>}
+                      {!p.obrigatoria && <Selo tom="info">Opcional</Selo>}
+                      <Botao
+                        variante="secundario"
+                        onClick={() => setEdicao({ p, novo: false })}
+                      >
+                        Editar
+                      </Botao>
+                    </div>
                   </li>
                 ))}
             </ul>
