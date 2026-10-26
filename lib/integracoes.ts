@@ -154,6 +154,8 @@ export interface ItemFilaClickup {
   ultimoErro: string | null;
   proximaTentativaEm: string | null;
   comentariosPendentes: number;
+  /** Setor responsável. Ausente em fila antiga ou em card de plano. */
+  setorNome?: string | null;
 }
 
 export interface FilaClickup {
@@ -189,4 +191,32 @@ export function proximaTentativa(i: ItemFilaClickup): string {
   if (i.estado === "esgotado") return "parou: use Tentar de novo";
   if (!i.proximaTentativaEm) return "na próxima passada";
   return formatarQuando(i.proximaTentativaEm);
+}
+
+/** O que a fila sem lista está esperando: o nome do setor, não um card novo. */
+export function textoDaFilaSemLista(itens: ItemFilaClickup[]): string {
+  const nomes = new Set<string>();
+  let semSetor = 0;
+  for (const i of itens) {
+    if (i.ultimoErro !== ERRO_SEM_LISTA) continue;
+    const nome = i.setorNome?.trim();
+    if (nome) nomes.add(nome);
+    else semSetor += 1;
+  }
+  const lista = [...nomes].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const partes = ["Nenhum card precisa ser criado à mão no ClickUp."];
+  if (lista.length > 0) {
+    partes.push(
+      `Falta gravar a lista que já existe para: ${lista.join(", ")}. Escolha em Lista de cada setor e clique em Gravar.`,
+    );
+  }
+  if (semSetor > 0) {
+    partes.push(
+      semSetor === 1
+        ? "Uma reclamação ainda não tem setor responsável."
+        : `${semSetor} reclamações ainda não têm setor responsável.`,
+    );
+  }
+  partes.push("Depois use Tentar de novo. A tentativa não foi gasta.");
+  return partes.join(" ");
 }

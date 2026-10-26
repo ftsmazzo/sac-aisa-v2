@@ -359,7 +359,9 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
         tentativas: true,
         ultimoErro: true,
         proximaTentativaEm: true,
-        reclamacao: { select: { numero: true } },
+        reclamacao: {
+          select: { numero: true, setorResp: { select: { nome: true } } },
+        },
         plano: { select: { titulo: true } },
         _count: { select: { comentarios: { where: { enviadoEm: null } } } },
       },
@@ -379,6 +381,7 @@ export class RepositorioClickupPrisma implements RepositorioClickup {
       ultimoErro: c.ultimoErro,
       proximaTentativaEm: c.proximaTentativaEm?.toISOString() ?? null,
       comentariosPendentes: c._count.comentarios,
+      setorNome: c.reclamacao?.setorResp?.nome?.trim() || null,
     }));
     const totais = { pendente: 0, erro: 0, esgotado: 0 };
     for (const i of itens) totais[i.estado] += 1;
