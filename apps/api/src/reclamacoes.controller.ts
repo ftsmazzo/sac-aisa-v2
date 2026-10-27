@@ -236,9 +236,9 @@ export class RepositorioEscritaPrisma implements RepositorioEscrita {
   async produtoPorCodigo(codigo: string) {
     const p = await this.prisma.produto.findUnique({
       where: { codigo },
-      select: { id: true },
+      select: { id: true, bancadaId: true },
     });
-    return p?.id ?? null;
+    return p ? { id: p.id, bancadaId: p.bancadaId } : null;
   }
 
   async obterAtual(

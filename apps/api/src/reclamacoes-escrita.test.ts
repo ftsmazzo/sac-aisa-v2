@@ -60,7 +60,7 @@ function repoFalso(atual?: { setorNome: string; estado: EstadoReclamacao }) {
       return REF;
     },
     async produtoPorCodigo(codigo) {
-      return codigo === "P1" ? "prod-1" : null;
+      return codigo === "P1" ? { id: "prod-1", bancadaId: "b1" } : null;
     },
     async obterAtual(where): Promise<RegistroAtual | null> {
       gravado.buscas.push(where);
@@ -182,6 +182,7 @@ describe("criar", () => {
     expect(g.estado.setorRespManual).toBe(false);
     expect(g.estado.causaManual).toBe(false);
     expect(g.estado.produtoId).toBe("prod-1");
+    expect(g.estado.bancadaId).toBe("b1");
     expect(g.estado.dataAbertura).toBe("2026-10-22");
     expect(g.situacao).toBe("tratativa");
   });

@@ -113,7 +113,9 @@ describe("conversão do backup", () => {
     expect(codigoBancada("SETOR 04.2")).toBe("04.2");
     expect(codigoBancada("ADMIN")).toBe("ADMIN");
     expect(codigoBancada("")).toBeNull();
+    // Reclamações (06, 04.2, ADMIN) + coluna 2 do catálogo (0).
     expect(tabelas.bancadas.map((b) => b.codigo).sort()).toEqual([
+      "0",
       "04.2",
       "06",
       "ADMIN",
@@ -126,6 +128,13 @@ describe("conversão do backup", () => {
     expect(rec(3)?.produtoId).toBeNull();
     expect(rec(7)?.produtoId).toBe("produto-z99");
     expect(tabelas.produtos.find((p) => p.codigo === "X01")?.ativo).toBe(false);
+    // Coluna 2 do catálogo (G48|0|...) vira bancada do produto.
+    expect(tabelas.produtos.find((p) => p.codigo === "G48")?.bancadaId).toBe(
+      "bancada-0",
+    );
+    expect(tabelas.bancadas.map((b) => b.codigo).sort()).toEqual(
+      expect.arrayContaining(["0", "04.2", "06", "ADMIN"]),
+    );
   });
 
   it("classifica pela regra quando o backup não definiu a causa", () => {
@@ -169,6 +178,7 @@ describe("conversão do backup", () => {
     expect(slug("Embalagem / Expedição")).toBe("embalagem-expedicao");
     expect(parseCatalogoProdutos(CATALOGO)[0]).toMatchObject({
       codigo: "G48",
+      codigoBancada: "0",
       categoria: "PRODUTO AISA",
       ativo: true,
     });
@@ -208,6 +218,22 @@ describe("gravação no banco com a migração real", () => {
           "prisma",
           "migrations",
           "20261025000000_jornada",
+          "migration.sql",
+        ),
+        "utf8",
+      ),
+    );
+    // Bancada de fabricação no produto (coluna 2 do catálogo).
+    await db.exec(
+      readFileSync(
+        join(
+          __dirname,
+          "..",
+          "..",
+          "..",
+          "prisma",
+          "migrations",
+          "20261027110000_produto_bancada",
           "migration.sql",
         ),
         "utf8",

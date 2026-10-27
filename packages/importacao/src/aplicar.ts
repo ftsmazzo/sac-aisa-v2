@@ -42,6 +42,7 @@ const ORDEM: Especificacao[] = [
       t("nome"),
       t("familia"),
       t("categoria"),
+      t("bancadaId"),
       t("ativo", "bool"),
     ],
   },
@@ -211,6 +212,14 @@ export async function aplicarTabelas(
       );
     }
     lidas[spec.tabela] = linhas.length;
+  }
+  // Produto já importado sem bancada: a coluna 2 do catálogo passa a preencher.
+  for (const p of tabelas.produtos) {
+    if (!p.bancadaId || !p.codigo) continue;
+    await exec(
+      `UPDATE "produtos" SET "bancadaId" = $1 WHERE codigo = $2 AND "bancadaId" IS NULL`,
+      [p.bancadaId, p.codigo],
+    );
   }
   // Os números importados são explícitos; a sequência precisa continuar depois do maior.
   await exec(
