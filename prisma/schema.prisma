@@ -139,6 +139,7 @@ model Bancada {
   nome   String  @default("")
   ativa  Boolean @default(true)
 
+  produtos    Produto[]
   reclamacoes Reclamacao[]
   planos      PlanoAcao[]
 
@@ -168,12 +169,16 @@ model Produto {
   nome      String
   familia   String   @default("")
   categoria String   @default("")
+  /// Bancada de fabricação do catálogo (coluna SETOR: G48|0|...).
+  bancadaId String?
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
 
+  bancada     Bancada?     @relation(fields: [bancadaId], references: [id])
   reclamacoes Reclamacao[]
   planos      PlanoAcao[]
 
+  @@index([bancadaId])
   @@map("produtos")
 }
 

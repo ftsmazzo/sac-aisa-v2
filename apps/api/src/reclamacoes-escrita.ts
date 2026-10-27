@@ -368,9 +368,15 @@ export interface TransicaoGravada {
   reabertura: boolean;
 }
 
+export type ProdutoPorCodigo = {
+  id: string;
+  /** Bancada de fabricação do cadastro; nula se o catálogo não trouxe. */
+  bancadaId: string | null;
+};
+
 export interface RepositorioEscrita {
   referencias(): Promise<Referencias>;
-  produtoPorCodigo(codigo: string): Promise<string | null>;
+  produtoPorCodigo(codigo: string): Promise<ProdutoPorCodigo | null>;
   obterAtual(where: Prisma.ReclamacaoWhereInput): Promise<RegistroAtual | null>;
   criar(args: {
     estado: EstadoReclamacao;
@@ -624,9 +630,18 @@ export class ServicoEscrita {
     if (entrada.produtoCodigo !== undefined) {
       if (entrada.produtoCodigo === null) e.produtoId = null;
       else {
-        const id = await this.repo.produtoPorCodigo(entrada.produtoCodigo);
-        if (!id) throw new ErroEscrita(400, "Produto não encontrado.");
-        e.produtoId = id;
+        const p = await this.repo.produtoPorCodigo(entrada.produtoCodigo);
+        if (!p) throw new ErroEscrita(400, "Produto não encontrado.");
+        e.produtoId = p.id;
+        // Igual ao Renato: só completa bancada vazia; não sobrescreve a escolhida.
+        if (
+          entrada.bancadaId === undefined &&
+          !e.bancadaId &&
+          p.bancadaId &&
+          ref.bancadas.has(p.bancadaId)
+        ) {
+          e.bancadaId = p.bancadaId;
+        }
       }
     }
 

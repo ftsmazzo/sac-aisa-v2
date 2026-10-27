@@ -164,9 +164,11 @@ export function parseCatalogoProdutos(texto: string) {
     .map((l) => l.trim())
     .filter(Boolean)
     .map((l) => {
-      const [cod, , nome, st, cat, fam] = l.split("|");
+      // COD|SETOR|NOME|STATUS|CAT|FAM — a coluna 2 é a bancada de fabricação.
+      const [cod, setor, nome, st, cat, fam] = l.split("|");
       return {
         codigo: limpar(cod),
+        codigoBancada: codigoBancada(setor),
         nome: limpar(nome),
         ativo: st !== "I",
         categoria: CATEGORIA_PRODUTO[limpar(cat)] ?? "",
@@ -246,13 +248,27 @@ export function converterBackup(
     setorId: setorId(c.setor),
   }));
 
+  const garantirBancada = (codigo: string) => {
+    if (!bancadas.has(codigo)) {
+      bancadas.set(codigo, {
+        id: `bancada-${slug(codigo)}`,
+        codigo,
+        nome: /^\d/.test(codigo) ? `Bancada ${codigo}` : codigo,
+        ativa: true,
+      });
+    }
+    return `bancada-${slug(codigo)}`;
+  };
+
   for (const p of parseCatalogoProdutos(opcoes.catalogoProdutos ?? "")) {
+    const bancadaId = p.codigoBancada ? garantirBancada(p.codigoBancada) : null;
     produtos.set(p.codigo, {
       id: `produto-${slug(p.codigo)}`,
       codigo: p.codigo,
       nome: p.nome,
       familia: p.familia,
       categoria: p.categoria,
+      bancadaId,
       ativo: p.ativo,
     });
   }
@@ -273,17 +289,6 @@ export function converterBackup(
       });
     }
     return `canal-${slug(def.nome)}`;
-  };
-  const garantirBancada = (codigo: string) => {
-    if (!bancadas.has(codigo)) {
-      bancadas.set(codigo, {
-        id: `bancada-${slug(codigo)}`,
-        codigo,
-        nome: /^\d/.test(codigo) ? `Bancada ${codigo}` : codigo,
-        ativa: true,
-      });
-    }
-    return `bancada-${slug(codigo)}`;
   };
 
   for (const r of backup.regs) {
@@ -315,6 +320,7 @@ export function converterBackup(
           nome: limpar(r.produto) || sku,
           familia: limpar(r.familia),
           categoria: "",
+          bancadaId,
           ativo: true,
         });
         relatorio.produtosCriadosDasReclamacoes++;

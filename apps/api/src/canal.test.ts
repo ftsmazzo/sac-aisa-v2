@@ -79,6 +79,7 @@ beforeAll(async () => {
     "20261025000000_jornada",
     "20261026000000_treino",
     "20261027000000_canal_captura",
+    "20261027110000_produto_bancada",
   ]) {
     await db.exec(migracao(m));
   }
@@ -86,12 +87,13 @@ beforeAll(async () => {
     INSERT INTO marcas (id, nome, ativa) VALUES ('m-aisa', 'AISA', true), ('m-art', 'ARTMAQ', true), ('m-ara', 'ARAUCA', true);
     INSERT INTO canais (id, nome, tipo) VALUES
       ('canal-mercado-livre', 'Mercado Livre', 'marketplace'), ('canal-shopee', 'Shopee', 'marketplace');
-    INSERT INTO produtos (id, codigo, nome, categoria) VALUES
-      ('p-g48', 'G48', 'Abafador de alumínio', 'PRODUTO AISA'),
-      ('p-m08', 'M08', 'Alicate pressão', 'PRODUTO AISA'),
-      ('p-b60', 'B60', 'Abafador Arauca', 'PRODUTO ARAUCA'),
-      ('p-m22', 'M22', 'Argola Fuxico', 'PRODUTO ARTMAQ'),
-      ('p-m74', 'M74', 'Espátula', 'PRODUTO AISA');
+    -- A migração produto_bancada já cria bancada-0; só ligamos o produto.
+    INSERT INTO produtos (id, codigo, nome, categoria, "bancadaId") VALUES
+      ('p-g48', 'G48', 'Abafador de alumínio', 'PRODUTO AISA', 'bancada-0'),
+      ('p-m08', 'M08', 'Alicate pressão', 'PRODUTO AISA', 'bancada-0'),
+      ('p-b60', 'B60', 'Abafador Arauca', 'PRODUTO ARAUCA', 'bancada-0'),
+      ('p-m22', 'M22', 'Argola Fuxico', 'PRODUTO ARTMAQ', 'bancada-0'),
+      ('p-m74', 'M74', 'Espátula', 'PRODUTO AISA', 'bancada-0');
     INSERT INTO reclamacoes (id, "canalId", "dataAbertura", "alteradoEm", descricao, "origemRegistro")
       VALUES ('real-1', 'canal-shopee', '2026-10-01', now(), 'Reclamação real do teste', 'web');
   `);
@@ -589,7 +591,7 @@ describe("captura: gravação, deduplicação e atualização", () => {
     const [l] = await exec(
       `SELECT r.estado::text AS estado, r.treino, r."origemRegistro" AS origem, r.pedido, r.descricao,
               r."prazoMarketplace"::text AS prazo, r."protocoloExterno" AS protocolo, r."camposCanal" AS campos,
-              r."clienteNome" AS cliente, r.cidade, r.uf, p.codigo, m.nome AS marca,
+              r."clienteNome" AS cliente, r.cidade, r.uf, r."bancadaId" AS bancada, p.codigo, m.nome AS marca,
               c.estorno::float AS estorno,
               (SELECT count(*)::int FROM reclamacao_fotos f WHERE f."reclamacaoId" = r.id) AS fotos,
               (SELECT count(*)::int FROM estado_historico h WHERE h."reclamacaoId" = r.id AND h.para = 'triagem') AS hist
@@ -606,6 +608,7 @@ describe("captura: gravação, deduplicação e atualização", () => {
       origem: "canal",
       codigo: "G48",
       marca: "AISA",
+      bancada: "bancada-0",
       prazo: "2026-10-25",
       protocolo: id,
       estorno: 289.9,

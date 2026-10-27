@@ -272,21 +272,30 @@ export class RepositorioCapturaSql implements RepositorioCaptura {
         return { acao: "atualizada", reclamacaoId };
       }
 
-      // Caso novo: produto pelo SKU (direto ou pelo de-para), marca pela categoria do produto.
-      let produto: { id: string; categoria: string } | null = null;
+      // Caso novo: produto pelo SKU (direto ou pelo de-para), marca pela categoria,
+      // bancada pelo cadastro do produto (como o completarCampos do sac-renato).
+      let produto: {
+        id: string;
+        categoria: string;
+        bancadaId: string | null;
+      } | null = null;
       if (caso.sku) {
         const p = await exec(
-          `SELECT id, categoria FROM produtos WHERE codigo = $1`,
+          `SELECT id, categoria, "bancadaId" FROM produtos WHERE codigo = $1`,
           [caso.sku],
         );
         const d = p.length
           ? p
           : await exec(
-              `SELECT p.id, p.categoria FROM sku_depara d JOIN produtos p ON p.codigo = d."skuDestino" WHERE d."skuOrigem" = $1`,
+              `SELECT p.id, p.categoria, p."bancadaId" FROM sku_depara d JOIN produtos p ON p.codigo = d."skuDestino" WHERE d."skuOrigem" = $1`,
               [caso.sku],
             );
         if (d.length) {
-          produto = { id: String(d[0].id), categoria: String(d[0].categoria) };
+          produto = {
+            id: String(d[0].id),
+            categoria: String(d[0].categoria),
+            bancadaId: d[0].bancadaId ? String(d[0].bancadaId) : null,
+          };
         }
       }
       const cat = produto?.categoria.toUpperCase() ?? "";
@@ -312,17 +321,18 @@ export class RepositorioCapturaSql implements RepositorioCaptura {
         .join(" ");
       const linha = await exec(
         `INSERT INTO reclamacoes
-           (id, "canalId", "marcaId", "produtoId", estado, "estadoDesde", "prazoMarketplace", "dataAbertura",
+           (id, "canalId", "marcaId", "produtoId", "bancadaId", estado, "estadoDesde", "prazoMarketplace", "dataAbertura",
             descricao, observacao, pedido, "clienteNome", cidade, uf, "protocoloExterno",
             "origemRegistro", treino, "camposCanal", "criadoEm", "alteradoEm")
-         VALUES ($1, $2, $3, $4, 'triagem'::"EstadoJornada", $5::timestamp, $6::date, $7::date,
-            $8, $9, $10, $11, $12, $13, $14, 'canal', $15::boolean, $16::jsonb, $5::timestamp, $5::timestamp)
+         VALUES ($1, $2, $3, $4, $5, 'triagem'::"EstadoJornada", $6::timestamp, $7::date, $8::date,
+            $9, $10, $11, $12, $13, $14, $15, 'canal', $16::boolean, $17::jsonb, $6::timestamp, $6::timestamp)
          RETURNING numero`,
         [
           id,
           canalId,
           marca.length ? String(marca[0].id) : null,
           produto?.id ?? null,
+          produto?.bancadaId ?? null,
           agoraTs,
           caso.prazoMarketplace,
           abertura,
