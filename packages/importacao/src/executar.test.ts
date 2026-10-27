@@ -123,6 +123,22 @@ describe("execução contra o banco", () => {
         "utf8",
       ),
     );
+    // Bancada de fabricação no produto (coluna 2 do catálogo).
+    await db.exec(
+      readFileSync(
+        join(
+          __dirname,
+          "..",
+          "..",
+          "..",
+          "prisma",
+          "migrations",
+          "20261027110000_produto_bancada",
+          "migration.sql",
+        ),
+        "utf8",
+      ),
+    );
   });
 
   afterAll(async () => {

@@ -164,6 +164,22 @@ describe("gravação em lotes no banco", () => {
         "utf8",
       ),
     );
+    // Bancada de fabricação no produto (coluna 2 do catálogo).
+    await db.exec(
+      readFileSync(
+        join(
+          __dirname,
+          "..",
+          "..",
+          "..",
+          "prisma",
+          "migrations",
+          "20261027110000_produto_bancada",
+          "migration.sql",
+        ),
+        "utf8",
+      ),
+    );
     await aplicarTabelas((sql, params) => db.query(sql, params), tabelas);
   });
 
