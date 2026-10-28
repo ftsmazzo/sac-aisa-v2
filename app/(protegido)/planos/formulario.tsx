@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Botao } from "@/components/ui";
-import { criarPlano, medirPlano } from "./acoes";
+import { criarPlano, medirPlano, sugerirPlano } from "./acoes";
 
 export type PrefillPlano = {
   titulo: string;
@@ -37,8 +37,13 @@ export function FormularioPlano({
 }) {
   const router = useRouter();
   const [erro, setErro] = useState<string | null>(null);
+  const [avisoIa, setAvisoIa] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
+  const [sugerindo, setSugerindo] = useState(false);
   const [causaId, setCausaId] = useState(prefill?.causaId ?? "");
+  const [titulo, setTitulo] = useState(prefill?.titulo ?? "");
+  const [descricao, setDescricao] = useState(prefill?.descricao ?? "");
+  const [prioridade, setPrioridade] = useState("media");
   const [idsVinculo, setIdsVinculo] = useState(
     (prefill?.reclamacaoIds ?? []).join(","),
   );
@@ -56,6 +61,47 @@ export function FormularioPlano({
       (baselineInicial || baselineFinal) &&
       (de !== baselineInicial || ate !== baselineFinal)
     );
+  }
+
+  function pedirSugestao(dados: FormData) {
+    setErro(null);
+    setAvisoIa(null);
+    setSugerindo(true);
+    iniciar(async () => {
+      try {
+        const idsBrutos = String(dados.get("reclamacaoIds") ?? "").trim();
+        const r = await sugerirPlano({
+          sku: prefill?.sku,
+          produtoId: String(dados.get("produtoId") ?? "") || undefined,
+          causaId: String(dados.get("causaId") ?? "") || undefined,
+          bancadaId: String(dados.get("bancadaId") ?? "") || undefined,
+          baselineInicio:
+            String(dados.get("baselineInicio") ?? "") || undefined,
+          baselineFim: String(dados.get("baselineFim") ?? "") || undefined,
+          reclamacaoIds: idsBrutos
+            ? idsBrutos
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : undefined,
+        });
+        if (!r.ok) {
+          setErro(r.mensagem);
+          return;
+        }
+        setTitulo(r.titulo);
+        setDescricao(r.descricao);
+        setPrioridade(r.prioridade);
+        const msgs = [
+          r.aviso,
+          ...r.avisos,
+          r.fonte === "ia" ? "Sugestão da IA — revise antes de gravar." : null,
+        ].filter(Boolean);
+        setAvisoIa(msgs.join(" "));
+      } finally {
+        setSugerindo(false);
+      }
+    });
   }
 
   function gravar(dados: FormData) {
@@ -130,7 +176,8 @@ export function FormularioPlano({
           name="titulo"
           required
           maxLength={160}
-          defaultValue={prefill?.titulo ?? ""}
+          value={titulo}
+          onChange={(e) => setTitulo(e.target.value)}
         />
       </div>
       <div className="planos__campo">
@@ -138,8 +185,9 @@ export function FormularioPlano({
         <textarea
           id="plano-descricao"
           name="descricao"
-          rows={4}
-          defaultValue={prefill?.descricao ?? ""}
+          rows={6}
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
         />
         {acaoDaCausa && (
           <p className="campo__ajuda">Ação sugerida da causa: {acaoDaCausa}</p>
@@ -196,7 +244,12 @@ export function FormularioPlano({
         </div>
         <div className="planos__campo">
           <label htmlFor="plano-prioridade">Prioridade</label>
-          <select id="plano-prioridade" name="prioridade" defaultValue="media">
+          <select
+            id="plano-prioridade"
+            name="prioridade"
+            value={prioridade}
+            onChange={(e) => setPrioridade(e.target.value)}
+          >
             <option value="baixa">Baixa</option>
             <option value="media">Média</option>
             <option value="alta">Alta</option>
@@ -236,8 +289,24 @@ export function FormularioPlano({
           {erro}
         </p>
       )}
+      {avisoIa && (
+        <p className="aviso aviso--info" role="status">
+          {avisoIa}
+        </p>
+      )}
       <div className="planos__acoes">
-        <Botao type="submit" disabled={pendente}>
+        <Botao
+          type="button"
+          variante="secundario"
+          disabled={pendente || sugerindo || !(prefill?.produtoId || causaId)}
+          onClick={(e) => {
+            const form = (e.target as HTMLElement).closest("form");
+            if (form) pedirSugestao(new FormData(form));
+          }}
+        >
+          {sugerindo ? "Sugerindo…" : "Sugerir com IA"}
+        </Botao>
+        <Botao type="submit" disabled={pendente || sugerindo}>
           Gravar plano
         </Botao>
       </div>
