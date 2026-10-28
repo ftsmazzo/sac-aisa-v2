@@ -18,6 +18,9 @@ import {
   tituloPlanoDoSku,
 } from "@sac-aisa/domain";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
+import { fonteOpenRouter } from "./ia/ia.controller";
+import { ServicoPlanoIa } from "./ia/plano-sugerir";
+import { ProvedorOpenRouter } from "./ia/provedor";
 import { ServicoIntegracoes } from "./integracoes";
 import { filtroDeTreino } from "./reclamacoes";
 
@@ -309,6 +312,49 @@ export class ControladorPlanos {
       ocorrencias: casos.length,
       modoTreino: u.modoTreino === true,
     };
+  }
+
+  /**
+   * Duas etapas de IA: modelo barato sintetiza os casos; modelo principal redige o plano.
+   * Sem chave ou no limite, devolve a ação sugerida da causa (regra).
+   */
+  @Requer("planos.gerir")
+  @Post("sugerir")
+  async sugerir(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    const u = usuarioDe(req);
+    const c =
+      typeof corpo === "object" && corpo !== null
+        ? (corpo as Record<string, unknown>)
+        : {};
+    const ids = Array.isArray(c.reclamacaoIds)
+      ? c.reclamacaoIds.filter(
+          (x): x is string => typeof x === "string" && ID.test(x),
+        )
+      : [];
+    const servico = new ServicoPlanoIa(
+      this.prisma,
+      fonteOpenRouter(this.integr),
+      (chave) =>
+        new ProvedorOpenRouter(
+          chave,
+          undefined,
+          process.env.PUBLIC_API_URL || "https://sac-aisa.local",
+        ),
+      process.env,
+    );
+    const r = await servico.sugerir(u, {
+      sku: typeof c.sku === "string" ? c.sku : undefined,
+      produtoId: typeof c.produtoId === "string" ? c.produtoId : undefined,
+      causaId: typeof c.causaId === "string" ? c.causaId : undefined,
+      bancadaId: typeof c.bancadaId === "string" ? c.bancadaId : undefined,
+      baselineInicio:
+        typeof c.baselineInicio === "string" ? c.baselineInicio : undefined,
+      baselineFim:
+        typeof c.baselineFim === "string" ? c.baselineFim : undefined,
+      reclamacaoIds: ids,
+    });
+    if (!r.ok) throw new BadRequestException(r.mensagem);
+    return r;
   }
 
   @Requer("planos.gerir")

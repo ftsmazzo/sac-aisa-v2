@@ -69,6 +69,8 @@ Cada etapa:
 | 2. Perguntas | Faltantes (texto e exemplo de cada), perfil de tom, canal | `mensagem`, `perguntaIds[]` cobertas | Nenhuma | Só se houver faltantes; ao abrir a ficha ou ao clicar |
 | 3. Resposta final | Solução do setor, política da causa, perfil e exemplos aprovados, casos parecidos, canal | `mensagem` com `{{nome_cliente}}`, `casoIds[]` usados, `avisos[]` | `buscarCasosParecidos` (ou já embutido) | Quando há solução registrada, ao clicar "Sugerir resposta" |
 | 4. Insights | Só números agregados e rótulos (nunca texto de reclamação) | `resumo`, `padroes[]` com contagem e origem da causa | Nenhuma | Semanal (fila agendada) e sob demanda do gestor |
+| 5a. Síntese do plano | SKU, causa, ação sugerida, PPM/contagens e até 15 trechos de reclamação **já redigidos** (sem PII) | `padroes[]`, `hipoteses[]`, `evidencias[]`, `lacunas[]`, `resumo` | Nenhuma | Sob demanda em `/planos` ("Sugerir com IA"); modelo barato (`modeloSintese` / `OPENROUTER_MODELO_SINTESE`, padrão `gpt-4o-mini`) |
+| 5b. Redação do plano | Âncora + síntese da 5a | `titulo`, `descricao`, `prioridade`, `avisos[]` | Nenhuma | Em seguida da 5a; modelo principal (`modeloPlano` / `OPENROUTER_MODELO_PLANO` ou o modelo do cartão OpenRouter). Pessoa revisa e grava; a regra mede o efeito depois |
 
 A chamada ao modelo falha por tempo, por esquema inválido ou por limite de custo: o sistema registra em `IaRegistro` (com o erro), segue sem sugestão e a tela mostra o formulário normal. Uma nova tentativa só em erro de rede ou esquema, no máximo uma vez.
 
