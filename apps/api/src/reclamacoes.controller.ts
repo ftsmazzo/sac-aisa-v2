@@ -131,7 +131,7 @@ export class RepositorioReclamacoesPrisma implements RepositorioReclamacoes {
       }),
       this.prisma.causa.findMany({
         orderBy: [{ categoria: "asc" }, { ordem: "asc" }],
-        select: { id: true, nome: true, categoria: true },
+        select: { id: true, nome: true, categoria: true, acao: true },
       }),
       this.prisma.bancada.findMany({
         where: { ativa: true },

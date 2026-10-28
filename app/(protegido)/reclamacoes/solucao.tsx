@@ -30,7 +30,7 @@ export function FormularioSolucao({
   setorNome: string;
   causaSugerida: string | null;
   causaManual: boolean;
-  causas: { id: string; nome: string; categoria: string }[];
+  causas: { id: string; nome: string; categoria: string; acao?: string }[];
   inicial: ValoresSolucao;
   depois: string;
 }) {
@@ -40,6 +40,10 @@ export function FormularioSolucao({
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const sujo = JSON.stringify(v) !== JSON.stringify(inicial);
+  const causaAtiva =
+    v.causaId || causas.find((c) => c.nome === causaSugerida)?.id;
+  const acaoSugerida =
+    causas.find((c) => c.id === causaAtiva)?.acao?.trim() || "";
 
   const texto = (k: Texto) => ({
     id: `${base}-${k}`,
@@ -124,6 +128,11 @@ export function FormularioSolucao({
               A causa sugerida vem do texto da triagem. Escolher outra não tira
               a reclamação do setor; para isso, troque o setor na triagem.
             </p>
+            {acaoSugerida && (
+              <p className="campo__ajuda" data-testid="acao-sugerida">
+                Ação sugerida: {acaoSugerida}
+              </p>
+            )}
           </div>
           <div className="campo">
             <label className="campo__rotulo" htmlFor={`${base}-procedencia`}>

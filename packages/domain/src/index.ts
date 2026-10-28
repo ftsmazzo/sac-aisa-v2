@@ -9,6 +9,7 @@ export * from "./jornada";
 export * from "./painel";
 export * from "./perguntas";
 export * from "./permissoes";
+export * from "./plano-criar";
 export * from "./relogios";
 export * from "./resposta-final";
 export * from "./similares";

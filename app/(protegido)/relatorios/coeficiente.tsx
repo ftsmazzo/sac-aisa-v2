@@ -94,11 +94,27 @@ function Grupo({
   );
 }
 
-/** Coeficiente de defeito no relatório. Não abre plano a partir do SKU. */
-export function PainelCoeficiente({ dados }: { dados: CoeficienteApi }) {
+/** Coeficiente de defeito no relatório. SKU acima do limite pode abrir plano. */
+export function PainelCoeficiente({
+  dados,
+  periodo,
+  podeAbrirPlano = false,
+}: {
+  dados: CoeficienteApi;
+  periodo?: { de?: string; ate?: string };
+  podeAbrirPlano?: boolean;
+}) {
   const t = dados.totais;
   const comCaso = dados.porSku.filter((l) => l.reclamacoes > 0);
   const amostra = comCaso.slice(0, 80);
+
+  function hrefPlano(sku: string) {
+    const q = new URLSearchParams({ sku, origem: "kpi" });
+    if (periodo?.de) q.set("de", periodo.de);
+    if (periodo?.ate) q.set("ate", periodo.ate);
+    return `/planos?${q}`;
+  }
+
   return (
     <section
       className="relatorio__bloco coeficiente-bloco"
@@ -155,6 +171,7 @@ export function PainelCoeficiente({ dados }: { dados: CoeficienteApi }) {
                 <th scope="col" className="num">
                   PPM
                 </th>
+                {podeAbrirPlano && <th scope="col">Plano</th>}
               </tr>
             </thead>
             <tbody>
@@ -178,6 +195,17 @@ export function PainelCoeficiente({ dados }: { dados: CoeficienteApi }) {
                   <td className={`num${l.semVenda ? " sem-venda" : ""}`}>
                     {l.semVenda ? "Sem venda" : ppm(l.ppm)}
                   </td>
+                  {podeAbrirPlano && (
+                    <td>
+                      {l.acimaLimite ? (
+                        <a className="link-plano" href={hrefPlano(l.sku)}>
+                          Abrir plano
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

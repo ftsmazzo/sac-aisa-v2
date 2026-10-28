@@ -20,11 +20,21 @@
 .planos .ficha__subtitulo {
   margin: 0;
 }
+.planos__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 16px;
+}
 .planos__campo {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+}
+.planos .campo__ajuda {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
 }
 .planos__campo label {
   font-weight: 600;

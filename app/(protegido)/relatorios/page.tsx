@@ -239,7 +239,11 @@ export default async function Relatorios({
           <VisaoGrafica r={r} filtros={filtros} />
 
           {coef.ok ? (
-            <PainelCoeficiente dados={coef.dados} />
+            <PainelCoeficiente
+              dados={coef.dados}
+              periodo={{ de: filtros.de, ate: filtros.ate }}
+              podeAbrirPlano={usuario.permissoes.includes("planos.gerir")}
+            />
           ) : (
             <p className="aviso aviso--erro" role="alert">
               Não foi possível calcular o coeficiente de defeito.
