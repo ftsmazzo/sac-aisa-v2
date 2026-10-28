@@ -112,7 +112,11 @@ export function lerEntradaPlano(
     return { ok: false, mensagem: "Prazo inválido." };
   }
   const baselineInicio = diaOpcional(c.baselineInicio);
-  if (c.baselineInicio != null && String(c.baselineInicio).trim() && !baselineInicio) {
+  if (
+    c.baselineInicio != null &&
+    String(c.baselineInicio).trim() &&
+    !baselineInicio
+  ) {
     return { ok: false, mensagem: "Início do período inválido." };
   }
   const baselineFim = diaOpcional(c.baselineFim);

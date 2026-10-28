@@ -4,11 +4,7 @@ import type { OpcoesFiltro } from "@/lib/reclamacoes";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import type { ParamsUrl } from "@/lib/reclamacoes-formato";
 import { obterUsuario } from "@/lib/sessao";
-import {
-  BotaoEfeito,
-  FormularioPlano,
-  type PrefillPlano,
-} from "./formulario";
+import { BotaoEfeito, FormularioPlano, type PrefillPlano } from "./formulario";
 import "./planos.css";
 
 interface Plano {
@@ -99,27 +95,26 @@ export default async function Planos({
   ]);
   if (!lista.ok && lista.status === 401) redirect("/login");
   const itens = lista.ok ? lista.dados.itens : [];
-  const prefill: PrefillPlano | null =
-    prefillResp && prefillResp.ok
-      ? {
-          sku: prefillResp.dados.sku,
-          produtoNome: prefillResp.dados.produtoNome,
-          bancada: prefillResp.dados.bancada,
-          causaNome: prefillResp.dados.causaNome,
-          acao: prefillResp.dados.acao,
-          ocorrencias: prefillResp.dados.ocorrencias,
-          reclamacaoIds: prefillResp.dados.reclamacaoIds ?? [],
-          causaId: prefillResp.dados.causaId ?? "",
-          produtoId: prefillResp.dados.produtoId ?? "",
-          bancadaId: prefillResp.dados.bancadaId ?? "",
-          setorRespId: prefillResp.dados.setorRespId ?? "",
-          titulo: prefillResp.dados.titulo ?? "",
-          descricao: prefillResp.dados.descricao ?? "",
-          origem: prefillResp.dados.origem ?? "kpi",
-          baselineInicio: prefillResp.dados.baselineInicio ?? "",
-          baselineFim: prefillResp.dados.baselineFim ?? "",
-        }
-      : null;
+  const prefill: PrefillPlano | null = prefillResp?.ok
+    ? {
+        sku: prefillResp.dados.sku,
+        produtoNome: prefillResp.dados.produtoNome,
+        bancada: prefillResp.dados.bancada,
+        causaNome: prefillResp.dados.causaNome,
+        acao: prefillResp.dados.acao,
+        ocorrencias: prefillResp.dados.ocorrencias,
+        reclamacaoIds: prefillResp.dados.reclamacaoIds ?? [],
+        causaId: prefillResp.dados.causaId ?? "",
+        produtoId: prefillResp.dados.produtoId ?? "",
+        bancadaId: prefillResp.dados.bancadaId ?? "",
+        setorRespId: prefillResp.dados.setorRespId ?? "",
+        titulo: prefillResp.dados.titulo ?? "",
+        descricao: prefillResp.dados.descricao ?? "",
+        origem: prefillResp.dados.origem ?? "kpi",
+        baselineInicio: prefillResp.dados.baselineInicio ?? "",
+        baselineFim: prefillResp.dados.baselineFim ?? "",
+      }
+    : null;
   const avisoPrefill =
     sku && prefillResp && !prefillResp.ok
       ? prefillResp.mensagem || "Não foi possível pré-preencher pelo SKU."
@@ -166,9 +161,12 @@ export default async function Planos({
                   </Selo>
                 </div>
                 <p className="planos__meta">
-                  {[p.causa, p.produto, p.origem, p.vinculados
-                    ? `${p.vinculados} vinculado(s)`
-                    : null]
+                  {[
+                    p.causa,
+                    p.produto,
+                    p.origem,
+                    p.vinculados ? `${p.vinculados} vinculado(s)` : null,
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>

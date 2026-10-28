@@ -40,7 +40,8 @@ export function FormularioSolucao({
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const sujo = JSON.stringify(v) !== JSON.stringify(inicial);
-  const causaAtiva = v.causaId || causas.find((c) => c.nome === causaSugerida)?.id;
+  const causaAtiva =
+    v.causaId || causas.find((c) => c.nome === causaSugerida)?.id;
   const acaoSugerida =
     causas.find((c) => c.id === causaAtiva)?.acao?.trim() || "";
 

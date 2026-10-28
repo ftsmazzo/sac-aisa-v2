@@ -167,9 +167,7 @@ export class ControladorPlanos {
         status: p.status,
         origem: p.origem,
         causa: p.causa?.nome ?? null,
-        produto: p.produto
-          ? `${p.produto.codigo} · ${p.produto.nome}`
-          : null,
+        produto: p.produto ? `${p.produto.codigo} · ${p.produto.nome}` : null,
         vinculados: p._count.reclamacoes,
         efeito: p.efeitos[0]
           ? {
@@ -217,7 +215,10 @@ export class ControladorPlanos {
         },
       }));
     if (!produto) throw new NotFoundException("Produto não encontrado.");
-    const fim = query.ate && DIA_ISO.test(query.ate) ? diaIso(query.ate) : dia(new Date());
+    const fim =
+      query.ate && DIA_ISO.test(query.ate)
+        ? diaIso(query.ate)
+        : dia(new Date());
     const inicio =
       query.de && DIA_ISO.test(query.de)
         ? diaIso(query.de)
@@ -296,7 +297,7 @@ export class ControladorPlanos {
     if (!lido.ok) throw new BadRequestException(lido.mensagem);
     const e = lido.valor;
 
-    let produtoId = e.produtoId;
+    const produtoId = e.produtoId;
     let bancadaId = e.bancadaId;
     let setorRespId = e.setorRespId;
     let descricao = e.descricao;

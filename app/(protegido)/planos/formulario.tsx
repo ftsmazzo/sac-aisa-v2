@@ -66,7 +66,10 @@ export function FormularioPlano({
         ? ""
         : String(dados.get("reclamacaoIds") ?? "").trim();
       const reclamacaoIds = idsBrutos
-        ? idsBrutos.split(",").map((s) => s.trim()).filter(Boolean)
+        ? idsBrutos
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
         : [];
       if (periodoMudou(dados)) setIdsVinculo("");
       const r = await criarPlano({
@@ -96,7 +99,9 @@ export function FormularioPlano({
   return (
     <form action={gravar} className="cartao">
       <h2 className="ficha__subtitulo">
-        {prefill?.origem === "kpi" ? "Novo plano a partir do coeficiente" : "Novo plano"}
+        {prefill?.origem === "kpi"
+          ? "Novo plano a partir do coeficiente"
+          : "Novo plano"}
       </h2>
       {prefill?.sku && (
         <p className="pagina__apoio">
@@ -188,11 +193,7 @@ export function FormularioPlano({
         </div>
         <div className="planos__campo">
           <label htmlFor="plano-prioridade">Prioridade</label>
-          <select
-            id="plano-prioridade"
-            name="prioridade"
-            defaultValue="media"
-          >
+          <select id="plano-prioridade" name="prioridade" defaultValue="media">
             <option value="baixa">Baixa</option>
             <option value="media">Média</option>
             <option value="alta">Alta</option>
@@ -200,11 +201,7 @@ export function FormularioPlano({
         </div>
         <div className="planos__campo">
           <label htmlFor="plano-responsavel">Responsável</label>
-          <input
-            id="plano-responsavel"
-            name="responsavel"
-            maxLength={120}
-          />
+          <input id="plano-responsavel" name="responsavel" maxLength={120} />
         </div>
         <div className="planos__campo">
           <label htmlFor="plano-prazo">Prazo</label>
