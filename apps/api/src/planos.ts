@@ -19,6 +19,7 @@ import {
 } from "@sac-aisa/domain";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
 import { ServicoIntegracoes } from "./integracoes";
+import { filtroDeTreino } from "./reclamacoes";
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DIA = 86_400_000;
@@ -188,7 +189,11 @@ export class ControladorPlanos {
    */
   @Requer("planos.gerir")
   @Get("preencher")
-  async preencher(@Query() query: Record<string, string | undefined>) {
+  async preencher(
+    @Query() query: Record<string, string | undefined>,
+    @Req() req: PedidoComUsuario,
+  ) {
+    const u = usuarioDe(req);
     const sku = (query.sku ?? "").trim();
     if (!sku || sku.length > 64) {
       throw new BadRequestException("Informe o SKU do produto.");
@@ -215,6 +220,9 @@ export class ControladorPlanos {
         },
       }));
     if (!produto) throw new NotFoundException("Produto não encontrado.");
+    const temPeriodo =
+      (query.de && DIA_ISO.test(query.de)) ||
+      (query.ate && DIA_ISO.test(query.ate));
     const fim =
       query.ate && DIA_ISO.test(query.ate)
         ? diaIso(query.ate)
@@ -222,14 +230,22 @@ export class ControladorPlanos {
     const inicio =
       query.de && DIA_ISO.test(query.de)
         ? diaIso(query.de)
-        : new Date(fim.getTime() - 30 * DIA);
+        : temPeriodo
+          ? new Date(fim.getTime() - 30 * DIA)
+          : new Date(fim.getTime() - 365 * DIA);
     if (inicio.getTime() > fim.getTime()) {
       throw new BadRequestException("O período do plano está invertido.");
     }
+    // Mesma visão do coeficiente/relatório: modo treino só vê treino.
     const casos = await this.prisma.reclamacao.findMany({
       where: {
         rascunho: false,
-        treino: false,
+        ...filtroDeTreino({
+          perfil: u.perfil,
+          setores: u.setores,
+          marcas: u.marcas,
+          treino: u.modoTreino,
+        }),
         produtoId: produto.id,
         dataAbertura: { gte: inicio, lte: fim },
       },
@@ -267,6 +283,11 @@ export class ControladorPlanos {
     const doRecorte = causaId
       ? casos.filter((c) => c.causaId === causaId).slice(0, MAX_VINCULOS)
       : casos.slice(0, MAX_VINCULOS);
+    const descricao =
+      acao ||
+      (casos.length > 0
+        ? `Investigar a causa raiz das ${casos.length} ocorrência(s) do SKU ${produto.codigo} e definir ações preventivas no processo.`
+        : `Investigar a causa raiz das reclamações do SKU ${produto.codigo} e definir ações preventivas no processo.`);
     return {
       sku: produto.codigo,
       produtoId: produto.id,
@@ -280,12 +301,13 @@ export class ControladorPlanos {
       acao,
       setorRespId,
       titulo: tituloPlanoDoSku(produto.codigo, produto.nome),
-      descricao: acao,
+      descricao,
       origem: "kpi" as const,
       baselineInicio: inicio.toISOString().slice(0, 10),
       baselineFim: fim.toISOString().slice(0, 10),
       reclamacaoIds: doRecorte.map((c) => c.id),
       ocorrencias: casos.length,
+      modoTreino: u.modoTreino === true,
     };
   }
 
@@ -348,6 +370,13 @@ export class ControladorPlanos {
       ? diaIso(e.baselineInicio)
       : new Date(fim.getTime() - 30 * DIA);
 
+    const filtroTreino = filtroDeTreino({
+      perfil: u.perfil,
+      setores: u.setores,
+      marcas: u.marcas,
+      treino: u.modoTreino,
+    });
+
     let reclamacaoIds = e.reclamacaoIds;
     // Autovínculo só no fluxo KPI (coeficiente). Manual só vincula IDs explícitos.
     if (
@@ -358,7 +387,7 @@ export class ControladorPlanos {
       const ligados = await this.prisma.reclamacao.findMany({
         where: {
           rascunho: false,
-          treino: false,
+          ...filtroTreino,
           dataAbertura: { gte: inicio, lte: fim },
           ...(produtoId ? { produtoId } : {}),
           ...(e.causaId ? { causaId: e.causaId } : {}),
@@ -371,7 +400,11 @@ export class ControladorPlanos {
       reclamacaoIds = ligados.map((r) => r.id);
     } else if (reclamacaoIds.length > 0) {
       const ok = await this.prisma.reclamacao.findMany({
-        where: { id: { in: reclamacaoIds }, rascunho: false },
+        where: {
+          id: { in: reclamacaoIds },
+          rascunho: false,
+          ...filtroTreino,
+        },
         select: { id: true },
       });
       if (ok.length !== reclamacaoIds.length) {

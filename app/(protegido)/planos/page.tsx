@@ -136,6 +136,11 @@ export default async function Planos({
       )}
       {podeGerir && (
         <FormularioPlano
+          key={
+            prefill
+              ? `kpi-${prefill.sku}-${prefill.baselineInicio}-${prefill.baselineFim}-${prefill.causaId}`
+              : "manual"
+          }
           causas={opcoes.ok ? opcoes.dados.causas : []}
           setores={opcoes.ok ? opcoes.dados.setores : []}
           bancadas={opcoes.ok ? opcoes.dados.bancadas : []}

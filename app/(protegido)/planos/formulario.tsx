@@ -115,6 +115,9 @@ export function FormularioPlano({
             : prefill.origem === "kpi"
               ? " · vínculos pelo período ao gravar"
               : ""}
+          {prefill.ocorrencias === 0
+            ? " · nenhuma reclamação neste recorte (confira o modo treino e as datas)"
+            : ""}
         </p>
       )}
       <input type="hidden" name="produtoId" value={prefill?.produtoId ?? ""} />
