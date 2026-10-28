@@ -2269,6 +2269,11 @@ a.chip:hover {
 .coeficiente tr.acima td {
   background: var(--cor-atencao-fundo);
 }
+.coeficiente .link-plano {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .coeficiente .sem-venda {
   color: var(--cor-atencao);
   font-weight: 600;

@@ -146,7 +146,7 @@ export interface OpcoesFiltro {
   marcas: { id: string; nome: string }[];
   canais: { id: string; nome: string }[];
   setores: { id: string; nome: string }[];
-  causas: { id: string; nome: string; categoria: string }[];
+  causas: { id: string; nome: string; categoria: string; acao: string }[];
   bancadas: { id: string; codigo: string; nome: string }[];
 }
 

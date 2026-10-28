@@ -7,15 +7,23 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Req,
 } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
-import { efeitoDoPlano, podeEnviarPlano } from "@sac-aisa/domain";
+import {
+  efeitoDoPlano,
+  lerEntradaPlano,
+  podeEnviarPlano,
+  tituloPlanoDoSku,
+} from "@sac-aisa/domain";
 import { type PedidoComUsuario, Requer } from "./auth.guard";
 import { ServicoIntegracoes } from "./integracoes";
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DIA = 86_400_000;
+const DIA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_VINCULOS = 30;
 
 function usuarioDe(req: PedidoComUsuario) {
   if (!req.usuario) throw new BadRequestException("Sessão ausente.");
@@ -24,6 +32,10 @@ function usuarioDe(req: PedidoComUsuario) {
 
 function dia(d: Date): Date {
   return new Date(`${d.toISOString().slice(0, 10)}T00:00:00.000Z`);
+}
+
+function diaIso(s: string): Date {
+  return new Date(`${s.slice(0, 10)}T00:00:00.000Z`);
 }
 
 /** Card do plano no ClickUp, na lista do setor ou na lista padrão. Sem criar status. */
@@ -141,8 +153,10 @@ export class ControladorPlanos {
       take: 100,
       include: {
         causa: { select: { nome: true } },
+        produto: { select: { codigo: true, nome: true } },
         efeitos: { orderBy: { calculadoEm: "desc" }, take: 1 },
         card: { select: { taskId: true, ultimoErro: true } },
+        _count: { select: { reclamacoes: true } },
       },
     });
     return {
@@ -151,7 +165,12 @@ export class ControladorPlanos {
         titulo: p.titulo,
         descricao: p.descricao,
         status: p.status,
+        origem: p.origem,
         causa: p.causa?.nome ?? null,
+        produto: p.produto
+          ? `${p.produto.codigo} · ${p.produto.nome}`
+          : null,
+        vinculados: p._count.reclamacoes,
         efeito: p.efeitos[0]
           ? {
               resultado: p.efeitos[0].resultado,
@@ -165,36 +184,223 @@ export class ControladorPlanos {
     };
   }
 
+  /**
+   * Pré-preenche o formulário a partir do SKU (coeficiente → Abrir plano).
+   * Sugere a causa mais frequente no período e até 30 reclamações do recorte.
+   */
+  @Requer("planos.gerir")
+  @Get("preencher")
+  async preencher(@Query() query: Record<string, string | undefined>) {
+    const sku = (query.sku ?? "").trim();
+    if (!sku || sku.length > 64) {
+      throw new BadRequestException("Informe o SKU do produto.");
+    }
+    const produto =
+      (await this.prisma.produto.findUnique({
+        where: { codigo: sku },
+        select: {
+          id: true,
+          codigo: true,
+          nome: true,
+          bancadaId: true,
+          bancada: { select: { codigo: true, nome: true } },
+        },
+      })) ??
+      (await this.prisma.produto.findFirst({
+        where: { codigo: { equals: sku, mode: "insensitive" } },
+        select: {
+          id: true,
+          codigo: true,
+          nome: true,
+          bancadaId: true,
+          bancada: { select: { codigo: true, nome: true } },
+        },
+      }));
+    if (!produto) throw new NotFoundException("Produto não encontrado.");
+    const fim = query.ate && DIA_ISO.test(query.ate) ? diaIso(query.ate) : dia(new Date());
+    const inicio =
+      query.de && DIA_ISO.test(query.de)
+        ? diaIso(query.de)
+        : new Date(fim.getTime() - 30 * DIA);
+    if (inicio.getTime() > fim.getTime()) {
+      throw new BadRequestException("O período do plano está invertido.");
+    }
+    const casos = await this.prisma.reclamacao.findMany({
+      where: {
+        rascunho: false,
+        treino: false,
+        produtoId: produto.id,
+        dataAbertura: { gte: inicio, lte: fim },
+      },
+      select: { id: true, causaId: true },
+      orderBy: { dataAbertura: "desc" },
+      take: 200,
+    });
+    const contagem = new Map<string, number>();
+    for (const c of casos) {
+      if (!c.causaId) continue;
+      contagem.set(c.causaId, (contagem.get(c.causaId) ?? 0) + 1);
+    }
+    let causaId: string | null = null;
+    let melhor = 0;
+    for (const [id, n] of contagem) {
+      if (n > melhor) {
+        melhor = n;
+        causaId = id;
+      }
+    }
+    const causa = causaId
+      ? await this.prisma.causa.findUnique({
+          where: { id: causaId },
+          select: {
+            id: true,
+            nome: true,
+            acao: true,
+            setorId: true,
+            regra: { select: { setorId: true, acao: true } },
+          },
+        })
+      : null;
+    const setorRespId = causa?.regra?.setorId ?? causa?.setorId ?? null;
+    const acao = (causa?.regra?.acao ?? causa?.acao ?? "").trim();
+    const doRecorte = causaId
+      ? casos.filter((c) => c.causaId === causaId).slice(0, MAX_VINCULOS)
+      : casos.slice(0, MAX_VINCULOS);
+    return {
+      sku: produto.codigo,
+      produtoId: produto.id,
+      produtoNome: produto.nome,
+      bancadaId: produto.bancadaId,
+      bancada: produto.bancada
+        ? `${produto.bancada.codigo}${produto.bancada.nome ? ` · ${produto.bancada.nome}` : ""}`
+        : null,
+      causaId: causa?.id ?? null,
+      causaNome: causa?.nome ?? null,
+      acao,
+      setorRespId,
+      titulo: tituloPlanoDoSku(produto.codigo, produto.nome),
+      descricao: acao,
+      origem: "kpi" as const,
+      baselineInicio: inicio.toISOString().slice(0, 10),
+      baselineFim: fim.toISOString().slice(0, 10),
+      reclamacaoIds: doRecorte.map((c) => c.id),
+      ocorrencias: casos.length,
+    };
+  }
+
   @Requer("planos.gerir")
   @Post()
   async criar(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
     const u = usuarioDe(req);
-    const c =
-      typeof corpo === "object" && corpo !== null
-        ? (corpo as Record<string, unknown>)
-        : {};
-    const titulo = typeof c.titulo === "string" ? c.titulo.trim() : "";
-    const descricao = typeof c.descricao === "string" ? c.descricao.trim() : "";
-    const causaId = typeof c.causaId === "string" ? c.causaId : "";
-    if (titulo.length < 3 || titulo.length > 160) {
-      throw new BadRequestException("Dê um título ao plano.");
+    const lido = lerEntradaPlano(corpo);
+    if (!lido.ok) throw new BadRequestException(lido.mensagem);
+    const e = lido.valor;
+
+    let produtoId = e.produtoId;
+    let bancadaId = e.bancadaId;
+    let setorRespId = e.setorRespId;
+    let descricao = e.descricao;
+
+    if (produtoId) {
+      const p = await this.prisma.produto.findUnique({
+        where: { id: produtoId },
+        select: { id: true, bancadaId: true },
+      });
+      if (!p) throw new BadRequestException("Produto não encontrado.");
+      if (!bancadaId) bancadaId = p.bancadaId;
     }
-    if (causaId && !ID.test(causaId)) {
-      throw new BadRequestException("Causa inválida.");
+    if (e.causaId) {
+      const causa = await this.prisma.causa.findUnique({
+        where: { id: e.causaId },
+        select: {
+          id: true,
+          acao: true,
+          setorId: true,
+          regra: { select: { setorId: true, acao: true } },
+        },
+      });
+      if (!causa) throw new BadRequestException("Causa não encontrada.");
+      if (!setorRespId) {
+        setorRespId = causa.regra?.setorId ?? causa.setorId;
+      }
+      if (!descricao) {
+        descricao = (causa.regra?.acao ?? causa.acao ?? "").trim();
+      }
     }
-    const fim = dia(new Date());
-    const inicio = new Date(fim.getTime() - 30 * DIA);
+    if (bancadaId) {
+      const b = await this.prisma.bancada.findUnique({
+        where: { id: bancadaId },
+        select: { id: true },
+      });
+      if (!b) throw new BadRequestException("Bancada não encontrada.");
+    }
+    if (setorRespId) {
+      const s = await this.prisma.setor.findUnique({
+        where: { id: setorRespId },
+        select: { id: true },
+      });
+      if (!s) throw new BadRequestException("Setor não encontrado.");
+    }
+
+    const fim = e.baselineFim ? diaIso(e.baselineFim) : dia(new Date());
+    const inicio = e.baselineInicio
+      ? diaIso(e.baselineInicio)
+      : new Date(fim.getTime() - 30 * DIA);
+
+    let reclamacaoIds = e.reclamacaoIds;
+    // Autovínculo só no fluxo KPI (coeficiente). Manual só vincula IDs explícitos.
+    if (
+      reclamacaoIds.length === 0 &&
+      e.origem === "kpi" &&
+      (produtoId || e.causaId || bancadaId)
+    ) {
+      const ligados = await this.prisma.reclamacao.findMany({
+        where: {
+          rascunho: false,
+          treino: false,
+          dataAbertura: { gte: inicio, lte: fim },
+          ...(produtoId ? { produtoId } : {}),
+          ...(e.causaId ? { causaId: e.causaId } : {}),
+          ...(bancadaId ? { bancadaId } : {}),
+        },
+        select: { id: true },
+        orderBy: { dataAbertura: "desc" },
+        take: MAX_VINCULOS,
+      });
+      reclamacaoIds = ligados.map((r) => r.id);
+    } else if (reclamacaoIds.length > 0) {
+      const ok = await this.prisma.reclamacao.findMany({
+        where: { id: { in: reclamacaoIds }, rascunho: false },
+        select: { id: true },
+      });
+      if (ok.length !== reclamacaoIds.length) {
+        throw new BadRequestException(
+          "Uma ou mais reclamações do plano não existem.",
+        );
+      }
+    }
+
     const plano = await this.prisma.planoAcao.create({
       data: {
-        titulo,
-        descricao: descricao.slice(0, 4000),
-        causaId: causaId || null,
+        titulo: e.titulo,
+        descricao,
+        causaId: e.causaId,
+        produtoId,
+        bancadaId,
+        setorRespId,
+        origem: e.origem,
+        prioridade: e.prioridade,
+        responsavel: e.responsavel,
+        prazo: e.prazo ? diaIso(e.prazo) : null,
         baselineInicio: inicio,
         baselineFim: fim,
         criadoPorId: u.id,
+        reclamacoes: {
+          create: reclamacaoIds.map((reclamacaoId) => ({ reclamacaoId })),
+        },
       },
     });
-    return { id: plano.id };
+    return { id: plano.id, vinculados: reclamacaoIds.length };
   }
 
   @Requer("planos.gerir")

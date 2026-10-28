@@ -21,6 +21,8 @@ async function post(caminho: string, corpo?: unknown) {
       resultado?: string;
       reabrir?: boolean;
       card?: string;
+      id?: string;
+      vinculados?: number;
     };
     if (!r.ok) {
       return {
@@ -37,11 +39,23 @@ async function post(caminho: string, corpo?: unknown) {
   }
 }
 
-export async function criarPlano(corpo: {
+export type CorpoPlano = {
   titulo: string;
   descricao: string;
   causaId: string;
-}) {
+  produtoId?: string;
+  bancadaId?: string;
+  setorRespId?: string;
+  origem?: string;
+  prioridade?: string;
+  responsavel?: string;
+  prazo?: string;
+  baselineInicio?: string;
+  baselineFim?: string;
+  reclamacaoIds?: string[];
+};
+
+export async function criarPlano(corpo: CorpoPlano) {
   return post("/planos", corpo);
 }
 

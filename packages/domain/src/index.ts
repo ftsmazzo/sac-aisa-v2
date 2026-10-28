@@ -5,6 +5,7 @@ export * from "./causas";
 export * from "./coeficiente";
 export * from "./efeito-plano";
 export * from "./fotos";
+export * from "./plano-criar";
 export * from "./jornada";
 export * from "./painel";
 export * from "./perguntas";
