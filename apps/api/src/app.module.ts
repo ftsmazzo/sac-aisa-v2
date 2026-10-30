@@ -43,6 +43,7 @@ import { EvolutionService } from "./whatsapp/evolution.service";
 import { GestorAgentService } from "./whatsapp/gestor-agent.service";
 import { GestorMemoryService } from "./whatsapp/gestor-memory.service";
 import { GestorToolsService } from "./whatsapp/gestor-tools";
+import { MidiaGestorService } from "./whatsapp/midia.service";
 import { ControladorWhatsapp } from "./whatsapp/whatsapp.controller";
 import { WhatsappService } from "./whatsapp/whatsapp.service";
 
@@ -117,6 +118,7 @@ import { WhatsappService } from "./whatsapp/whatsapp.service";
     ServicoCanais,
     RedisService,
     EvolutionService,
+    MidiaGestorService,
     GestorMemoryService,
     GestorToolsService,
     GestorAgentService,

@@ -87,7 +87,9 @@ A chamada ao modelo falha por tempo, por esquema inválido ou por limite de cust
 
 ### 2.3b Canal paralelo: agente gestor WhatsApp (só leitura)
 
-Canal **interno** (gestor / responsável de setor autorizados por telefone), separado das etapas 1–5b da ficha. Orquestrador NestJS com laço limitado de tools OpenAI-compatible via OpenRouter; o modelo **não grava**. Memória Redis (`sac:gestor:mem:*`) + espelho em `WhatsappConversa` / `WhatsappMensagem`. Respostas em formato WhatsApp (bullets `•`, negrito `*texto*`), tom humanizado e objetivo, sem menu de comandos. Tools de leitura reutilizam o domínio v2 (reclamações, KPI, planos, fila, alertas, `clickup_card`). Modelo do orquestrador: cartão OpenRouter / `GESTOR_LLM_MODEL` — escolha fina na hora dos testes manuais.
+Canal **interno** (gestor / responsável de setor autorizados por telefone), separado das etapas 1–5b da ficha. Orquestrador NestJS com laço limitado de tools OpenAI-compatible via OpenRouter; o modelo **não grava**. Memória Redis (`sac:gestor:mem:*`) + espelho em `WhatsappConversa` / `WhatsappMensagem`. Respostas em formato WhatsApp (bullets `•`, negrito `*texto*`), tom humanizado e objetivo, sem menu de comandos. Tools de leitura reutilizam o domínio v2 (reclamações, KPI, planos, fila, alertas, `clickup_card`). Modelo do orquestrador: cartão OpenRouter / `GESTOR_LLM_MODEL`.
+
+**Mídia inbound (Fatia 1 do agente gestor):** áudio → STT (`GESTOR_STT_MODEL`, padrão `openai/whisper-large-v3-turbo`); imagem → visão (`GESTOR_VISION_MODEL`, padrão `google/gemini-2.5-flash`); PDF/DOCX → parse local (`pdf-parse` / `mammoth`), truncar e `redigir`. Limite 5 MB e allowlist de tipos. Sem texto útil: *“Não consegui ler o arquivo; descreva o que precisa.”* A mídia vira texto **antes** do orquestrador.
 
 ### 2.4 Quando mudar de ideia
 

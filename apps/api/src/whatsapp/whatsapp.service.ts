@@ -1,7 +1,9 @@
-import { Inject, Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { EvolutionService } from "./evolution.service";
 import { GestorAgentService } from "./gestor-agent.service";
+import { detectarTipoMidia } from "./midia";
+import { MidiaGestorService } from "./midia.service";
 
 @Injectable()
 export class WhatsappService implements OnModuleInit {
@@ -12,6 +14,7 @@ export class WhatsappService implements OnModuleInit {
     @Inject(EvolutionService) private readonly evolution: EvolutionService,
     @Inject(GestorAgentService)
     private readonly gestorAgent: GestorAgentService,
+    @Inject(MidiaGestorService) private readonly midia: MidiaGestorService,
   ) {}
 
   /**
@@ -46,21 +49,32 @@ export class WhatsappService implements OnModuleInit {
   async handleWebhook(payload: unknown) {
     const msg = this.extractMessage(payload);
     if (!msg) return { ignored: true };
-    const { telefone, destinoEnvio, texto, nome, lid } = msg;
+
+    let texto = msg.texto;
+    if (msg.temMidia && msg.messageData) {
+      const normalizado = await this.midia.normalizarSeMidia(msg.messageData);
+      if (normalizado) texto = normalizado;
+    }
     if (!texto) return { ignored: true };
 
     this.log.log(
-      `WA inbound telefone=${telefone}${lid ? ` lid=${lid}` : ""} destino=${destinoEnvio} texto=${texto.slice(0, 40)}`,
+      `WA inbound telefone=${msg.telefone}${msg.lid ? ` lid=${msg.lid}` : ""} destino=${msg.destinoEnvio} texto=${texto.slice(0, 40)}`,
     );
 
-    const auth = await this.gestorAgent.autorizar(telefone, lid);
+    const auth = await this.gestorAgent.autorizar(msg.telefone, msg.lid);
     if (!auth.ok) {
       // Fase 1A: só canal interno. Sem resposta a não autorizados (evita vazamento).
-      this.log.log(`WA recusado (não gestor): ${telefone}`);
+      this.log.log(`WA recusado (não gestor): ${msg.telefone}`);
       return { ok: true, recusado: true };
     }
 
-    return this.handleGestor(telefone, destinoEnvio, texto, nome, auth.usuario);
+    return this.handleGestor(
+      msg.telefone,
+      msg.destinoEnvio,
+      texto,
+      msg.nome,
+      auth.usuario,
+    );
   }
 
   private async handleGestor(
@@ -108,6 +122,8 @@ export class WhatsappService implements OnModuleInit {
     texto: string;
     nome?: string;
     lid?: string;
+    temMidia: boolean;
+    messageData?: Record<string, unknown>;
   } | null {
     const p = payload as Record<string, unknown>;
     let data = (p.data || p) as Record<string, unknown>;
@@ -168,10 +184,13 @@ export class WhatsappService implements OnModuleInit {
           : telefone;
 
     const message = (data.message || {}) as Record<string, unknown>;
+    const temMidia = detectarTipoMidia(message) !== null;
     const texto = String(
       message.conversation ||
         (message.extendedTextMessage as { text?: string } | undefined)?.text ||
         (message.imageMessage as { caption?: string } | undefined)?.caption ||
+        (message.documentMessage as { caption?: string } | undefined)
+          ?.caption ||
         (
           message.buttonsResponseMessage as
             | { selectedDisplayText?: string }
@@ -183,7 +202,15 @@ export class WhatsappService implements OnModuleInit {
         "",
     ).trim();
     const nome = String(data.pushName || "");
-    return { telefone, destinoEnvio, texto, nome, lid };
+    return {
+      telefone,
+      destinoEnvio,
+      texto,
+      nome,
+      lid,
+      temMidia,
+      messageData: temMidia ? data : undefined,
+    };
   }
 
   private async reply(conversaId: string, destinoEnvio: string, texto: string) {
