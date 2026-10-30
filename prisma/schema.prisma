@@ -849,3 +849,46 @@ model Config {
 
   @@map("config")
 }
+
+// ---------- WhatsApp (agente gestor interno, só leitura) ----------
+
+enum WhatsappDirecao {
+  inbound
+  outbound
+}
+
+enum WhatsappPapel {
+  cliente
+  interno
+}
+
+model WhatsappConversa {
+  id         String        @id @default(cuid())
+  telefone   String
+  papel      WhatsappPapel @default(cliente)
+  nome       String        @default("")
+  estado     String        @default("inicio")
+  contexto   Json?
+  ativo      Boolean       @default(true)
+  criadoEm   DateTime      @default(now())
+  alteradoEm DateTime      @updatedAt
+
+  mensagens WhatsappMensagem[]
+
+  @@index([telefone])
+  @@map("whatsapp_conversas")
+}
+
+model WhatsappMensagem {
+  id         String          @id @default(cuid())
+  conversaId String
+  direcao    WhatsappDirecao
+  texto      String
+  payload    Json?
+  criadoEm   DateTime        @default(now())
+
+  conversa WhatsappConversa @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+
+  @@index([conversaId, criadoEm])
+  @@map("whatsapp_mensagens")
+}

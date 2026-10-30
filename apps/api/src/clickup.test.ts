@@ -182,7 +182,7 @@ function integr(
 ) {
   return {
     segredo: async (
-      _c: "clickup" | "shopee" | "mercadolivre" | "openrouter",
+      _c: "clickup" | "shopee" | "mercadolivre" | "openrouter" | "evolution",
       nome: string,
     ) =>
       nome === "token"

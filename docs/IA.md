@@ -85,6 +85,10 @@ A chamada ao modelo falha por tempo, por esquema inválido ou por limite de cust
 | Teste | Difícil medir; resultado varia a cada execução | Cada etapa tem conjunto de teste e métrica (seção 6) |
 | Volume real | Centenas a poucos milhares de casos: não há ganho que pague a complexidade | Suficiente |
 
+### 2.3b Canal paralelo: agente gestor WhatsApp (só leitura)
+
+Canal **interno** (gestor / responsável de setor autorizados por telefone), separado das etapas 1–5b da ficha. Orquestrador NestJS com laço limitado de tools OpenAI-compatible via OpenRouter; o modelo **não grava**. Memória Redis (`sac:gestor:mem:*`) + espelho em `WhatsappConversa` / `WhatsappMensagem`. Respostas em formato WhatsApp (bullets `•`, negrito `*texto*`), tom humanizado e objetivo, sem menu de comandos. Tools de leitura reutilizam o domínio v2 (reclamações, KPI, planos, fila, alertas, `clickup_card`). Modelo do orquestrador: cartão OpenRouter / `GESTOR_LLM_MODEL` — escolha fina na hora dos testes manuais.
+
 ### 2.4 Quando mudar de ideia
 
 Reabrir a decisão se pelo menos um destes pontos aparecer, e só para a etapa afetada:

@@ -145,6 +145,7 @@ describe("permissão", () => {
       "mercadolivre",
       "shopee",
       "openrouter",
+      "evolution",
     ]);
   });
 });
