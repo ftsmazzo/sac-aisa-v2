@@ -6,6 +6,7 @@ import {
   mimeAceitoParaTipo,
   montarTextoUsuario,
   tamanhoBase64Bytes,
+  textoPdfLocalSuficiente,
   truncarTexto,
 } from "./midia";
 
@@ -99,5 +100,18 @@ describe("mime e tamanho", () => {
 describe("fallback", () => {
   it("frase fixa está definida", () => {
     expect(FRASE_FALHA_MIDIA).toMatch(/Não consegui ler/);
+  });
+});
+
+describe("textoPdfLocalSuficiente", () => {
+  it("exige conteúdo mínimo antes de pular o OCR", () => {
+    expect(textoPdfLocalSuficiente("")).toBe(false);
+    expect(textoPdfLocalSuficiente("   ")).toBe(false);
+    expect(textoPdfLocalSuficiente("curto")).toBe(false);
+    expect(
+      textoPdfLocalSuficiente(
+        "Laudo da reclamação 422 com SKU G48 e peça enviada ao cliente.",
+      ),
+    ).toBe(true);
   });
 });
