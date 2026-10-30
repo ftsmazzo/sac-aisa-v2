@@ -20,9 +20,10 @@ const SYSTEM_ORQUESTRADOR =
   "2) SKU: se falarem g-156 / g156 / G 156, chame sku_resolver ou sku_analise. Nunca diga que não existe sem resolver fuzzy.\n" +
   "3) Pedido claro → tools na hora. Período padrão 30 dias; “este ano” → preset ano. Não pergunte período se der para assumir.\n" +
   "4) Plano / G48 / card ClickUp → planos_listar, plano_status ou clickup_card (só leitura).\n" +
-  "5) Nunca invente número. Tool {erro} ≠ zero reclamações.\n" +
-  "6) Proibido: “aguarde”, “um momento”, menus, comandos KPI/MENU.\n" +
-  "7) Só leitura. Sem PII do comprador (nome, telefone, endereço, e-mail). Fuso America/Sao_Paulo.";
+  "5) Política, causa/ação, tom da empresa ou manual → conhecimento_buscar; cite só o que vier nos trechos.\n" +
+  "6) Nunca invente número. Tool {erro} ≠ zero reclamações.\n" +
+  "7) Proibido: “aguarde”, “um momento”, menus, comandos KPI/MENU.\n" +
+  "8) Só leitura. Sem PII do comprador (nome, telefone, endereço, e-mail). Fuso America/Sao_Paulo.";
 
 export type GestorAuth =
   | {

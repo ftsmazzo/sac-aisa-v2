@@ -7,6 +7,7 @@ import {
   GestorTools,
   usuarioGestorDe,
 } from "@sac-aisa/gestor-tools";
+import { ConhecimentoService } from "./conhecimento.service";
 
 export {
   formatWhatsapp,
@@ -23,8 +24,13 @@ export { GESTOR_TOOL_DEFS, usuarioGestorDe };
 export class GestorToolsService {
   private readonly tools: GestorTools;
 
-  constructor(@Inject(PrismaClient) prisma: PrismaClient) {
-    this.tools = new GestorTools(prisma);
+  constructor(
+    @Inject(PrismaClient) prisma: PrismaClient,
+    @Inject(ConhecimentoService) conhecimento: ConhecimentoService,
+  ) {
+    this.tools = new GestorTools(prisma, {
+      embed: (texto) => conhecimento.embed(texto),
+    });
   }
 
   defs(): GestorToolDef[] {

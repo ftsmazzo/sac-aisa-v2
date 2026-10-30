@@ -15,8 +15,17 @@ export {
   setorFuzzyMatch,
 } from "./periodo";
 export {
+  afinidadeLexical,
+  buscarChunks,
+  type ChunkBusca,
+  cosseno,
+  fatiarTexto,
+  type TrechoConhecimento,
+} from "./rag";
+export {
   GESTOR_TOOL_DEFS,
   GestorTools,
+  type GestorToolsOpcoes,
   usuarioGestorDe,
 } from "./tools";
 export type { GestorToolDef } from "./types";
