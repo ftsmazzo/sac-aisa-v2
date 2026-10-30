@@ -1,10 +1,10 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { EvolutionService } from "./evolution.service";
 import { GestorAgentService } from "./gestor-agent.service";
 
 @Injectable()
-export class WhatsappService {
+export class WhatsappService implements OnModuleInit {
   private readonly log = new Logger(WhatsappService.name);
 
   constructor(
@@ -13,6 +13,35 @@ export class WhatsappService {
     @Inject(GestorAgentService)
     private readonly gestorAgent: GestorAgentService,
   ) {}
+
+  /**
+   * Na subida, a própria API registra o webhook na Evolution com
+   * PUBLIC_API_URL + EVOLUTION_WEBHOOK_SECRET (ou segredo da integração).
+   * Admin ainda pode forçar via POST /whatsapp/evolution/configure-webhook.
+   */
+  async onModuleInit() {
+    if (process.env.EVOLUTION_SKIP_WEBHOOK_BOOT === "1") return;
+    const base = (process.env.PUBLIC_API_URL || "").replace(/\/$/, "");
+    if (!base) return;
+    void this.registrarWebhookNaEvolution(base);
+  }
+
+  async registrarWebhookNaEvolution(base: string) {
+    const url = `${base.replace(/\/$/, "")}/whatsapp/webhook/evolution`;
+    try {
+      const r = await this.evolution.setWebhook(url);
+      if ((r as { skipped?: boolean })?.skipped) {
+        this.log.warn("Webhook Evolution: sem API key — não registrado.");
+        return { ok: false as const, url, skipped: true };
+      }
+      this.log.log(`Webhook Evolution registrado: ${url}`);
+      return { ok: true as const, url, resultado: r };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log.warn(`Webhook Evolution na subida falhou: ${msg}`);
+      return { ok: false as const, url, erro: msg };
+    }
+  }
 
   async handleWebhook(payload: unknown) {
     const msg = this.extractMessage(payload);

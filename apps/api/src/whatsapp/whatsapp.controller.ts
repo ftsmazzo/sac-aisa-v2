@@ -56,8 +56,6 @@ export class ControladorWhatsapp {
         mensagem: "Defina PUBLIC_API_URL para registrar o webhook.",
       };
     }
-    const url = `${base}/whatsapp/webhook/evolution`;
-    const r = await this.evolution.setWebhook(url);
-    return { ok: true, url, resultado: r };
+    return this.whatsapp.registrarWebhookNaEvolution(base);
   }
 }

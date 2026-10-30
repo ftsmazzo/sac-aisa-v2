@@ -191,7 +191,7 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
       "Suba ou use a Evolution API com uma instância WhatsApp já conectada.",
       "Cole a URL da API, a apikey e o nome da instância.",
       "Configure o segredo do webhook. Em produção ele é obrigatório; sem ele o endpoint recusa.",
-      "Defina PUBLIC_API_URL e chame POST /whatsapp/evolution/configure-webhook (administrador) para apontar MESSAGES_UPSERT.",
+      "Defina PUBLIC_API_URL: na subida a API registra o webhook MESSAGES_UPSERT na Evolution (ou POST /whatsapp/evolution/configure-webhook).",
       "Autorize telefones em GESTOR_WHATSAPP_TELEFONES ou no campo telefone do usuário (gestor/admin/responsável de setor).",
     ],
     campos: [

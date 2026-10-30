@@ -44,4 +44,4 @@ Na tela de integrações (cartão Evolution) ou env da API:
 - `EVOLUTION_WEBHOOK_SECRET=` (obrigatório em produção)
 - `PUBLIC_API_URL=` URL pública da API Nest
 
-Depois: criar a instância `sac-aisa`, escanear o QR, e `POST /whatsapp/evolution/configure-webhook` (admin).
+Depois: criar a instância `sac-aisa` e escanear o QR. Com `PUBLIC_API_URL` e as chaves no env, a API registra sozinha o webhook `MESSAGES_UPSERT` na subida (payload Evolution 2.3.x aninhado em `webhook`, header `x-evolution-secret`). Admin pode forçar de novo com `POST /whatsapp/evolution/configure-webhook`. Para pular o registro automático: `EVOLUTION_SKIP_WEBHOOK_BOOT=1`.

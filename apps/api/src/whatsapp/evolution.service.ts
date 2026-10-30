@@ -74,13 +74,24 @@ export class EvolutionService {
         apikey: apiKey,
       },
       body: JSON.stringify({
-        url: webhookUrl,
-        webhook_by_events: false,
-        webhook_base64: false,
-        events: ["MESSAGES_UPSERT"],
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          webhookBase64: false,
+          events: ["MESSAGES_UPSERT"],
+          headers: {
+            // Evolution manda isto em cada MESSAGES_UPSERT; a API confere.
+            "x-evolution-secret":
+              (await this.webhookSecret()) || apiKey,
+          },
+        },
       }),
     });
-    if (!res.ok) throw new Error(`Evolution webhook ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Evolution webhook ${res.status}: ${body}`);
+    }
     return res.json();
   }
 
