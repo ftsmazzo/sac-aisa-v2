@@ -91,6 +91,8 @@ Canal **interno** (gestor / responsável de setor autorizados por telefone), sep
 
 **Mídia inbound (Fatia 1 do agente gestor):** áudio → STT (`GESTOR_STT_MODEL`, padrão `openai/whisper-large-v3-turbo`); imagem → visão (`GESTOR_VISION_MODEL`, padrão `google/gemini-2.5-flash`); DOCX → `mammoth`; PDF → `pdf-parse` e, se sair pouco texto (scan), Mistral OCR no OpenRouter (`file-parser` / `GESTOR_PDF_OCR_MODEL`). Truncar e `redigir`. Limite 5 MB e allowlist de tipos. Sem texto útil: *“Não consegui ler o arquivo; descreva o que precisa.”* A mídia vira texto **antes** do orquestrador.
 
+**Tools compartilhadas (Fatia 2):** defs e executores em `@sac-aisa/gestor-tools` (só leitura). A API Nest e o MCP stdio `apps/mcp-gestor` usam o mesmo código. MCP: `npm run start -w @sac-aisa/mcp-gestor` com `DATABASE_URL` (e opcional `GESTOR_MCP_LOGIN`).
+
 ### 2.4 Quando mudar de ideia
 
 Reabrir a decisão se pelo menos um destes pontos aparecer, e só para a etapa afetada:

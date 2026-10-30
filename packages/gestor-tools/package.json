@@ -1,0 +1,13 @@
+{
+  "name": "@sac-aisa/gestor-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "@sac-aisa/auth": "*",
+    "@sac-aisa/domain": "*"
+  }
+}

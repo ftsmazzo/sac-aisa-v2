@@ -1,0 +1,23 @@
+{
+  "name": "@sac-aisa/mcp-gestor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "sac-aisa-mcp-gestor": "./src/main.ts"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@prisma/client": "^6.19.3",
+    "@sac-aisa/auth": "*",
+    "@sac-aisa/gestor-tools": "*",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}
