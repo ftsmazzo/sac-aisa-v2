@@ -4,9 +4,22 @@ import { FOTO_MAX_BYTES } from "@sac-aisa/domain";
 
 export const MIDIA_MAX_BYTES = FOTO_MAX_BYTES; // 5 MB
 export const TEXTO_DOC_MAX = 8_000;
+/** Abaixo disso o pdf-parse provavelmente falhou (scan) e cai no Mistral OCR. */
+export const TEXTO_PDF_LOCAL_MIN = 40;
 
 export const FRASE_FALHA_MIDIA =
   "Não consegui ler o arquivo; descreva o que precisa.";
+
+/** Texto local do PDF é útil o bastante para pular o OCR pago. */
+export function textoPdfLocalSuficiente(
+  texto: string,
+  min = TEXTO_PDF_LOCAL_MIN,
+): boolean {
+  const limpo = String(texto || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return limpo.length >= min;
+}
 
 export type TipoMidiaGestor = "audio" | "image" | "pdf" | "docx";
 

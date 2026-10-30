@@ -46,4 +46,4 @@ Na tela de integrações (cartão Evolution) ou env da API:
 
 Depois: criar a instância `sac-aisa` e escanear o QR. Com `PUBLIC_API_URL` e as chaves no env, a API registra sozinha o webhook `MESSAGES_UPSERT` na subida (payload Evolution 2.3.x aninhado em `webhook`, header `x-evolution-secret`). Admin pode forçar de novo com `POST /whatsapp/evolution/configure-webhook`. Para pular o registro automático: `EVOLUTION_SKIP_WEBHOOK_BOOT=1`.
 
-Mídia (opcional): `GESTOR_STT_MODEL` e `GESTOR_VISION_MODEL` — padrões Whisper turbo e Gemini Flash via OpenRouter.
+Mídia (opcional): `GESTOR_STT_MODEL`, `GESTOR_VISION_MODEL` e `GESTOR_PDF_OCR_MODEL` — padrões Whisper turbo e Gemini Flash. PDF scan usa Mistral OCR (`file-parser`) quando o parse local não rende texto.

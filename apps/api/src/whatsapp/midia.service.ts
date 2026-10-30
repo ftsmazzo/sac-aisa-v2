@@ -16,14 +16,19 @@ import {
   normalizarMime,
   type TipoMidiaGestor,
   tamanhoBase64Bytes,
+  textoPdfLocalSuficiente,
   truncarTexto,
 } from "./midia";
 
 const STT_PADRAO = "openai/whisper-large-v3-turbo";
 const VISAO_PADRAO = "google/gemini-2.5-flash";
+const PDF_OCR_MODELO_PADRAO = "google/gemini-2.5-flash";
 const PROMPT_VISAO =
   "Extraia texto visível, SKU, códigos e números relevantes desta imagem do SAC industrial. " +
   "Seja objetivo. Não invente o que não aparecer. Se não houver texto útil, diga isso em uma frase curta.";
+const PROMPT_PDF_OCR =
+  "Extraia o texto útil deste PDF do SAC industrial (SKU, números, laudos, pedidos). " +
+  "Seja objetivo e fiel ao documento. Não invente. Se não houver texto legível, diga isso em uma frase curta.";
 
 @Injectable()
 export class MidiaGestorService {
@@ -108,6 +113,14 @@ export class MidiaGestorService {
 
   private modeloVisao(): string {
     return process.env.GESTOR_VISION_MODEL?.trim() || VISAO_PADRAO;
+  }
+
+  private modeloPdfOcr(): string {
+    return (
+      process.env.GESTOR_PDF_OCR_MODEL?.trim() ||
+      process.env.GESTOR_VISION_MODEL?.trim() ||
+      PDF_OCR_MODELO_PADRAO
+    );
   }
 
   private async transcrever(base64: string, mime: string): Promise<string> {
@@ -199,10 +212,82 @@ export class MidiaGestorService {
     return "";
   }
 
+  /**
+   * PDF com texto: pdf-parse (grátis). Scan/foto: Mistral OCR via OpenRouter.
+   */
   private async extrairPdf(base64: string): Promise<string> {
     const buf = Buffer.from(base64, "base64");
-    const r = await pdfParse(buf);
-    return redigir(String(r.text || ""));
+    let local = "";
+    try {
+      const r = await pdfParse(buf);
+      local = redigir(String(r.text || ""));
+    } catch (e) {
+      this.log.warn(
+        `pdf-parse falhou, indo ao Mistral OCR: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+    if (textoPdfLocalSuficiente(local)) return local;
+
+    this.log.log(
+      `PDF com pouco texto local (${local.trim().length} chars) — Mistral OCR`,
+    );
+    return this.extrairPdfMistralOcr(base64);
+  }
+
+  private async extrairPdfMistralOcr(base64: string): Promise<string> {
+    const chave = await this.chaveOpenRouter();
+    if (!chave) throw new Error("OpenRouter sem chave para PDF OCR");
+    const dataUrl = `data:application/pdf;base64,${base64}`;
+    const res = await fetch(URL_OPENROUTER, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${chave}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://sac-aisa.local",
+        "X-Title": "SAC AISA gestor PDF OCR",
+      },
+      body: JSON.stringify({
+        model: this.modeloPdfOcr(),
+        temperature: 0.1,
+        max_tokens: 2000,
+        plugins: [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }],
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: PROMPT_PDF_OCR },
+              {
+                type: "file",
+                file: { filename: "documento.pdf", file_data: dataUrl },
+              },
+            ],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!res.ok) {
+      throw new Error(
+        `PDF Mistral OCR ${res.status}: ${(await res.text()).slice(0, 200)}`,
+      );
+    }
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: unknown } }[];
+    };
+    const content = json.choices?.[0]?.message?.content;
+    let texto = "";
+    if (typeof content === "string") texto = content.trim();
+    else if (Array.isArray(content)) {
+      texto = content
+        .map((p) =>
+          typeof p === "object" && p && "text" in p
+            ? String((p as { text: string }).text)
+            : "",
+        )
+        .join(" ")
+        .trim();
+    }
+    return redigir(texto);
   }
 
   private async extrairDocx(base64: string): Promise<string> {
