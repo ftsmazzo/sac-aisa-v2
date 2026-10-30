@@ -35,3 +35,9 @@ Opcional: `GESTOR_MCP_LOGIN=seu.login` para fixar o usuário (administrador ou g
 ```
 
 Sem tools de escrita nesta fase.
+
+## RAG
+
+A tool `conhecimento_buscar` lê `conhecimento_chunks`. Para embeddings no MCP, defina `OPENROUTER_API_KEY` (e opcional `GESTOR_EMBED_MODEL`).
+
+Na API: `POST /admin/ia/conhecimento/sincronizar` (perfil, perguntas, causas, amostra de casos) e `POST /admin/ia/conhecimento/importar-url` com `{ "url": "https://…" }` — domínio em `CONHECIMENTO_URL_ALLOWLIST`.

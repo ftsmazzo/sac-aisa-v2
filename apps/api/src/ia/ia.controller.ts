@@ -16,6 +16,7 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { type PedidoComUsuario, Requer } from "../auth.guard";
 import { ServicoIntegracoes } from "../integracoes";
+import { ConhecimentoService } from "../whatsapp/conhecimento.service";
 import { ServicoIaAdmin } from "./admin";
 import { ErroIa, ServicoIa } from "./ia";
 import { ProvedorOpenRouter } from "./provedor";
@@ -236,5 +237,44 @@ export class ControladorIaAdmin {
   @Get("consumo")
   consumo(@Req() req: PedidoComUsuario) {
     return comErros(() => this.servico.consumoDoDia(usuarioDe(req)));
+  }
+}
+
+/** RAG do agente gestor: sincronizar fontes curadas e importar URL allowlist. */
+@Controller("admin/ia/conhecimento")
+export class ControladorConhecimento {
+  constructor(
+    @Inject(ConhecimentoService)
+    private readonly conhecimento: ConhecimentoService,
+  ) {}
+
+  @Requer("ia.gerir")
+  @Get()
+  resumo(@Req() req: PedidoComUsuario) {
+    void usuarioDe(req);
+    return this.conhecimento.resumo();
+  }
+
+  @Requer("ia.gerir")
+  @Post("sincronizar")
+  @HttpCode(200)
+  sincronizar(@Req() req: PedidoComUsuario) {
+    void usuarioDe(req);
+    return this.conhecimento.sincronizar();
+  }
+
+  @Requer("ia.gerir")
+  @Post("importar-url")
+  @HttpCode(200)
+  async importarUrl(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    void usuarioDe(req);
+    const url =
+      typeof corpo === "object" &&
+      corpo &&
+      "url" in corpo &&
+      typeof (corpo as { url: unknown }).url === "string"
+        ? (corpo as { url: string }).url
+        : "";
+    return this.conhecimento.importarUrl(url);
   }
 }

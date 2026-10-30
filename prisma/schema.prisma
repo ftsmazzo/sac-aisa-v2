@@ -892,3 +892,33 @@ model WhatsappMensagem {
   @@index([conversaId, criadoEm])
   @@map("whatsapp_mensagens")
 }
+
+// ---------- Conhecimento (RAG do agente gestor, Fatia 3) ----------
+
+enum ConhecimentoFonte {
+  perfil
+  pergunta
+  causa
+  caso
+  url
+  manual
+}
+
+/// Trecho curado para busca do gestor. Embedding em Float[] (cosseno na app; sem pgvector).
+model ConhecimentoChunk {
+  id               String            @id @default(cuid())
+  fonte            ConhecimentoFonte
+  /// Chave estável para reindexar sem duplicar (ex.: causa:solda, url:https://…).
+  chave            String            @unique
+  titulo           String            @default("")
+  texto            String
+  url              String            @default("")
+  embedding        Float[]
+  modeloEmbedding  String            @default("")
+  ativo            Boolean           @default(true)
+  criadoEm         DateTime          @default(now())
+  alteradoEm       DateTime          @updatedAt
+
+  @@index([fonte, ativo])
+  @@map("conhecimento_chunks")
+}

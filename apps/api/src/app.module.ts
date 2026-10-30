@@ -17,7 +17,11 @@ import { ServicoClickup, ServicoWebhookClickup } from "./clickup";
 import { ServicoAssistenteClickup } from "./clickup-assistente";
 import { ControladorCoeficiente } from "./coeficiente";
 import { ControladorFotos } from "./fotos";
-import { ControladorIa, ControladorIaAdmin } from "./ia/ia.controller";
+import {
+  ControladorConhecimento,
+  ControladorIa,
+  ControladorIaAdmin,
+} from "./ia/ia.controller";
 import { ControladorImportacao } from "./importacao.controller";
 import { RedisService } from "./infra/redis.service";
 import { ServicoIntegracoes } from "./integracoes";
@@ -39,6 +43,7 @@ import { RepositorioPrisma } from "./repositorio-prisma";
 import { lerChave } from "./segredos";
 import { ControladorTreino } from "./treino.controller";
 import { ControladorUsuarios } from "./usuarios.controller";
+import { ConhecimentoService } from "./whatsapp/conhecimento.service";
 import { EvolutionService } from "./whatsapp/evolution.service";
 import { GestorAgentService } from "./whatsapp/gestor-agent.service";
 import { GestorMemoryService } from "./whatsapp/gestor-memory.service";
@@ -57,6 +62,7 @@ import { WhatsappService } from "./whatsapp/whatsapp.service";
     ControladorJornada,
     ControladorIa,
     ControladorIaAdmin,
+    ControladorConhecimento,
     ControladorIntegracoes,
     ControladorAssistenteClickup,
     ControladorUsuarios,
@@ -119,6 +125,7 @@ import { WhatsappService } from "./whatsapp/whatsapp.service";
     RedisService,
     EvolutionService,
     MidiaGestorService,
+    ConhecimentoService,
     GestorMemoryService,
     GestorToolsService,
     GestorAgentService,

@@ -4,9 +4,7 @@
  * Uso (Cursor mcp.json):
  *   command: npx
  *   args: ["tsx", "apps/mcp-gestor/src/main.ts"]
- *   env: DATABASE_URL, e opcionalmente GESTOR_MCP_LOGIN
- *
- * O usuário das tools é o administrador/gestor ativo (ou o login em GESTOR_MCP_LOGIN).
+ *   env: DATABASE_URL, OPENROUTER_API_KEY (RAG), opcional GESTOR_MCP_LOGIN
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -23,7 +21,37 @@ import {
 } from "@sac-aisa/gestor-tools";
 
 const prisma = new PrismaClient();
-const tools = new GestorTools(prisma);
+const EMBED_PADRAO = "openai/text-embedding-3-small";
+
+async function embed(texto: string): Promise<number[]> {
+  const chave = process.env.OPENROUTER_API_KEY || "";
+  if (!chave) throw new Error("OPENROUTER_API_KEY ausente para embedding");
+  const res = await fetch("https://openrouter.ai/api/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${chave}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://sac-aisa.local",
+      "X-Title": "SAC AISA MCP RAG",
+    },
+    body: JSON.stringify({
+      model: process.env.GESTOR_EMBED_MODEL?.trim() || EMBED_PADRAO,
+      input: texto.slice(0, 8000),
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) {
+    throw new Error(
+      `Embedding ${res.status}: ${(await res.text()).slice(0, 160)}`,
+    );
+  }
+  const json = (await res.json()) as { data?: { embedding?: number[] }[] };
+  const emb = json.data?.[0]?.embedding;
+  if (!emb?.length) throw new Error("Embedding vazio");
+  return emb;
+}
+
+const tools = new GestorTools(prisma, { embed });
 
 async function usuarioMcp(): Promise<UsuarioLogado> {
   const login = (process.env.GESTOR_MCP_LOGIN || "").trim().toLowerCase();

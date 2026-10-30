@@ -8,9 +8,15 @@ import {
   montarFiltro,
 } from "./filtros";
 import { normSku, resolverPeriodo, setorFuzzyMatch } from "./periodo";
+import { buscarChunks } from "./rag";
 import type { GestorToolDef } from "./types";
 
 export type { GestorToolDef } from "./types";
+
+export type GestorToolsOpcoes = {
+  /** Gera embedding da consulta (OpenRouter). Sem isso, a busca cai no lexical. */
+  embed?: (texto: string) => Promise<number[]>;
+};
 
 function dia(s: string): Date {
   return new Date(`${s}T00:00:00.000Z`);
@@ -320,11 +326,37 @@ export const GESTOR_TOOL_DEFS: GestorToolDef[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "conhecimento_buscar",
+      description:
+        "Busca na base de conhecimento curada (perfil, causas/ação, perguntas, casos, páginas importadas). Use para política, tom, o que fazer numa causa, ou trechos de manual/site. Não invente — cite o que vier nos trechos.",
+      parameters: {
+        type: "object",
+        properties: {
+          q: {
+            type: "string",
+            description: "Pergunta ou termos (SKU, causa, tema).",
+          },
+          k: {
+            type: "number",
+            description: "Quantidade de trechos (1–10, padrão 5).",
+          },
+        },
+        required: ["q"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 /** Executores das tools só-leitura do gestor (Nest e MCP usam a mesma classe). */
 export class GestorTools {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly opcoes: GestorToolsOpcoes = {},
+  ) {}
 
   defs() {
     return GESTOR_TOOL_DEFS;
@@ -432,6 +464,11 @@ export class GestorTools {
           if ("erro" in d) return d;
           return this.ppmQualidade(d.de, d.ate, usuario);
         }
+        case "conhecimento_buscar":
+          return this.conhecimentoBuscar(
+            typeof args.q === "string" ? args.q : "",
+            typeof args.k === "number" ? args.k : Number(args.k) || 5,
+          );
         default:
           return { erro: `Tool desconhecida: ${name}` };
       }
@@ -450,6 +487,7 @@ export class GestorTools {
         "Status de registro e jornada",
         "KPI, causas, setores, fila, alertas, PPM",
         "Planos de ação e status do card ClickUp",
+        "Base de conhecimento (perfil, causas, manuais/URLs curadas)",
       ],
       nao_cobre: [
         "Alterar reclamação ou plano",
@@ -458,6 +496,53 @@ export class GestorTools {
       ],
       tom: "WhatsApp: bullets • , negrito *texto*, sem ## nem **.",
     };
+  }
+
+  private async conhecimentoBuscar(q: string, k: number) {
+    const consulta = String(q || "").trim();
+    if (!consulta) return { erro: "Informe q (consulta)." };
+    const rows = await this.prisma.conhecimentoChunk.findMany({
+      where: { ativo: true },
+      select: {
+        id: true,
+        fonte: true,
+        titulo: true,
+        texto: true,
+        url: true,
+        embedding: true,
+      },
+      take: 2000,
+    });
+    if (!rows.length) {
+      return {
+        trechos: [],
+        aviso:
+          "Base de conhecimento vazia. Peça ao admin para sincronizar ou importar URL.",
+      };
+    }
+    let queryEmbedding: number[] | undefined;
+    if (this.opcoes.embed) {
+      try {
+        queryEmbedding = await this.opcoes.embed(consulta);
+      } catch (e) {
+        console.warn(
+          `[gestor-tools] embed falhou, lexical: ${e instanceof Error ? e.message : e}`,
+        );
+      }
+    }
+    const trechos = buscarChunks(
+      consulta,
+      rows.map((r) => ({
+        id: r.id,
+        fonte: String(r.fonte),
+        titulo: r.titulo,
+        texto: r.texto,
+        url: r.url,
+        embedding: r.embedding,
+      })),
+      { k, queryEmbedding },
+    );
+    return { q: consulta, total_base: rows.length, trechos };
   }
 
   private whereBase(usuario: UsuarioLogado): Prisma.ReclamacaoWhereInput {
