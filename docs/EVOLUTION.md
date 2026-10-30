@@ -10,7 +10,20 @@
 
 O código do agente gestor (`apps/api/src/whatsapp/`) foi escrito contra o contrato da 2.x estável: `POST /message/sendText/{instance}`, `POST /webhook/set/{instance}`, webhook com `remoteJid` / `remoteJidAlt` / `@lid`.
 
-## Subir local
+## EasyPanel (produção — projeto `sac-aisa-v2`)
+
+Serviços no mesmo projeto da API/web (VPS EasyPanel):
+
+| Serviço | Papel |
+|---|---|
+| `evolution-api` | Imagem `evoapicloud/evolution-api:v2.3.7` |
+| `evolution-api-db` | Postgres 16 só da Evolution |
+| `evolution-api-redis` | Redis 7 só da Evolution |
+
+URL pública: `https://sac-aisa-v2-evolution-api.kxryyk.easypanel.host`  
+A chave `AUTHENTICATION_API_KEY` fica no env do serviço `evolution-api` no painel (não no Git).
+
+## Subir local (opcional)
 
 ```bash
 cp .env.evolution.example .env.evolution
@@ -19,16 +32,16 @@ cp .env.evolution.example .env.evolution
 docker compose -f docker-compose.evolution.yml --env-file .env.evolution up -d
 ```
 
-Manager/API: `http://localhost:8080`. Postgres Evolution na porta `5433`, Redis na `6380` (não colidem com o stack do SAC se usar 5432/6379).
+Manager/API: `http://localhost:8080`. Postgres Evolution na porta `5433`, Redis na `6380`.
 
 ## Ligar no SAC
 
 Na tela de integrações (cartão Evolution) ou env da API:
 
-- `EVOLUTION_API_URL=http://localhost:8080` (ou URL pública)
-- `EVOLUTION_API_KEY=` a mesma do compose
+- `EVOLUTION_API_URL=https://sac-aisa-v2-evolution-api.kxryyk.easypanel.host` (ou URL interna do swarm)
+- `EVOLUTION_API_KEY=` a mesma `AUTHENTICATION_API_KEY` do serviço
 - `EVOLUTION_INSTANCE=sac-aisa`
 - `EVOLUTION_WEBHOOK_SECRET=` (obrigatório em produção)
-- `PUBLIC_API_URL=` URL da API Nest
+- `PUBLIC_API_URL=` URL pública da API Nest
 
 Depois: criar a instância `sac-aisa`, escanear o QR, e `POST /whatsapp/evolution/configure-webhook` (admin).
