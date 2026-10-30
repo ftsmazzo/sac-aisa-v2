@@ -82,8 +82,7 @@ export class EvolutionService {
           events: ["MESSAGES_UPSERT"],
           headers: {
             // Evolution manda isto em cada MESSAGES_UPSERT; a API confere.
-            "x-evolution-secret":
-              (await this.webhookSecret()) || apiKey,
+            "x-evolution-secret": (await this.webhookSecret()) || apiKey,
           },
         },
       }),
@@ -93,6 +92,43 @@ export class EvolutionService {
       throw new Error(`Evolution webhook ${res.status}: ${body}`);
     }
     return res.json();
+  }
+
+  /**
+   * Baixa mídia inbound como base64 (Evolution 2.3.x).
+   * `messageData` é o objeto da mensagem do webhook (com `key` + `message`).
+   */
+  async getMediaBase64(messageData: Record<string, unknown>): Promise<{
+    base64: string;
+    mimetype: string;
+  }> {
+    const { baseUrl, apiKey, instance } = await this.credenciais();
+    if (!apiKey) throw new Error("Evolution sem API key para baixar mídia");
+    const url = `${baseUrl}/chat/getBase64FromMediaMessage/${instance}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: apiKey,
+      },
+      body: JSON.stringify({
+        message: messageData,
+        convertToMp4: false,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Evolution getBase64 ${res.status}: ${body}`);
+    }
+    const json = (await res.json()) as Record<string, unknown>;
+    const base64 = String(
+      json.base64 || json.base64Data || json.data || "",
+    ).replace(/^data:[^;]+;base64,/, "");
+    const mimetype = String(
+      json.mimetype || json.mimeType || json.mediaType || "",
+    );
+    if (!base64) throw new Error("Evolution getBase64 sem conteúdo");
+    return { base64, mimetype };
   }
 
   async webhookSecret(): Promise<string> {

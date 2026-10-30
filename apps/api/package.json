@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "esbuild src/main.ts src/criar-admin.ts src/importar.ts src/redefinir-senha.ts src/treino-demo.ts --bundle --platform=node --format=cjs --outdir=dist --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express --external:@sentry/node",
+    "build": "esbuild src/main.ts src/criar-admin.ts src/importar.ts src/redefinir-senha.ts src/treino-demo.ts --bundle --platform=node --format=cjs --outdir=dist --external:@nestjs/* --external:@prisma/client --external:reflect-metadata --external:rxjs --external:express --external:@sentry/node --external:pdf-parse --external:mammoth --external:ioredis",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
     "admin:criar": "tsx src/criar-admin.ts",
@@ -18,12 +18,15 @@
     "@sac-aisa/domain": "*",
     "@sentry/node": "^9.47.2",
     "ioredis": "^6.0.0",
+    "mammoth": "^1.13.0",
+    "pdf-parse": "^1.1.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
+    "@types/pdf-parse": "^1.1.5",
     "esbuild": "^0.25.0",
     "tsx": "^4.19.0"
   }

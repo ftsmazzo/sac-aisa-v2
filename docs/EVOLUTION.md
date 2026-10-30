@@ -8,7 +8,7 @@
 | 2.4.0-rc1 / rc2 | **Não.** Pré-release; exige ativação de licença (`503 LICENSE_REQUIRED`); migration `RuntimeConfig`; manager novo. Só avaliar quando sair estável e a licença estiver ok. |
 | `:latest` | **Não pinamos.** No Hub já avançou para a linha 2.4.0-rc. |
 
-O código do agente gestor (`apps/api/src/whatsapp/`) foi escrito contra o contrato da 2.x estável: `POST /message/sendText/{instance}`, `POST /webhook/set/{instance}`, webhook com `remoteJid` / `remoteJidAlt` / `@lid`.
+O código do agente gestor (`apps/api/src/whatsapp/`) foi escrito contra o contrato da 2.x estável: `POST /message/sendText/{instance}`, `POST /webhook/set/{instance}`, `POST /chat/getBase64FromMediaMessage/{instance}` (áudio/imagem/PDF/DOCX → texto), webhook com `remoteJid` / `remoteJidAlt` / `@lid`.
 
 ## EasyPanel (produção — projeto `sac-aisa-v2`)
 
@@ -45,3 +45,5 @@ Na tela de integrações (cartão Evolution) ou env da API:
 - `PUBLIC_API_URL=` URL pública da API Nest
 
 Depois: criar a instância `sac-aisa` e escanear o QR. Com `PUBLIC_API_URL` e as chaves no env, a API registra sozinha o webhook `MESSAGES_UPSERT` na subida (payload Evolution 2.3.x aninhado em `webhook`, header `x-evolution-secret`). Admin pode forçar de novo com `POST /whatsapp/evolution/configure-webhook`. Para pular o registro automático: `EVOLUTION_SKIP_WEBHOOK_BOOT=1`.
+
+Mídia (opcional): `GESTOR_STT_MODEL` e `GESTOR_VISION_MODEL` — padrões Whisper turbo e Gemini Flash via OpenRouter.
