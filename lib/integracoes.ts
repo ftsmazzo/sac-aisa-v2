@@ -14,7 +14,7 @@ export interface CampoIntegracao {
 }
 
 export interface Integracao {
-  chave: "clickup" | "mercadolivre" | "shopee" | "openrouter";
+  chave: "clickup" | "mercadolivre" | "shopee" | "openrouter" | "evolution";
   nome: string;
   resumo: string;
   passos: string[];

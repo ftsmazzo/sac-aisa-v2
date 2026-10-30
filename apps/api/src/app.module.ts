@@ -19,6 +19,7 @@ import { ControladorCoeficiente } from "./coeficiente";
 import { ControladorFotos } from "./fotos";
 import { ControladorIa, ControladorIaAdmin } from "./ia/ia.controller";
 import { ControladorImportacao } from "./importacao.controller";
+import { RedisService } from "./infra/redis.service";
 import { ServicoIntegracoes } from "./integracoes";
 import {
   ControladorAssistenteClickup,
@@ -38,6 +39,12 @@ import { RepositorioPrisma } from "./repositorio-prisma";
 import { lerChave } from "./segredos";
 import { ControladorTreino } from "./treino.controller";
 import { ControladorUsuarios } from "./usuarios.controller";
+import { EvolutionService } from "./whatsapp/evolution.service";
+import { GestorAgentService } from "./whatsapp/gestor-agent.service";
+import { GestorMemoryService } from "./whatsapp/gestor-memory.service";
+import { GestorToolsService } from "./whatsapp/gestor-tools";
+import { ControladorWhatsapp } from "./whatsapp/whatsapp.controller";
+import { WhatsappService } from "./whatsapp/whatsapp.service";
 
 @Module({
   controllers: [
@@ -62,6 +69,7 @@ import { ControladorUsuarios } from "./usuarios.controller";
     ControladorTreino,
     ControladorWebhooksCanais,
     ControladorSimulacao,
+    ControladorWhatsapp,
   ],
   providers: [
     { provide: PrismaClient, useFactory: () => new PrismaClient() },
@@ -107,6 +115,12 @@ import { ControladorUsuarios } from "./usuarios.controller";
     },
     FilaClickup,
     ServicoCanais,
+    RedisService,
+    EvolutionService,
+    GestorMemoryService,
+    GestorToolsService,
+    GestorAgentService,
+    WhatsappService,
     {
       provide: ServicoAuth,
       useFactory: (prisma: PrismaClient) =>

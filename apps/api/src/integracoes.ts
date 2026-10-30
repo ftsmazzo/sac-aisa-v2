@@ -16,7 +16,8 @@ export type ChaveIntegracao =
   | "clickup"
   | "mercadolivre"
   | "shopee"
-  | "openrouter";
+  | "openrouter"
+  | "evolution";
 export type EstadoIntegracao = "pendente" | "conectado" | "erro";
 
 interface CampoDef {
@@ -179,6 +180,45 @@ export const CATALOGO: Record<ChaveIntegracao, IntegracaoDef> = {
         rotulo: "Limite de custo por dia (US$)",
         tipo: "texto",
         ajuda: "Opcional. Ex.: 3 ou 2,5. Padrão 3.",
+      },
+    ],
+  },
+  evolution: {
+    nome: "Evolution (WhatsApp)",
+    resumo:
+      "Canal do agente gestor interno (só leitura). Não atende comprador nesta fase.",
+    passos: [
+      "Suba ou use a Evolution API com uma instância WhatsApp já conectada.",
+      "Cole a URL da API, a apikey e o nome da instância.",
+      "Configure o segredo do webhook. Em produção ele é obrigatório; sem ele o endpoint recusa.",
+      "Defina PUBLIC_API_URL e chame POST /whatsapp/evolution/configure-webhook (administrador) para apontar MESSAGES_UPSERT.",
+      "Autorize telefones em GESTOR_WHATSAPP_TELEFONES ou no campo telefone do usuário (gestor/admin/responsável de setor).",
+    ],
+    campos: [
+      {
+        nome: "apiKey",
+        rotulo: "API Key",
+        tipo: "segredo",
+        ajuda: "Header apikey da Evolution.",
+      },
+      {
+        nome: "webhookSecret",
+        rotulo: "Segredo do webhook",
+        tipo: "segredo",
+        ajuda:
+          "Opcional. Se preenchido, o webhook exige o mesmo valor em x-evolution-secret ou apikey.",
+      },
+      {
+        nome: "urlApi",
+        rotulo: "URL da API",
+        tipo: "texto",
+        ajuda: "Ex.: https://evolution.exemplo.com. Sem barra no final.",
+      },
+      {
+        nome: "instancia",
+        rotulo: "Nome da instância",
+        tipo: "texto",
+        ajuda: "Ex.: sac-aisa. Também aceita EVOLUTION_INSTANCE no ambiente.",
       },
     ],
   },
@@ -559,6 +599,40 @@ async function testarOpenRouter(
   }
 }
 
+async function testarEvolution(
+  c: ContextoTeste,
+  http: Http,
+): Promise<ResultadoTeste> {
+  const apiKey = c.segredo.apiKey;
+  const base = String(c.texto.urlApi || "")
+    .trim()
+    .replace(/\/$/, "");
+  const instancia = String(c.texto.instancia || "").trim();
+  if (!apiKey) return { ok: false, mensagem: "Informe a API Key." };
+  if (!base) return { ok: false, mensagem: "Informe a URL da API." };
+  if (!instancia)
+    return { ok: false, mensagem: "Informe o nome da instância." };
+  try {
+    const r = await chamar(
+      http,
+      `${base}/instance/connectionState/${encodeURIComponent(instancia)}`,
+      { headers: { apikey: apiKey, accept: "application/json" } },
+    );
+    if (r.status === 200) {
+      return {
+        ok: true,
+        mensagem: "Evolution respondeu. Confira se a instância está conectada.",
+      };
+    }
+    if (r.status === 401 || r.status === 403) {
+      return { ok: false, mensagem: "A Evolution recusou a API Key." };
+    }
+    return { ok: false, mensagem: `A Evolution respondeu ${r.status}.` };
+  } catch {
+    return semResposta("Evolution");
+  }
+}
+
 // ---------- Serviço ----------
 
 export interface CampoVisao {
@@ -824,7 +898,9 @@ export class ServicoIntegracoes {
           ? await testarMercadoLivre(ctx, this.http)
           : chave === "shopee"
             ? await testarShopee(ctx, this.http, agora)
-            : await testarOpenRouter(ctx, this.http);
+            : chave === "evolution"
+              ? await testarEvolution(ctx, this.http)
+              : await testarOpenRouter(ctx, this.http);
     const resultado: ResultadoTeste = {
       ok: bruto.ok,
       mensagem: removerSegredos(bruto.mensagem, Object.values(segredo)),

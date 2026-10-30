@@ -17,6 +17,7 @@
     "@sac-aisa/auth": "*",
     "@sac-aisa/domain": "*",
     "@sentry/node": "^9.47.2",
+    "ioredis": "^6.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76"
