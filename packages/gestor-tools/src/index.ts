@@ -5,6 +5,14 @@ export {
   acervoValido,
 } from "./acervos";
 export {
+  acervoSugeridoParaUrl,
+  extrairLinksHtml,
+  normalizarUrlCrawl,
+  ordenarFilaCrawl,
+  prioridadeUrl,
+  urlCrawlPermitida,
+} from "./crawl";
+export {
   agregarFilaSetor,
   agregarPendenteSac,
   ehEstadoFilaSetor,

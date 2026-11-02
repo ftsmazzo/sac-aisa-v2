@@ -15,8 +15,10 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
   const [resumo, setResumo] = useState(inicial);
   const [url, setUrl] = useState("https://aisadobrasil.com.br/");
   const [acervoUrl, setAcervoUrl] = useState("produtos-site");
+  const [maxPaginas, setMaxPaginas] = useState(40);
   const [syncing, setSyncing] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [crawlando, setCrawlando] = useState(false);
   const [aviso, setAviso] = useState<{
     tom: "ok" | "erro";
     texto: string;
@@ -86,6 +88,44 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
     await recarregar();
   }
 
+  async function importarSite() {
+    setCrawlando(true);
+    setAviso(null);
+    const r = await chamarAdminIa("/conhecimento/importar-site", "POST", {
+      url: url.trim(),
+      maxPaginas,
+    });
+    setCrawlando(false);
+    if (!r.ok) {
+      setAviso({
+        tom: "erro",
+        texto: mensagemAdminIa(
+          r,
+          "Crawl falhou (timeout ou allowlist). Tente de novo.",
+        ),
+      });
+      return;
+    }
+    if (r.dados.ok === false) {
+      setAviso({
+        tom: "erro",
+        texto:
+          typeof r.dados.mensagem === "string"
+            ? r.dados.mensagem
+            : "Crawl recusado.",
+      });
+      return;
+    }
+    const paginas = Number(r.dados.paginas_ok ?? 0);
+    const chunks = Number(r.dados.chunks ?? 0);
+    const erros = Array.isArray(r.dados.erros) ? r.dados.erros.length : 0;
+    setAviso({
+      tom: paginas === 0 ? "erro" : "ok",
+      texto: `Site indexado: ${paginas} página(s), ${chunks} trecho(s)${erros ? `, ${erros} falha(s)` : ""}. Contato/sobre vão para institucional; catálogo para produtos-site.`,
+    });
+    await recarregar();
+  }
+
   if (!carregou) {
     return (
       <Cartao>
@@ -100,6 +140,7 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
   const acervos = resumo?.acervos ?? [];
   const porAcervo = resumo?.porAcervo ?? {};
   const allowlist = resumo?.allowlist ?? [];
+  const ocupado = syncing || importando || crawlando;
 
   return (
     <Cartao>
@@ -111,9 +152,9 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
       </h2>
       <p className="pagina__apoio">
         O agente gestor mistura SDR (empresa, site, política) com consulta
-        operacional (KPI, planos, fila). SKU e números vêm das tabelas; prosa da
-        empresa vem destes acervos. Ao mudar perfil, perguntas ou causas, rode
-        sincronizar de novo.
+        operacional (KPI, planos, fila). Use <strong>Importar site</strong> para
+        varrer o domínio allowlist a partir da URL raiz (não precisa página a
+        página).
       </p>
 
       <p className="ia-admin__grupo">Acervos</p>
@@ -136,7 +177,7 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
       <div className="ia-admin__linha" style={{ marginTop: 8 }}>
         <Botao
           variante="primario"
-          disabled={syncing}
+          disabled={ocupado}
           onClick={() => void sincronizar()}
         >
           {syncing ? "Sincronizando…" : "Sincronizar base interna"}
@@ -147,7 +188,7 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
         </p>
       </div>
 
-      <p className="ia-admin__grupo">Importar URL (allowlist)</p>
+      <p className="ia-admin__grupo">Importar site (crawl)</p>
       {allowlist.length === 0 ? (
         <p className="aviso" role="status">
           Defina <code>CONHECIMENTO_URL_ALLOWLIST</code> no EasyPanel (ex.:{" "}
@@ -155,13 +196,14 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
         </p>
       ) : (
         <p className="pagina__apoio">
-          Domínios permitidos: {allowlist.join(", ")}
+          Domínios permitidos: {allowlist.join(", ")}. O crawl segue links
+          internos, prioriza contato/sobre/garantia e ignora carrinho/login.
         </p>
       )}
 
       <div className="ia-admin__grade">
         <div className="ia-admin__campo">
-          <label htmlFor="conhecimento-url">URL HTTPS</label>
+          <label htmlFor="conhecimento-url">URL semente (HTTPS)</label>
           <input
             id="conhecimento-url"
             type="url"
@@ -171,6 +213,32 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
             autoComplete="off"
           />
         </div>
+        <div className="ia-admin__campo">
+          <label htmlFor="conhecimento-max">Máx. páginas</label>
+          <input
+            id="conhecimento-max"
+            type="number"
+            min={1}
+            max={80}
+            value={maxPaginas}
+            onChange={(e) => setMaxPaginas(Number(e.target.value) || 40)}
+          />
+        </div>
+        <div className="ia-admin__linha">
+          <Botao
+            variante="primario"
+            disabled={ocupado || !url.trim() || allowlist.length === 0}
+            onClick={() => void importarSite()}
+          >
+            {crawlando
+              ? "Varrendo site… (pode levar alguns minutos)"
+              : "Importar site"}
+          </Botao>
+        </div>
+      </div>
+
+      <p className="ia-admin__grupo">Uma página só (opcional)</p>
+      <div className="ia-admin__grade">
         <div className="ia-admin__campo">
           <label htmlFor="conhecimento-acervo">Acervo</label>
           <select
@@ -188,10 +256,10 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
         <div className="ia-admin__linha">
           <Botao
             variante="secundario"
-            disabled={importando || !url.trim() || allowlist.length === 0}
+            disabled={ocupado || !url.trim() || allowlist.length === 0}
             onClick={() => void importar()}
           >
-            {importando ? "Importando…" : "Importar URL"}
+            {importando ? "Importando…" : "Importar só esta URL"}
           </Botao>
         </div>
       </div>
