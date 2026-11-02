@@ -4,14 +4,21 @@ import {
   ACERVOS,
   type AcervoId,
   acervoDeFonte,
+  acervoSugeridoParaUrl,
   acervoValido,
+  extrairLinksHtml,
   fatiarTexto,
+  normalizarUrlCrawl,
+  ordenarFilaCrawl,
+  urlCrawlPermitida,
 } from "@sac-aisa/gestor-tools";
 import { redigir } from "../ia/redacao";
 import { ServicoIntegracoes } from "../integracoes";
 
 const EMBED_PADRAO = "openai/text-embedding-3-small";
 const CASOS_MAX = 80;
+const CRAWL_MAX_PADRAO = 40;
+const CRAWL_MAX_TETO = 80;
 
 @Injectable()
 export class ConhecimentoService {
@@ -268,7 +275,7 @@ export class ConhecimentoService {
 
   /** Importa página pública (allowlist). Só HTTPS. */
   async importarUrl(urlRaw: string, acervoRaw?: string) {
-    const url = String(urlRaw || "").trim();
+    const url = normalizarUrlCrawl(String(urlRaw || "").trim()) || "";
     if (!url.startsWith("https://")) {
       return { ok: false as const, mensagem: "Use apenas HTTPS." };
     }
@@ -281,30 +288,137 @@ export class ConhecimentoService {
     }
     const acervo: AcervoId = acervoValido(acervoRaw)
       ? acervoRaw
-      : "produtos-site";
-    const res = await fetch(url, {
-      redirect: "follow",
-      signal: AbortSignal.timeout(20_000),
-      headers: { "User-Agent": "SAC-AISA-conhecimento/1.0" },
-    });
-    if (!res.ok) {
+      : acervoSugeridoParaUrl(url);
+    const page = await this.baixarPagina(url);
+    if (!page.ok) return page;
+    const gravados = await this.indexarPagina(url, page.texto, acervo);
+    return { ok: true as const, url, acervo, chunks: gravados };
+  }
+
+  /**
+   * Crawl BFS no mesmo domínio (allowlist): a partir da URL semente, segue links
+   * internos e indexa até maxPaginas. Prioriza páginas institucionais.
+   */
+  async importarSite(
+    urlRaw: string,
+    opts: { acervo?: string; maxPaginas?: number } = {},
+  ) {
+    const seed = normalizarUrlCrawl(String(urlRaw || "").trim());
+    if (!seed?.startsWith("https://")) {
+      return { ok: false as const, mensagem: "Use apenas HTTPS." };
+    }
+    if (!this.hostPermitido(seed)) {
       return {
         ok: false as const,
-        mensagem: `Falha ao baixar (${res.status}).`,
+        mensagem:
+          "Domínio fora da allowlist. Defina CONHECIMENTO_URL_ALLOWLIST (ex.: aisadobrasil.com.br).",
       };
     }
-    const ctype = res.headers.get("content-type") || "";
-    if (!ctype.includes("text/html") && !ctype.includes("text/plain")) {
+    let seedHost = "";
+    try {
+      seedHost = new URL(seed).hostname;
+    } catch {
+      return { ok: false as const, mensagem: "URL inválida." };
+    }
+
+    const maxPaginas = Math.min(
+      Math.max(Number(opts.maxPaginas) || CRAWL_MAX_PADRAO, 1),
+      CRAWL_MAX_TETO,
+    );
+    const acervoFixo = acervoValido(opts.acervo) ? opts.acervo : undefined;
+
+    const fila: string[] = [seed, ...sementesInstitucionais(seed)];
+    const vistos = new Set<string>();
+    const urlsOk: string[] = [];
+    const erros: { url: string; mensagem: string }[] = [];
+    let chunks = 0;
+
+    while (fila.length > 0 && vistos.size < maxPaginas) {
+      const ordenada = ordenarFilaCrawl(fila.splice(0, fila.length));
+      const url = ordenada.shift();
+      if (!url) break;
+      fila.push(...ordenada);
+      if (vistos.has(url)) continue;
+      if (!urlCrawlPermitida(url, seedHost) || !this.hostPermitido(url)) {
+        continue;
+      }
+      vistos.add(url);
+
+      const page = await this.baixarPagina(url);
+      if (!page.ok) {
+        erros.push({ url, mensagem: page.mensagem });
+        continue;
+      }
+
+      const acervo: AcervoId = acervoFixo ?? acervoSugeridoParaUrl(url);
+      try {
+        chunks += await this.indexarPagina(url, page.texto, acervo);
+        urlsOk.push(url);
+      } catch (e) {
+        erros.push({
+          url,
+          mensagem: e instanceof Error ? e.message : String(e),
+        });
+      }
+
+      for (const link of extrairLinksHtml(page.html, url)) {
+        if (!vistos.has(link) && urlCrawlPermitida(link, seedHost)) {
+          fila.push(link);
+        }
+      }
+    }
+
+    return {
+      ok: true as const,
+      seed,
+      max_paginas: maxPaginas,
+      visitadas: vistos.size,
+      paginas_ok: urlsOk.length,
+      chunks,
+      erros: erros.slice(0, 20),
+      urls: urlsOk.slice(0, 60),
+      como_ler:
+        "Crawl no domínio allowlist. Reimporte o site quando o conteúdo mudar. Contato/sobre entram no acervo institucional automaticamente.",
+    };
+  }
+
+  private async baixarPagina(
+    url: string,
+  ): Promise<
+    { ok: true; html: string; texto: string } | { ok: false; mensagem: string }
+  > {
+    try {
+      const res = await fetch(url, {
+        redirect: "follow",
+        signal: AbortSignal.timeout(20_000),
+        headers: { "User-Agent": "SAC-AISA-conhecimento/1.0" },
+      });
+      if (!res.ok) {
+        return { ok: false, mensagem: `Falha ao baixar (${res.status}).` };
+      }
+      const ctype = res.headers.get("content-type") || "";
+      if (!ctype.includes("text/html") && !ctype.includes("text/plain")) {
+        return { ok: false, mensagem: "Só HTML ou texto simples." };
+      }
+      const html = await res.text();
+      const texto = limparHtml(html);
+      if (texto.length < 40) {
+        return { ok: false, mensagem: "Página sem texto útil." };
+      }
+      return { ok: true, html, texto };
+    } catch (e) {
       return {
-        ok: false as const,
-        mensagem: "Só HTML ou texto simples nesta fatia.",
+        ok: false,
+        mensagem: e instanceof Error ? e.message : String(e),
       };
     }
-    const bruto = await res.text();
-    const texto = limparHtml(bruto);
-    if (texto.length < 40) {
-      return { ok: false as const, mensagem: "Página sem texto útil." };
-    }
+  }
+
+  private async indexarPagina(
+    url: string,
+    texto: string,
+    acervo: AcervoId,
+  ): Promise<number> {
     const fatias = fatiarTexto(texto, 1500, 150);
     let gravados = 0;
     for (let i = 0; i < fatias.length; i++) {
@@ -318,7 +432,7 @@ export class ConhecimentoService {
       });
       gravados += 1;
     }
-    return { ok: true as const, url, acervo, chunks: gravados };
+    return gravados;
   }
 
   async resumo() {
@@ -358,6 +472,28 @@ function limparHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Atalhos institucionais comuns (OpenCart / lojas HDG) para não depender só do menu. */
+function sementesInstitucionais(seed: string): string[] {
+  try {
+    const origin = new URL(seed).origin;
+    const caminhos = [
+      "/sobre-nos",
+      "/contato",
+      "/garantia-de-produtos",
+      "/politica-de-envio",
+      "/seguranca",
+      "/termos-de-uso-e-privacidade",
+      "/index.php?route=information/contact",
+      "/index.php?route=information/information",
+    ];
+    return caminhos
+      .map((p) => normalizarUrlCrawl(`${origin}${p}`))
+      .filter((u): u is string => Boolean(u));
+  } catch {
+    return [];
+  }
 }
 
 function tituloDeUrl(url: string, i: number, n: number): string {

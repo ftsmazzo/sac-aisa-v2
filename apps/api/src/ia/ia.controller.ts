@@ -276,4 +276,26 @@ export class ControladorConhecimento {
     const acervo = typeof obj.acervo === "string" ? obj.acervo : undefined;
     return this.conhecimento.importarUrl(url, acervo);
   }
+
+  @Requer("ia.gerir")
+  @Post("importar-site")
+  @HttpCode(200)
+  async importarSite(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    void usuarioDe(req);
+    const obj =
+      typeof corpo === "object" && corpo
+        ? (corpo as {
+            url?: unknown;
+            acervo?: unknown;
+            maxPaginas?: unknown;
+          })
+        : {};
+    const url = typeof obj.url === "string" ? obj.url : "";
+    const acervo = typeof obj.acervo === "string" ? obj.acervo : undefined;
+    const maxPaginas =
+      typeof obj.maxPaginas === "number"
+        ? obj.maxPaginas
+        : Number(obj.maxPaginas) || undefined;
+    return this.conhecimento.importarSite(url, { acervo, maxPaginas });
+  }
 }
