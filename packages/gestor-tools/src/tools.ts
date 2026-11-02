@@ -336,7 +336,7 @@ export const GESTOR_TOOL_DEFS: GestorToolDef[] = [
     function: {
       name: "conhecimento_buscar",
       description:
-        "Busca na base de conhecimento curada por acervo: institucional (tom/empresa), politica-sac (perguntas/causas), casos (laudos/soluções), produtos-site (e-commerce), manual. Use para política, tom, o que fazer numa causa, ou trechos de site/manual. Não invente — cite o que vier nos trechos. Números de reclamação/SKU/KPI: use as outras tools, não o RAG.",
+        "Busca na base de conhecimento curada por acervo: institucional (tom/empresa/contato), politica-sac (perguntas/causas), casos (laudos/soluções), produtos-site (e-commerce), manual. Use para política, tom, endereço/telefone/e-mail públicos da empresa, ou trechos de site/manual. Não invente — cite o que vier nos trechos. Números de reclamação/SKU/KPI: use as outras tools, não o RAG.",
       parameters: {
         type: "object",
         properties: {

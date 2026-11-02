@@ -25,7 +25,8 @@ const SYSTEM_ORQUESTRADOR =
   "7) Fila/setor: use fila_setor. Ranking = campo fila (já encaminhada ao setor). Backlog do SAC = pendente_sac (triagem/aguardando cliente, tempo parado). NUNCA chame pendente_sac de “(sem setor)” nem diga que é o setor com mais reclamações.\n" +
   "8) Nunca invente número. Tool {erro} ≠ zero reclamações.\n" +
   "9) Proibido: “aguarde”, “um momento”, menus, comandos KPI/MENU.\n" +
-  "10) Só leitura. Sem PII do comprador (nome, telefone, endereço, e-mail). Fuso America/Sao_Paulo.";
+  "10) Só leitura. Sem PII do *comprador/reclamante* (nome, telefone, endereço, e-mail do cliente). Contato público da empresa (telefone, e-mail, endereço, CNPJ do site/perfil) pode e deve ser informado se vier nos trechos ou no perfil.\n" +
+  "11) Fuso America/Sao_Paulo.";
 
 export type GestorAuth =
   | {
