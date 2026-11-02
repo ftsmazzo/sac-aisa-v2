@@ -971,6 +971,41 @@ export class GestorTools {
     };
   }
 
+  private rankingCausas(
+    linhas: { causa: { nome: string } | null }[],
+    limite: number,
+  ) {
+    const map = new Map<string, number>();
+    for (const r of linhas) {
+      const k = r.causa?.nome || "(sem causa)";
+      map.set(k, (map.get(k) || 0) + 1);
+    }
+    return [...map.entries()]
+      .map(([k, n]) => ({ k, n }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, Math.min(Math.max(limite, 1), 12));
+  }
+
+  private async coberturaBase(usuario: UsuarioLogado) {
+    const where = this.whereBase(usuario);
+    const [total, extrema] = await Promise.all([
+      this.prisma.reclamacao.count({ where }),
+      this.prisma.reclamacao.aggregate({
+        where,
+        _min: { dataAbertura: true },
+        _max: { dataAbertura: true },
+      }),
+    ]);
+    const ymd = (d: Date | null | undefined) =>
+      d ? d.toISOString().slice(0, 10) : null;
+    return {
+      total_base: total,
+      abertura_min: ymd(extrema._min.dataAbertura),
+      abertura_max: ymd(extrema._max.dataAbertura),
+      modo_treino: escopoDe(usuario).treino === true,
+    };
+  }
+
   private async causasTop(
     de: string,
     ate: string,
@@ -979,25 +1014,55 @@ export class GestorTools {
     label?: string,
   ) {
     const linhas = await this.carregarPeriodo(de, ate, usuario);
-    const map = new Map<string, number>();
-    for (const r of linhas) {
-      const k = r.causa?.nome || "(sem causa)";
-      map.set(k, (map.get(k) || 0) + 1);
+    const top = this.rankingCausas(linhas, limite);
+    const cobertura = await this.coberturaBase(usuario);
+
+    if (linhas.length > 0) {
+      return {
+        de,
+        ate,
+        label: label || `${de} → ${ate}`,
+        total_reclamacoes: linhas.length,
+        top,
+        cobertura,
+      };
     }
-    const top = [...map.entries()]
-      .map(([k, n]) => ({ k, n }))
-      .sort((a, b) => b.n - a.n)
-      .slice(0, Math.min(Math.max(limite, 1), 12));
+
+    // Período vazio: ranking no histórico disponível (treino ou real) — não diga “não há causas”.
+    if (cobertura.abertura_min && cobertura.abertura_max) {
+      const fbLinhas = await this.carregarPeriodo(
+        cobertura.abertura_min,
+        cobertura.abertura_max,
+        usuario,
+      );
+      const fbTop = this.rankingCausas(fbLinhas, limite);
+      if (fbLinhas.length > 0) {
+        return {
+          de: cobertura.abertura_min,
+          ate: cobertura.abertura_max,
+          label: cobertura.modo_treino
+            ? `demonstração (treino) ${cobertura.abertura_min} → ${cobertura.abertura_max}`
+            : `histórico ${cobertura.abertura_min} → ${cobertura.abertura_max}`,
+          total_reclamacoes: fbLinhas.length,
+          top: fbTop,
+          periodo_pedido: { de, ate, label: label || `${de} → ${ate}` },
+          usou_fallback_periodo: true,
+          cobertura,
+          aviso: `Sem reclamações no período pedido (${label || `${de}→${ate}`}). Ranking abaixo é do histórico ${cobertura.modo_treino ? "de demonstração (modo treino)" : "real"} disponível.`,
+        };
+      }
+    }
+
     return {
       de,
       ate,
       label: label || `${de} → ${ate}`,
-      total_reclamacoes: linhas.length,
-      top,
-      aviso:
-        linhas.length === 0
-          ? "Nenhuma reclamação no período (visão real, sem treino). Tente preset ano ou 30d."
-          : undefined,
+      total_reclamacoes: 0,
+      top: [],
+      cobertura,
+      aviso: cobertura.modo_treino
+        ? "Nenhuma reclamação de demonstração. Em Admin → Treino, gere/carregue os dados de demo."
+        : "Não há reclamações reais na base (treino excluído).",
     };
   }
 

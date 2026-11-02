@@ -18,7 +18,7 @@ const SYSTEM_ORQUESTRADOR =
   "Regras de orquestração:\n" +
   "1) HISTÓRICO + slots: “ok”, “e esse?”, “e no mês” continuam o tema. Pergunta nova e completa (ex.: “quais as 3 principais causas?”) NÃO reaproveita período antigo do slot — use padrão (30d KPI / 90d causas) ou o que a pessoa pediu.\n" +
   "2) SKU: se falarem g-156 / g156 / G 156, chame sku_resolver ou sku_analise. Nunca diga que não existe sem resolver fuzzy.\n" +
-  "3) Pedido claro → tools na hora. Sem período na frase → causas_top sem de/ate (90 dias) ou periodo_resolver 30d/ano. Não diga “não há causas” se a tool trouxe top[] com itens; se total_reclamacoes=0, diga o período usado e sugira “este ano”.\n" +
+  "3) Pedido claro → tools na hora. Sem período → causas_top sem de/ate (90d) ou periodo_resolver. Se causas_top.total_reclamacoes=0 mas houver fallback.top, responda com o fallback e diga o intervalo real. Só diga “não há reclamações” se cobertura.total_base=0.\n" +
   "4) Plano / G48 / card ClickUp → planos_listar, plano_status ou clickup_card (só leitura).\n" +
   "5) Política, causa/ação, tom da empresa, site ou manual → conhecimento_buscar (acervo: institucional | politica-sac | casos | produtos-site | manual); cite só o que vier nos trechos.\n" +
   "6) Mix SDR + gestão: empresa/produto em prosa = RAG; setor parado, atenção da semana, planos ativos, KPI/SKU = tools de tabela. Não use RAG para contar reclamação.\n" +
@@ -56,31 +56,46 @@ export class GestorAgentService {
       .split(/[,;\s]+/)
       .map((t) => t.replace(/\D/g, ""))
       .filter(Boolean);
+
+    const includeUser = {
+      setores: { include: { setor: { select: { nome: true } } } },
+      marcas: { include: { marca: { select: { nome: true } } } },
+      permissoes: true,
+    } as const;
+
+    const usuarios = await this.prisma.usuario.findMany({
+      where: {
+        ativo: true,
+        perfil: { in: ["administrador", "gestor", "responsavel_setor"] },
+      },
+      include: includeUser,
+    });
+
+    const porTelefone = () =>
+      usuarios.find((u) => {
+        const t = String(u.telefone || "").replace(/\D/g, "");
+        return (
+          !!t &&
+          (phoneMatch(digits, t) || (lidDigits && phoneMatch(lidDigits, t)))
+        );
+      });
+
+    // Allowlist env: usa o usuário desse telefone (respeita modo treino da web).
     if (
       envList.some(
         (t) => phoneMatch(digits, t) || (lidDigits && phoneMatch(lidDigits, t)),
       )
     ) {
-      const admin = await this.prisma.usuario.findFirst({
-        where: {
-          ativo: true,
-          perfil: { in: ["administrador", "gestor"] },
-        },
-        include: {
-          setores: { include: { setor: { select: { nome: true } } } },
-          marcas: { include: { marca: { select: { nome: true } } } },
-          permissoes: true,
-        },
-        orderBy: { criadoEm: "asc" },
-      });
-      if (admin) {
-        return {
-          ok: true,
-          usuario: usuarioGestorDe(admin),
-          via: "env",
-        };
+      const doFone = porTelefone();
+      if (doFone) {
+        return { ok: true, usuario: usuarioGestorDe(doFone), via: "env" };
       }
-      // Fallback mínimo se ainda não há usuário: escopo gestor genérico
+      const admin =
+        usuarios.find((u) => u.perfil === "administrador") ||
+        usuarios.find((u) => u.perfil === "gestor");
+      if (admin) {
+        return { ok: true, usuario: usuarioGestorDe(admin), via: "env" };
+      }
       return {
         ok: true,
         usuario: {
@@ -90,29 +105,16 @@ export class GestorAgentService {
           perfil: "gestor",
           setores: [],
           marcas: [],
+          modoTreino: false,
           permissoes: [],
         },
         via: "env",
       };
     }
 
-    const usuarios = await this.prisma.usuario.findMany({
-      where: {
-        ativo: true,
-        perfil: { in: ["administrador", "gestor", "responsavel_setor"] },
-        telefone: { not: null },
-      },
-      include: {
-        setores: { include: { setor: { select: { nome: true } } } },
-        marcas: { include: { marca: { select: { nome: true } } } },
-        permissoes: true,
-      },
-    });
-    for (const u of usuarios) {
-      const t = String(u.telefone || "").replace(/\D/g, "");
-      if (t && phoneMatch(digits, t)) {
-        return { ok: true, usuario: usuarioGestorDe(u), via: "usuario" };
-      }
+    const uFone = porTelefone();
+    if (uFone) {
+      return { ok: true, usuario: usuarioGestorDe(uFone), via: "usuario" };
     }
 
     // AlertaDestino só autoriza se houver Usuario com o mesmo telefone
@@ -202,9 +204,12 @@ export class GestorAgentService {
 
     try {
       const slotPatch: Partial<GestorSlots> = {};
-      const system = slotsHint
-        ? `${SYSTEM_ORQUESTRADOR}\n\n${slotsHint}`
-        : SYSTEM_ORQUESTRADOR;
+      const treinoHint = usuario.modoTreino
+        ? "MODO TREINO ativo: use só dados de demonstração (treino=true). Se o período pedido vier vazio mas houver fallback.top, responda com o fallback e cite que é o histórico de demo disponível. Nunca diga que a base está vazia se cobertura.total_base>0."
+        : "";
+      const system = [SYSTEM_ORQUESTRADOR, treinoHint, slotsHint]
+        .filter(Boolean)
+        .join("\n\n");
 
       const resposta = await chatComTools({
         chave,
