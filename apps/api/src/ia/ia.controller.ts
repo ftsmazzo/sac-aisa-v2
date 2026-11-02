@@ -268,13 +268,12 @@ export class ControladorConhecimento {
   @HttpCode(200)
   async importarUrl(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
     void usuarioDe(req);
-    const url =
-      typeof corpo === "object" &&
-      corpo &&
-      "url" in corpo &&
-      typeof (corpo as { url: unknown }).url === "string"
-        ? (corpo as { url: string }).url
-        : "";
-    return this.conhecimento.importarUrl(url);
+    const obj =
+      typeof corpo === "object" && corpo
+        ? (corpo as { url?: unknown; acervo?: unknown })
+        : {};
+    const url = typeof obj.url === "string" ? obj.url : "";
+    const acervo = typeof obj.acervo === "string" ? obj.acervo : undefined;
+    return this.conhecimento.importarUrl(url, acervo);
   }
 }

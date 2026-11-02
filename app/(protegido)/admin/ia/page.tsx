@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
-import type { RespostaPerfil, RespostaPerguntas } from "@/lib/ia";
+import type {
+  RespostaPerfil,
+  RespostaPerguntas,
+  ResumoConhecimento,
+} from "@/lib/ia";
 import { buscarNaApi } from "@/lib/reclamacoes";
 import { obterUsuario } from "@/lib/sessao";
+import { ConhecimentoPainel } from "./conhecimento-painel";
 import { PerfilForm } from "./perfil-form";
 import { PerguntasPainel } from "./perguntas-painel";
 
@@ -17,9 +22,10 @@ export default async function PaginaIa() {
     redirect("/");
   }
 
-  const [perfil, perguntas] = await Promise.all([
+  const [perfil, perguntas, conhecimento] = await Promise.all([
     buscarNaApi<RespostaPerfil>("/admin/ia/perfil"),
     buscarNaApi<RespostaPerguntas>("/admin/ia/perguntas"),
+    buscarNaApi<ResumoConhecimento>("/admin/ia/conhecimento"),
   ]);
 
   return (
@@ -29,10 +35,15 @@ export default async function PaginaIa() {
         <p className="pagina__apoio">
           O perfil da empresa dá o tom das mensagens ao cliente. As perguntas
           obrigatórias dizem o que o SAC precisa ver respondido por tipo de
-          produto e de causa. A IA só sugere: quem decide é a pessoa. Toda
-          mudança fica na auditoria.
+          produto e de causa. A base de conhecimento alimenta o agente gestor
+          (WhatsApp). A IA só sugere: quem decide é a pessoa. Toda mudança fica
+          na auditoria.
         </p>
       </div>
+      <ConhecimentoPainel
+        inicial={conhecimento.ok ? conhecimento.dados : null}
+        carregou={conhecimento.ok}
+      />
       {perfil.ok ? (
         <PerfilForm inicial={perfil.dados} />
       ) : (

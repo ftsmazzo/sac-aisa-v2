@@ -908,6 +908,8 @@ enum ConhecimentoFonte {
 model ConhecimentoChunk {
   id               String            @id @default(cuid())
   fonte            ConhecimentoFonte
+  /// Acervo temático (institucional, politica-sac, casos, produtos-site, manual).
+  acervo           String            @default("")
   /// Chave estável para reindexar sem duplicar (ex.: causa:solda, url:https://…).
   chave            String            @unique
   titulo           String            @default("")
@@ -920,5 +922,6 @@ model ConhecimentoChunk {
   alteradoEm       DateTime          @updatedAt
 
   @@index([fonte, ativo])
+  @@index([acervo, ativo])
   @@map("conhecimento_chunks")
 }

@@ -3,6 +3,7 @@
 export type ChunkBusca = {
   id: string;
   fonte: string;
+  acervo: string;
   titulo: string;
   texto: string;
   url: string;
@@ -12,6 +13,7 @@ export type ChunkBusca = {
 export type TrechoConhecimento = {
   id: string;
   fonte: string;
+  acervo: string;
   titulo: string;
   trecho: string;
   url: string;
@@ -104,7 +106,7 @@ export function buscarChunks(
   const ranqueados = chunks
     .map((c) => {
       const cos =
-        emb && emb.length && c.embedding.length ? cosseno(emb, c.embedding) : 0;
+        emb?.length && c.embedding.length ? cosseno(emb, c.embedding) : 0;
       const lex = afinidadeLexical(consulta, `${c.titulo} ${c.texto}`);
       // Prefere vetor; lexical reforça SKU/códigos.
       const afinidade = emb?.length ? cos * 0.85 + lex * 0.15 : lex;
@@ -117,6 +119,7 @@ export function buscarChunks(
   return ranqueados.map(({ c, afinidade }) => ({
     id: c.id,
     fonte: c.fonte,
+    acervo: c.acervo,
     titulo: c.titulo,
     trecho: c.texto.length > 900 ? `${c.texto.slice(0, 900)}…` : c.texto,
     url: c.url,

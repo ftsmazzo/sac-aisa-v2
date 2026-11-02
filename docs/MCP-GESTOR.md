@@ -38,6 +38,6 @@ Sem tools de escrita nesta fase.
 
 ## RAG
 
-A tool `conhecimento_buscar` lê `conhecimento_chunks`. Para embeddings no MCP, defina `OPENROUTER_API_KEY` (e opcional `GESTOR_EMBED_MODEL`).
+A tool `conhecimento_buscar` lê `conhecimento_chunks` e aceita `acervo` opcional (`institucional` | `politica-sac` | `casos` | `produtos-site` | `manual`). Para embeddings no MCP, defina `OPENROUTER_API_KEY` (e opcional `GESTOR_EMBED_MODEL`).
 
-Na API: `POST /admin/ia/conhecimento/sincronizar` (perfil, perguntas, causas, amostra de casos) e `POST /admin/ia/conhecimento/importar-url` com `{ "url": "https://…" }` — domínio em `CONHECIMENTO_URL_ALLOWLIST`.
+Na API e na tela Admin → IA: `POST /admin/ia/conhecimento/sincronizar` (perfil, perguntas, causas, amostra de casos) e `POST /admin/ia/conhecimento/importar-url` com `{ "url": "https://…", "acervo": "produtos-site" }` — domínio em `CONHECIMENTO_URL_ALLOWLIST`.

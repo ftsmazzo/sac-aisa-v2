@@ -14,6 +14,7 @@ describe("buscarChunks", () => {
       {
         id: "1",
         fonte: "causa",
+        acervo: "politica-sac",
         titulo: "Solda",
         texto: "Solda soltando na cuba exige reforço e laudo.",
         url: "",
@@ -22,6 +23,7 @@ describe("buscarChunks", () => {
       {
         id: "2",
         fonte: "perfil",
+        acervo: "institucional",
         titulo: "Tom",
         texto: "Seja cordial e não prometa estorno.",
         url: "",
@@ -33,6 +35,7 @@ describe("buscarChunks", () => {
       minAfinidade: 0.01,
     });
     expect(r[0]?.id).toBe("1");
+    expect(r[0]?.acervo).toBe("politica-sac");
   });
 
   it("usa cosseno quando há embedding", () => {
@@ -40,6 +43,7 @@ describe("buscarChunks", () => {
       {
         id: "a",
         fonte: "url",
+        acervo: "produtos-site",
         titulo: "A",
         texto: "irrelevante",
         url: "",
@@ -48,6 +52,7 @@ describe("buscarChunks", () => {
       {
         id: "b",
         fonte: "url",
+        acervo: "produtos-site",
         titulo: "B",
         texto: "também",
         url: "",
