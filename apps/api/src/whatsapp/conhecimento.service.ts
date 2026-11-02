@@ -70,7 +70,10 @@ export class ConhecimentoService {
     texto: string;
     url?: string;
   }) {
-    const texto = redigir(args.texto).trim();
+    // Casos podem ter PII do comprador; site/perfil/manual são contato público da empresa.
+    const texto = (
+      args.fonte === "caso" ? redigir(args.texto) : args.texto
+    ).trim();
     if (texto.length < 20) return { skipped: true as const };
     const acervo = args.acervo ?? acervoDeFonte(args.fonte);
     const embedding = await this.embed(`${args.titulo}\n${texto}`);
@@ -345,7 +348,7 @@ export class ConhecimentoService {
 }
 
 function limparHtml(html: string): string {
-  const t = html
+  return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
@@ -355,7 +358,6 @@ function limparHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
-  return redigir(t);
 }
 
 function tituloDeUrl(url: string, i: number, n: number): string {
