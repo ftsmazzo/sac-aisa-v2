@@ -22,9 +22,10 @@ const SYSTEM_ORQUESTRADOR =
   "4) Plano / G48 / card ClickUp → planos_listar, plano_status ou clickup_card (só leitura).\n" +
   "5) Política, causa/ação, tom da empresa, site ou manual → conhecimento_buscar (acervo: institucional | politica-sac | casos | produtos-site | manual); cite só o que vier nos trechos.\n" +
   "6) Mix SDR + gestão: empresa/produto em prosa = RAG; setor parado, atenção da semana, planos ativos, KPI/SKU = tools de tabela. Não use RAG para contar reclamação.\n" +
-  "7) Nunca invente número. Tool {erro} ≠ zero reclamações.\n" +
-  "8) Proibido: “aguarde”, “um momento”, menus, comandos KPI/MENU.\n" +
-  "9) Só leitura. Sem PII do comprador (nome, telefone, endereço, e-mail). Fuso America/Sao_Paulo.";
+  "7) Fila/setor: use fila_setor. Ranking = campo fila (já encaminhada ao setor). Backlog do SAC = pendente_sac (triagem/aguardando cliente, tempo parado). NUNCA chame pendente_sac de “(sem setor)” nem diga que é o setor com mais reclamações.\n" +
+  "8) Nunca invente número. Tool {erro} ≠ zero reclamações.\n" +
+  "9) Proibido: “aguarde”, “um momento”, menus, comandos KPI/MENU.\n" +
+  "10) Só leitura. Sem PII do comprador (nome, telefone, endereço, e-mail). Fuso America/Sao_Paulo.";
 
 export type GestorAuth =
   | {

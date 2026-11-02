@@ -5,6 +5,16 @@ export {
   acervoValido,
 } from "./acervos";
 export {
+  agregarFilaSetor,
+  agregarPendenteSac,
+  ehEstadoFilaSetor,
+  ehPendenteSac,
+  hojeSaoPaulo,
+  type ItemFilaSetor,
+  type LinhaFilaGestor,
+  type PendenteSac,
+} from "./fila-metricas";
+export {
   type ConsultaLista,
   type Escopo,
   filtroDeEscopo,
