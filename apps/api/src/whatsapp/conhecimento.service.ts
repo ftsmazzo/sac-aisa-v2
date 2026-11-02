@@ -1,6 +1,12 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
-import { fatiarTexto } from "@sac-aisa/gestor-tools";
+import {
+  ACERVOS,
+  type AcervoId,
+  acervoDeFonte,
+  acervoValido,
+  fatiarTexto,
+} from "@sac-aisa/gestor-tools";
 import { redigir } from "../ia/redacao";
 import { ServicoIntegracoes } from "../integracoes";
 
@@ -59,18 +65,21 @@ export class ConhecimentoService {
   private async upsertChunk(args: {
     chave: string;
     fonte: "perfil" | "pergunta" | "causa" | "caso" | "url" | "manual";
+    acervo?: AcervoId;
     titulo: string;
     texto: string;
     url?: string;
   }) {
     const texto = redigir(args.texto).trim();
     if (texto.length < 20) return { skipped: true as const };
+    const acervo = args.acervo ?? acervoDeFonte(args.fonte);
     const embedding = await this.embed(`${args.titulo}\n${texto}`);
     await this.prisma.conhecimentoChunk.upsert({
       where: { chave: args.chave },
       create: {
         chave: args.chave,
         fonte: args.fonte,
+        acervo,
         titulo: args.titulo.slice(0, 200),
         texto,
         url: args.url || "",
@@ -80,6 +89,7 @@ export class ConhecimentoService {
       },
       update: {
         fonte: args.fonte,
+        acervo,
         titulo: args.titulo.slice(0, 200),
         texto,
         url: args.url || "",
@@ -246,7 +256,7 @@ export class ConhecimentoService {
   }
 
   /** Importa página pública (allowlist). Só HTTPS. */
-  async importarUrl(urlRaw: string) {
+  async importarUrl(urlRaw: string, acervoRaw?: string) {
     const url = String(urlRaw || "").trim();
     if (!url.startsWith("https://")) {
       return { ok: false as const, mensagem: "Use apenas HTTPS." };
@@ -255,9 +265,12 @@ export class ConhecimentoService {
       return {
         ok: false as const,
         mensagem:
-          "Domínio fora da allowlist. Defina CONHECIMENTO_URL_ALLOWLIST (ex.: aisa.com.br).",
+          "Domínio fora da allowlist. Defina CONHECIMENTO_URL_ALLOWLIST (ex.: aisadobrasil.com.br).",
       };
     }
+    const acervo: AcervoId = acervoValido(acervoRaw)
+      ? acervoRaw
+      : "produtos-site";
     const res = await fetch(url, {
       redirect: "follow",
       signal: AbortSignal.timeout(20_000),
@@ -287,24 +300,36 @@ export class ConhecimentoService {
       await this.upsertChunk({
         chave: `url:${url}#${i}`,
         fonte: "url",
+        acervo,
         titulo: tituloDeUrl(url, i, fatias.length),
         texto: fatias[i],
         url,
       });
       gravados += 1;
     }
-    return { ok: true as const, url, chunks: gravados };
+    return { ok: true as const, url, acervo, chunks: gravados };
   }
 
   async resumo() {
-    const porFonte = await this.prisma.conhecimentoChunk.groupBy({
-      by: ["fonte"],
-      where: { ativo: true },
-      _count: true,
-    });
+    const [porFonte, porAcervo] = await Promise.all([
+      this.prisma.conhecimentoChunk.groupBy({
+        by: ["fonte"],
+        where: { ativo: true },
+        _count: true,
+      }),
+      this.prisma.conhecimentoChunk.groupBy({
+        by: ["acervo"],
+        where: { ativo: true },
+        _count: true,
+      }),
+    ]);
     return {
       total: porFonte.reduce((a, x) => a + x._count, 0),
       porFonte: Object.fromEntries(porFonte.map((x) => [x.fonte, x._count])),
+      porAcervo: Object.fromEntries(
+        porAcervo.map((x) => [x.acervo || "(vazio)", x._count]),
+      ),
+      acervos: ACERVOS.map((a) => ({ ...a })),
       allowlist: this.allowlist(),
       modelo: this.modeloEmbed(),
     };

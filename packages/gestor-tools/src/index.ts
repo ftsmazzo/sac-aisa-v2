@@ -1,4 +1,10 @@
 export {
+  ACERVOS,
+  type AcervoId,
+  acervoDeFonte,
+  acervoValido,
+} from "./acervos";
+export {
   type ConsultaLista,
   type Escopo,
   filtroDeEscopo,

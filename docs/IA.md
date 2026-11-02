@@ -93,7 +93,7 @@ Canal **interno** (gestor / responsável de setor autorizados por telefone), sep
 
 **Tools compartilhadas (Fatia 2):** defs e executores em `@sac-aisa/gestor-tools` (só leitura). A API Nest e o MCP stdio `apps/mcp-gestor` usam o mesmo código. MCP: `npm run start -w @sac-aisa/mcp-gestor` com `DATABASE_URL` (e opcional `GESTOR_MCP_LOGIN`).
 
-**RAG (Fatia 3):** tabela `conhecimento_chunks` (Float[] + cosseno na app). Fontes: perfil IA, perguntas, causas/`acao`, amostra de casos resolvidos (redigidos) e URLs HTTPS na allowlist `CONHECIMENTO_URL_ALLOWLIST`. Embedding via OpenRouter (`GESTOR_EMBED_MODEL`, padrão `openai/text-embedding-3-small`). Tool `conhecimento_buscar`. Admin: `GET/POST /admin/ia/conhecimento`, `POST .../sincronizar`, `POST .../importar-url`.
+**RAG (Fatia 3 + acervos):** tabela `conhecimento_chunks` (Float[] + cosseno na app) com campo `acervo` temático: `institucional`, `politica-sac`, `casos`, `produtos-site`, `manual`. Fontes: perfil IA, perguntas, causas/`acao`, amostra de casos resolvidos (redigidos) e URLs HTTPS na allowlist `CONHECIMENTO_URL_ALLOWLIST`. Embedding via OpenRouter (`GESTOR_EMBED_MODEL`, padrão `openai/text-embedding-3-small`). Tool `conhecimento_buscar` (filtro opcional `acervo`). Admin UI em `/admin/ia` (sincronizar + importar URL) e API `GET/POST /admin/ia/conhecimento`, `POST .../sincronizar`, `POST .../importar-url` com `{ url, acervo? }`. SKU/KPI ficam nas tools de tabela; RAG cobre prosa da empresa.
 
 ### 2.4 Quando mudar de ideia
 

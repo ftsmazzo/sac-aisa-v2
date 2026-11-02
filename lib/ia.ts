@@ -204,3 +204,18 @@ export const ROTULO_CAMPO: Record<string, string> = {
   setor: "Setor",
   pedido: "Pedido",
 };
+
+export interface AcervoConhecimento {
+  id: string;
+  rotulo: string;
+  descricao: string;
+}
+
+export interface ResumoConhecimento {
+  total: number;
+  porFonte: Record<string, number>;
+  porAcervo: Record<string, number>;
+  acervos: AcervoConhecimento[];
+  allowlist: string[];
+  modelo: string;
+}

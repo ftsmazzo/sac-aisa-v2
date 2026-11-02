@@ -331,13 +331,18 @@ export const GESTOR_TOOL_DEFS: GestorToolDef[] = [
     function: {
       name: "conhecimento_buscar",
       description:
-        "Busca na base de conhecimento curada (perfil, causas/ação, perguntas, casos, páginas importadas). Use para política, tom, o que fazer numa causa, ou trechos de manual/site. Não invente — cite o que vier nos trechos.",
+        "Busca na base de conhecimento curada por acervo: institucional (tom/empresa), politica-sac (perguntas/causas), casos (laudos/soluções), produtos-site (e-commerce), manual. Use para política, tom, o que fazer numa causa, ou trechos de site/manual. Não invente — cite o que vier nos trechos. Números de reclamação/SKU/KPI: use as outras tools, não o RAG.",
       parameters: {
         type: "object",
         properties: {
           q: {
             type: "string",
-            description: "Pergunta ou termos (SKU, causa, tema).",
+            description: "Pergunta ou termos (tema, causa, produto em prosa).",
+          },
+          acervo: {
+            type: "string",
+            description:
+              "Opcional: institucional | politica-sac | casos | produtos-site | manual. Sem filtro = busca em todos.",
           },
           k: {
             type: "number",
@@ -468,6 +473,7 @@ export class GestorTools {
           return this.conhecimentoBuscar(
             typeof args.q === "string" ? args.q : "",
             typeof args.k === "number" ? args.k : Number(args.k) || 5,
+            typeof args.acervo === "string" ? args.acervo : undefined,
           );
         default:
           return { erro: `Tool desconhecida: ${name}` };
@@ -487,7 +493,7 @@ export class GestorTools {
         "Status de registro e jornada",
         "KPI, causas, setores, fila, alertas, PPM",
         "Planos de ação e status do card ClickUp",
-        "Base de conhecimento (perfil, causas, manuais/URLs curadas)",
+        "Base de conhecimento por acervo (institucional, politica-sac, casos, produtos-site, manual)",
       ],
       nao_cobre: [
         "Alterar reclamação ou plano",
@@ -498,14 +504,19 @@ export class GestorTools {
     };
   }
 
-  private async conhecimentoBuscar(q: string, k: number) {
+  private async conhecimentoBuscar(q: string, k: number, acervo?: string) {
     const consulta = String(q || "").trim();
     if (!consulta) return { erro: "Informe q (consulta)." };
+    const acervoFiltro = String(acervo || "").trim();
     const rows = await this.prisma.conhecimentoChunk.findMany({
-      where: { ativo: true },
+      where: {
+        ativo: true,
+        ...(acervoFiltro ? { acervo: acervoFiltro } : {}),
+      },
       select: {
         id: true,
         fonte: true,
+        acervo: true,
         titulo: true,
         texto: true,
         url: true,
@@ -516,8 +527,9 @@ export class GestorTools {
     if (!rows.length) {
       return {
         trechos: [],
-        aviso:
-          "Base de conhecimento vazia. Peça ao admin para sincronizar ou importar URL.",
+        aviso: acervoFiltro
+          ? `Nenhum trecho no acervo "${acervoFiltro}". Sincronize ou importe URL na tela Admin → IA.`
+          : "Base de conhecimento vazia. Peça ao admin para sincronizar ou importar URL.",
       };
     }
     let queryEmbedding: number[] | undefined;
@@ -535,6 +547,7 @@ export class GestorTools {
       rows.map((r) => ({
         id: r.id,
         fonte: String(r.fonte),
+        acervo: r.acervo || "",
         titulo: r.titulo,
         texto: r.texto,
         url: r.url,
