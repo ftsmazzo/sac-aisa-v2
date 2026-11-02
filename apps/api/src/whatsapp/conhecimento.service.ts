@@ -240,6 +240,14 @@ export class ConhecimentoService {
     return (process.env.CONHECIMENTO_URL_ALLOWLIST || "")
       .split(/[,;\s]+/)
       .map((d) => d.trim().toLowerCase())
+      .map((d) => {
+        try {
+          if (d.includes("://")) return new URL(d).hostname.toLowerCase();
+        } catch {
+          /* ignora */
+        }
+        return d.replace(/^www\./, "");
+      })
       .filter(Boolean);
   }
 
