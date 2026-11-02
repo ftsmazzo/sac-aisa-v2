@@ -2,6 +2,11 @@ import type { Prisma, PrismaClient, Situacao } from "@prisma/client";
 import type { UsuarioLogado } from "@sac-aisa/auth";
 import { mesclarPermissoes } from "@sac-aisa/domain";
 import {
+  agregarFilaSetor,
+  agregarPendenteSac,
+  hojeSaoPaulo,
+} from "./fila-metricas";
+import {
   type Escopo,
   filtroDeEscopo,
   filtroDeTreino,
@@ -242,11 +247,11 @@ export const GESTOR_TOOL_DEFS: GestorToolDef[] = [
     function: {
       name: "fila_setor",
       description:
-        "Contagem da fila por setor (reclamações em tratativa / aguardando sem ação).",
+        "Fila do setor (igual à tela /fila): só encaminhada/recebida/em_tratativa COM setor responsável. Também devolve pendente_sac = backlog do SAC em triagem/aguardando_cliente (ainda sem encaminhar) com dias parados — NÃO chame isso de “(sem setor)” nem misture no ranking de setor.",
       parameters: {
         type: "object",
         properties: {
-          setor: { type: "string", description: "Opcional — fuzzy" },
+          setor: { type: "string", description: "Opcional — fuzzy na fila" },
         },
         additionalProperties: false,
       },
@@ -491,7 +496,7 @@ export class GestorTools {
       cobre: [
         "Reclamações por período / setor / causa / SKU",
         "Status de registro e jornada",
-        "KPI, causas, setores, fila, alertas, PPM",
+        "KPI, causas, setores, fila do setor, backlog SAC (pendente_sac), alertas, PPM",
         "Planos de ação e status do card ClickUp",
         "Base de conhecimento por acervo (institucional, politica-sac, casos, produtos-site, manual)",
       ],
@@ -971,8 +976,13 @@ export class GestorTools {
   ) {
     const linhas = await this.carregarPeriodo(de, ate, usuario);
     const map = new Map<string, number>();
+    let semSetorResponsavel = 0;
     for (const r of linhas) {
-      const k = r.setorResp?.nome || "(sem setor)";
+      const k = r.setorResp?.nome;
+      if (!k) {
+        semSetorResponsavel += 1;
+        continue;
+      }
       map.set(k, (map.get(k) || 0) + 1);
     }
     const ranking = [...map.entries()]
@@ -984,6 +994,8 @@ export class GestorTools {
         de,
         ate,
         ranking: ranking.slice(0, 10),
+        sem_setor_responsavel: semSetorResponsavel,
+        nota: "sem_setor_responsavel = aberturas no período sem setor (não é nome de setor).",
         setores_disponiveis: ranking.map((r) => r.k),
       };
     }
@@ -1052,34 +1064,51 @@ export class GestorTools {
   }
 
   private async filaSetor(setor: string, usuario: UsuarioLogado) {
+    const hoje = hojeSaoPaulo();
     const linhas = await this.prisma.reclamacao.findMany({
       where: {
-        AND: [this.whereBase(usuario), { dataAcao: null }],
+        AND: [
+          this.whereBase(usuario),
+          {
+            OR: [
+              {
+                estado: {
+                  in: ["encaminhada", "recebida", "em_tratativa"],
+                },
+                setorRespId: { not: null },
+              },
+              { estado: { in: ["triagem", "aguardando_cliente"] } },
+            ],
+          },
+        ],
       },
       select: {
-        devolucao: true,
+        estado: true,
+        dataAbertura: true,
+        estadoDesde: true,
         setorResp: { select: { nome: true } },
       },
-      take: 3000,
+      take: 4000,
     });
-    const map = new Map<string, { aguardando: number; tratativa: number }>();
-    for (const r of linhas) {
-      const k = r.setorResp?.nome || "(sem setor)";
-      if (setor.trim() && !setorFuzzyMatch(k, setor)) continue;
-      const slot = map.get(k) || { aguardando: 0, tratativa: 0 };
-      if (r.devolucao === "AGUARDANDO") slot.aguardando++;
-      else slot.tratativa++;
-      map.set(k, slot);
-    }
-    const itens = [...map.entries()]
-      .map(([nome, v]) => ({
-        setor: nome,
-        aguardando: v.aguardando,
-        tratativa: v.tratativa,
-        total: v.aguardando + v.tratativa,
-      }))
-      .sort((a, b) => b.total - a.total);
-    return { query: setor || null, itens };
+    const normalizadas = linhas.map((r) => ({
+      estado: String(r.estado),
+      dataAbertura: r.dataAbertura,
+      estadoDesde: r.estadoDesde,
+      setorNome: r.setorResp?.nome ?? null,
+    }));
+    const filtro = setor.trim()
+      ? (nome: string) => setorFuzzyMatch(nome, setor)
+      : undefined;
+    const fila = agregarFilaSetor(normalizadas, hoje, filtro);
+    const pendente_sac = agregarPendenteSac(normalizadas, hoje);
+    return {
+      query: setor || null,
+      hoje,
+      fila,
+      pendente_sac,
+      como_ler:
+        "Use fila[].setor para ranking de setor. Use pendente_sac para backlog do SAC (tempo parado sem encaminhar). Nunca diga que “(sem setor)” é um setor.",
+    };
   }
 
   private filtroPlanosEscopo(
