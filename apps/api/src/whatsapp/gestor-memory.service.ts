@@ -109,6 +109,10 @@ export class GestorMemoryService {
     if (slots.ultimaCausa) parts.push(`Causa em foco: ${slots.ultimaCausa}`);
     if (slots.ultimoTema) parts.push(`Tema: ${slots.ultimoTema}`);
     if (!parts.length) return "";
-    return `Contexto persistente desta conversa:\n- ${parts.join("\n- ")}\nUse esses slots se o gestor for vago (“e esse?”, “ok”, “e no mês”).`;
+    return (
+      `Contexto persistente desta conversa:\n- ${parts.join("\n- ")}\n` +
+      "Use esses slots só se a mensagem for continuação vaga (“e esse?”, “ok”, “e no mês”). " +
+      "Pergunta nova e completa ignora período antigo e resolve de novo."
+    );
   }
 }

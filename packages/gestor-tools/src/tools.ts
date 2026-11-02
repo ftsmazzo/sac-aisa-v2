@@ -23,8 +23,13 @@ export type GestorToolsOpcoes = {
   embed?: (texto: string) => Promise<number[]>;
 };
 
-function dia(s: string): Date {
+function diaInicio(s: string): Date {
   return new Date(`${s}T00:00:00.000Z`);
+}
+
+/** Inclusive no dia `ate` (evita cortar o último dia em campos DateTime). */
+function diaFim(s: string): Date {
+  return new Date(`${s}T23:59:59.999Z`);
 }
 
 function situacaoDe(r: { dataAcao: Date | null; devolucao: string }): Situacao {
@@ -199,15 +204,15 @@ export const GESTOR_TOOL_DEFS: GestorToolDef[] = [
     type: "function",
     function: {
       name: "causas_top",
-      description: "Ranking das principais causas no período.",
+      description:
+        "Ranking das principais causas. Sem de/ate → últimos 90 dias. Pergunta genérica (“top causas”) NÃO reutilize período antigo da conversa.",
       parameters: {
         type: "object",
         properties: {
-          de: { type: "string" },
-          ate: { type: "string" },
+          de: { type: "string", description: "YYYY-MM-DD (opcional)" },
+          ate: { type: "string", description: "YYYY-MM-DD (opcional)" },
           limite: { type: "number" },
         },
-        required: ["de", "ate"],
         additionalProperties: false,
       },
     },
@@ -376,15 +381,27 @@ export class GestorTools {
     return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
   }
 
+  private datasOuPadrao(
+    args: Record<string, unknown>,
+    presetPadrao = "30d",
+  ): { de: string; ate: string; label: string } {
+    if (this.dataOk(args.de) && this.dataOk(args.ate)) {
+      return { de: args.de, ate: args.ate, label: `${args.de} → ${args.ate}` };
+    }
+    return resolverPeriodo(
+      typeof args.preset === "string" ? args.preset : presetPadrao,
+      this.dataOk(args.de) ? args.de : undefined,
+      this.dataOk(args.ate) ? args.ate : undefined,
+      typeof args.dias === "number" ? args.dias : undefined,
+    );
+  }
+
+  /** @deprecated use datasOuPadrao — mantido p/ callers que ainda checam erro. */
   private datasOuErro(
     args: Record<string, unknown>,
   ): { de: string; ate: string } | { erro: string } {
-    if (!this.dataOk(args.de) || !this.dataOk(args.ate)) {
-      return {
-        erro: "Informe de e ate no formato YYYY-MM-DD (chame periodo_resolver antes).",
-      };
-    }
-    return { de: args.de, ate: args.ate };
+    const p = this.datasOuPadrao(args);
+    return { de: p.de, ate: p.ate };
   }
 
   async execute(
@@ -435,9 +452,14 @@ export class GestorTools {
           return this.kpiResumo(d.de, d.ate, usuario);
         }
         case "causas_top": {
-          const d = this.datasOuErro(args);
-          if ("erro" in d) return d;
-          return this.causasTop(d.de, d.ate, Number(args.limite) || 8, usuario);
+          const d = this.datasOuPadrao(args, "90d");
+          return this.causasTop(
+            d.de,
+            d.ate,
+            Number(args.limite) || 8,
+            usuario,
+            d.label,
+          );
         }
         case "setor_resumo": {
           const d = this.datasOuErro(args);
@@ -904,8 +926,8 @@ export class GestorTools {
         this.whereBase(usuario),
         {
           dataAbertura: {
-            gte: dia(de),
-            lte: dia(ate),
+            gte: diaInicio(de),
+            lte: diaFim(ate),
           },
         },
         ...(extra ? [extra] : []),
@@ -954,6 +976,7 @@ export class GestorTools {
     ate: string,
     limite: number,
     usuario: UsuarioLogado,
+    label?: string,
   ) {
     const linhas = await this.carregarPeriodo(de, ate, usuario);
     const map = new Map<string, number>();
@@ -965,7 +988,17 @@ export class GestorTools {
       .map(([k, n]) => ({ k, n }))
       .sort((a, b) => b.n - a.n)
       .slice(0, Math.min(Math.max(limite, 1), 12));
-    return { de, ate, top };
+    return {
+      de,
+      ate,
+      label: label || `${de} → ${ate}`,
+      total_reclamacoes: linhas.length,
+      top,
+      aviso:
+        linhas.length === 0
+          ? "Nenhuma reclamação no período (visão real, sem treino). Tente preset ano ou 30d."
+          : undefined,
+    };
   }
 
   private async setorResumo(
@@ -1313,7 +1346,7 @@ export class GestorTools {
     }
     const vendas = await this.prisma.vendaDia.groupBy({
       by: ["sku"],
-      where: { data: { gte: dia(de), lte: dia(ate) } },
+      where: { data: { gte: diaInicio(de), lte: diaFim(ate) } },
       _sum: { quantidade: true },
     });
     const vendMap = new Map(
