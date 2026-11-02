@@ -6,7 +6,9 @@ COPY package.json package-lock.json ./
 COPY packages/domain/package.json ./packages/domain/package.json
 COPY packages/auth/package.json ./packages/auth/package.json
 COPY packages/importacao/package.json ./packages/importacao/package.json
+COPY packages/gestor-tools/package.json ./packages/gestor-tools/package.json
 COPY apps/api/package.json ./apps/api/package.json
+COPY apps/mcp-gestor/package.json ./apps/mcp-gestor/package.json
 RUN npm ci
 
 FROM node:22-alpine AS builder
