@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Botao, Cartao, Selo } from "@/components/ui";
 import {
   chamarAdminIa,
@@ -9,7 +9,22 @@ import {
 } from "@/lib/ia";
 import "../../reclamacoes/ia.css";
 
+const MANUAL_MAX_BYTES = 5 * 1024 * 1024;
+
 type Props = { inicial: ResumoConhecimento | null; carregou: boolean };
+
+function arquivoParaBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result || "");
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 export function ConhecimentoPainel({ inicial, carregou }: Props) {
   const [resumo, setResumo] = useState(inicial);
@@ -19,6 +34,9 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [importando, setImportando] = useState(false);
   const [crawlando, setCrawlando] = useState(false);
+  const [enviandoManual, setEnviandoManual] = useState(false);
+  const [removendoId, setRemovendoId] = useState<string | null>(null);
+  const inputManual = useRef<HTMLInputElement>(null);
   const [aviso, setAviso] = useState<{
     tom: "ok" | "erro";
     texto: string;
@@ -126,6 +144,80 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
     await recarregar();
   }
 
+  async function enviarManual(file: File | null) {
+    if (!file) return;
+    setAviso(null);
+    if (file.size > MANUAL_MAX_BYTES) {
+      setAviso({
+        tom: "erro",
+        texto: "Arquivo passa de 5 MB. Reduza ou divida o manual.",
+      });
+      return;
+    }
+    const okExt = /\.(pdf|docx|txt)$/i.test(file.name);
+    if (!okExt) {
+      setAviso({ tom: "erro", texto: "Use PDF, DOCX ou TXT." });
+      return;
+    }
+    setEnviandoManual(true);
+    try {
+      const base64 = await arquivoParaBase64(file);
+      const r = await chamarAdminIa("/conhecimento/importar-manual", "POST", {
+        nome: file.name,
+        mime: file.type || "application/octet-stream",
+        base64,
+      });
+      if (!r.ok) {
+        setAviso({
+          tom: "erro",
+          texto: mensagemAdminIa(r, "Falha ao enviar o manual."),
+        });
+        return;
+      }
+      if (r.dados.ok === false) {
+        setAviso({
+          tom: "erro",
+          texto:
+            typeof r.dados.mensagem === "string"
+              ? r.dados.mensagem
+              : "Upload recusado.",
+        });
+        return;
+      }
+      setAviso({
+        tom: "ok",
+        texto: `Manual indexado: ${String(r.dados.nome ?? file.name)} — ${String(r.dados.chunks ?? 0)} trecho(s).`,
+      });
+      await recarregar();
+    } catch {
+      setAviso({ tom: "erro", texto: "Não foi possível ler o arquivo." });
+    } finally {
+      setEnviandoManual(false);
+      if (inputManual.current) inputManual.current.value = "";
+    }
+  }
+
+  async function removerManual(id: string) {
+    setRemovendoId(id);
+    setAviso(null);
+    const r = await chamarAdminIa("/conhecimento/remover-manual", "POST", {
+      id,
+    });
+    setRemovendoId(null);
+    if (!r.ok) {
+      setAviso({
+        tom: "erro",
+        texto: mensagemAdminIa(r, "Não foi possível remover o manual."),
+      });
+      return;
+    }
+    setAviso({
+      tom: "ok",
+      texto: `Manual removido (${String(r.dados.removidos ?? 0)} trecho(s)).`,
+    });
+    await recarregar();
+  }
+
   if (!carregou) {
     return (
       <Cartao>
@@ -140,7 +232,9 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
   const acervos = resumo?.acervos ?? [];
   const porAcervo = resumo?.porAcervo ?? {};
   const allowlist = resumo?.allowlist ?? [];
-  const ocupado = syncing || importando || crawlando;
+  const manuais = resumo?.manuais ?? [];
+  const ocupado =
+    syncing || importando || crawlando || enviandoManual || !!removendoId;
 
   return (
     <Cartao>
@@ -263,6 +357,58 @@ export function ConhecimentoPainel({ inicial, carregou }: Props) {
           </Botao>
         </div>
       </div>
+
+      <p className="ia-admin__grupo">Manuais (upload)</p>
+      <p className="pagina__apoio">
+        PDF, DOCX ou TXT até 5 MB. O texto vai para o acervo Manuais (sem
+        redigir contato da empresa). Mesmo nome substitui o anterior. PDF
+        escaneado usa OCR se a chave OpenRouter estiver ok.
+      </p>
+      <div className="ia-admin__linha">
+        <input
+          ref={inputManual}
+          id="conhecimento-manual"
+          type="file"
+          accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          disabled={ocupado}
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            void enviarManual(f);
+          }}
+        />
+        <Botao
+          variante="primario"
+          disabled={ocupado}
+          onClick={() => inputManual.current?.click()}
+        >
+          {enviandoManual ? "Indexando…" : "Enviar manual"}
+        </Botao>
+      </div>
+      {manuais.length === 0 ? (
+        <p className="pagina__apoio">Nenhum manual indexado ainda.</p>
+      ) : (
+        <ul className="ia-admin__lista">
+          {manuais.map((m) => (
+            <li key={m.id} className="ia-admin__item">
+              <div>
+                <strong>{m.nome}</strong>
+                <p className="pagina__apoio" style={{ marginTop: 4 }}>
+                  {m.chunks} trecho(s) ·{" "}
+                  {new Date(m.alteradoEm).toLocaleString("pt-BR")}
+                </p>
+              </div>
+              <Botao
+                variante="secundario"
+                disabled={ocupado}
+                onClick={() => void removerManual(m.id)}
+              >
+                {removendoId === m.id ? "Removendo…" : "Remover"}
+              </Botao>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {aviso ? (
         <p
