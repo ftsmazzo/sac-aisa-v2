@@ -12,13 +12,28 @@ import {
   ordenarFilaCrawl,
   urlCrawlPermitida,
 } from "@sac-aisa/gestor-tools";
+import mammoth from "mammoth";
+import pdfParse from "pdf-parse";
 import { redigir } from "../ia/redacao";
 import { ServicoIntegracoes } from "../integracoes";
+import {
+  assinaturaBate,
+  idManual,
+  slugManual,
+  tipoManual,
+} from "./conhecimento-manual";
+import { textoPdfLocalSuficiente } from "./midia";
 
 const EMBED_PADRAO = "openai/text-embedding-3-small";
 const CASOS_MAX = 80;
 const CRAWL_MAX_PADRAO = 40;
 const CRAWL_MAX_TETO = 80;
+const MANUAL_MAX_BYTES = 5 * 1024 * 1024;
+const MANUAL_MIME = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+]);
 
 @Injectable()
 export class ConhecimentoService {
@@ -436,7 +451,7 @@ export class ConhecimentoService {
   }
 
   async resumo() {
-    const [porFonte, porAcervo] = await Promise.all([
+    const [porFonte, porAcervo, manuais] = await Promise.all([
       this.prisma.conhecimentoChunk.groupBy({
         by: ["fonte"],
         where: { ativo: true },
@@ -447,6 +462,7 @@ export class ConhecimentoService {
         where: { ativo: true },
         _count: true,
       }),
+      this.listarManuais(),
     ]);
     return {
       total: porFonte.reduce((a, x) => a + x._count, 0),
@@ -455,9 +471,258 @@ export class ConhecimentoService {
         porAcervo.map((x) => [x.acervo || "(vazio)", x._count]),
       ),
       acervos: ACERVOS.map((a) => ({ ...a })),
+      manuais,
       allowlist: this.allowlist(),
       modelo: this.modeloEmbed(),
     };
+  }
+
+  async listarManuais() {
+    const agrupado = await this.prisma.conhecimentoChunk.groupBy({
+      by: ["url"],
+      where: { fonte: "manual", ativo: true },
+      _count: true,
+      _max: { alteradoEm: true },
+    });
+    if (agrupado.length === 0) return [];
+    const urls = agrupado.map((a) => a.url);
+    const titulos = await this.prisma.conhecimentoChunk.findMany({
+      where: { fonte: "manual", ativo: true, url: { in: urls }, chave: { endsWith: "#0" } },
+      select: { url: true, titulo: true },
+    });
+    const tituloPorUrl = new Map(titulos.map((t) => [t.url, t.titulo]));
+    return agrupado
+      .map((a) => {
+        const id = a.url.replace(/^manual:\/\//, "") || "manual";
+        const titulo = tituloPorUrl.get(a.url) || id;
+        return {
+          id,
+          nome: titulo.replace(/\s*\(\d+\/\d+\)\s*$/, "") || id,
+          chunks: a._count,
+          alteradoEm: (a._max.alteradoEm ?? new Date(0)).toISOString(),
+        };
+      })
+      .sort((x, y) => y.alteradoEm.localeCompare(x.alteradoEm));
+  }
+
+  /**
+   * Indexa manual (PDF / DOCX / TXT) no acervo `manual`.
+   * Corpo: base64 do arquivo. Reupload com o mesmo nome substitui.
+   */
+  async importarManual(args: {
+    nome: string;
+    mime: string;
+    base64: string;
+  }) {
+    const nome = String(args.nome || "").trim() || "manual.pdf";
+    const mime = String(args.mime || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    const b64 = String(args.base64 || "").replace(/^data:[^;]+;base64,/, "");
+    if (!b64) {
+      return { ok: false as const, mensagem: "Arquivo vazio." };
+    }
+    if (!MANUAL_MIME.has(mime) && !/\.(pdf|docx|txt)$/i.test(nome)) {
+      return {
+        ok: false as const,
+        mensagem: "Use PDF, DOCX ou TXT.",
+      };
+    }
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(b64, "base64");
+    } catch {
+      return { ok: false as const, mensagem: "Base64 inválido." };
+    }
+    if (buf.length === 0) {
+      return { ok: false as const, mensagem: "Arquivo vazio." };
+    }
+    if (buf.length > MANUAL_MAX_BYTES) {
+      return {
+        ok: false as const,
+        mensagem: `Arquivo passa de ${MANUAL_MAX_BYTES / (1024 * 1024)} MB.`,
+      };
+    }
+
+    const tipo = tipoManual(mime, nome);
+    if (!assinaturaBate(tipo, buf)) {
+      return {
+        ok: false as const,
+        mensagem: "Conteúdo do arquivo não bate com PDF, DOCX ou TXT.",
+      };
+    }
+    let texto = "";
+    try {
+      if (tipo === "pdf") texto = await this.textoDePdf(buf, b64);
+      else if (tipo === "docx") {
+        const r = await mammoth.extractRawText({ buffer: buf });
+        texto = String(r.value || "").replace(/\s+/g, " ").trim();
+      } else {
+        texto = buf.toString("utf8").replace(/\s+/g, " ").trim();
+      }
+    } catch (e) {
+      this.log.warn(`importarManual extracao: ${e}`);
+      return {
+        ok: false as const,
+        mensagem: "Não consegui ler o arquivo. Tente PDF com texto ou DOCX/TXT.",
+      };
+    }
+    if (texto.length < 40) {
+      return {
+        ok: false as const,
+        mensagem:
+          "Pouco texto útil. Se for PDF escaneado, confira a chave OpenRouter (OCR) ou envie DOCX/TXT.",
+      };
+    }
+
+    const slug = slugManual(nome);
+    const ref = `manual://${slug}`;
+    const fatias = fatiarTexto(texto, 1500, 150);
+    // Embed antes de apagar o índice antigo — falha no meio não zera o manual.
+    const preparados: {
+      chave: string;
+      titulo: string;
+      texto: string;
+      embedding: number[];
+    }[] = [];
+    for (let i = 0; i < fatias.length; i++) {
+      const textoFatia = fatias[i].trim();
+      if (textoFatia.length < 20) continue;
+      const titulo =
+        fatias.length > 1
+          ? `${nome} (${i + 1}/${fatias.length})`
+          : nome.slice(0, 200);
+      const embedding = await this.embed(`${titulo}\n${textoFatia}`);
+      preparados.push({
+        chave: `manual:${slug}#${i}`,
+        titulo,
+        texto: textoFatia,
+        embedding,
+      });
+    }
+    if (preparados.length === 0) {
+      return {
+        ok: false as const,
+        mensagem: "Nenhum trecho útil para indexar.",
+      };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.conhecimentoChunk.deleteMany({
+        where: {
+          OR: [{ url: ref }, { chave: { startsWith: `manual:${slug}#` } }],
+        },
+      });
+      for (const p of preparados) {
+        await tx.conhecimentoChunk.create({
+          data: {
+            chave: p.chave,
+            fonte: "manual",
+            acervo: "manual",
+            titulo: p.titulo.slice(0, 200),
+            texto: p.texto,
+            url: ref,
+            embedding: p.embedding,
+            modeloEmbedding: this.modeloEmbed(),
+            ativo: true,
+          },
+        });
+      }
+    });
+    return {
+      ok: true as const,
+      id: slug,
+      nome,
+      chunks: preparados.length,
+      acervo: "manual" as const,
+      caracteres: texto.length,
+    };
+  }
+
+  async removerManual(idRaw: string) {
+    const id = idManual(String(idRaw || ""));
+    if (!id) {
+      return { ok: false as const, mensagem: "Informe o id do manual." };
+    }
+    const ref = `manual://${id}`;
+    const r = await this.prisma.conhecimentoChunk.deleteMany({
+      where: {
+        OR: [{ url: ref }, { chave: { startsWith: `manual:${id}#` } }],
+      },
+    });
+    return { ok: true as const, id, removidos: r.count };
+  }
+
+  private async textoDePdf(buf: Buffer, base64: string): Promise<string> {
+    let local = "";
+    try {
+      const r = await pdfParse(buf);
+      local = String(r.text || "")
+        .replace(/\s+/g, " ")
+        .trim();
+    } catch (e) {
+      this.log.warn(
+        `pdf-parse manual: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+    if (textoPdfLocalSuficiente(local)) return local;
+
+    const chave = await this.chaveOpenRouter();
+    if (!chave) return local;
+    const dataUrl = `data:application/pdf;base64,${base64}`;
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${chave}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://sac-aisa.local",
+        "X-Title": "SAC AISA manual OCR",
+      },
+      body: JSON.stringify({
+        model:
+          process.env.GESTOR_PDF_OCR_MODEL?.trim() || "mistralai/mistral-ocr-latest",
+        temperature: 0.1,
+        max_tokens: 16_000,
+        plugins: [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Extraia o texto completo deste manual técnico em português, sem resumir.",
+              },
+              {
+                type: "file",
+                file: { filename: "manual.pdf", file_data: dataUrl },
+              },
+            ],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) {
+      throw new Error(`OCR ${res.status}: ${(await res.text()).slice(0, 160)}`);
+    }
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: unknown } }[];
+    };
+    const content = json.choices?.[0]?.message?.content;
+    if (typeof content === "string") return content.replace(/\s+/g, " ").trim();
+    if (Array.isArray(content)) {
+      return content
+        .map((p) =>
+          typeof p === "object" && p && "text" in p
+            ? String((p as { text: string }).text)
+            : "",
+        )
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    return local;
   }
 }
 

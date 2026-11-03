@@ -211,11 +211,19 @@ export interface AcervoConhecimento {
   descricao: string;
 }
 
+export interface ManualConhecimento {
+  id: string;
+  nome: string;
+  chunks: number;
+  alteradoEm: string;
+}
+
 export interface ResumoConhecimento {
   total: number;
   porFonte: Record<string, number>;
   porAcervo: Record<string, number>;
   acervos: AcervoConhecimento[];
+  manuais?: ManualConhecimento[];
   allowlist: string[];
   modelo: string;
 }

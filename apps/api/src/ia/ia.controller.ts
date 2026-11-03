@@ -298,4 +298,37 @@ export class ControladorConhecimento {
         : Number(obj.maxPaginas) || undefined;
     return this.conhecimento.importarSite(url, { acervo, maxPaginas });
   }
+
+  @Requer("ia.gerir")
+  @Post("importar-manual")
+  @HttpCode(200)
+  async importarManual(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    void usuarioDe(req);
+    const obj =
+      typeof corpo === "object" && corpo
+        ? (corpo as {
+            nome?: unknown;
+            mime?: unknown;
+            base64?: unknown;
+          })
+        : {};
+    return this.conhecimento.importarManual({
+      nome: typeof obj.nome === "string" ? obj.nome : "",
+      mime: typeof obj.mime === "string" ? obj.mime : "",
+      base64: typeof obj.base64 === "string" ? obj.base64 : "",
+    });
+  }
+
+  @Requer("ia.gerir")
+  @Post("remover-manual")
+  @HttpCode(200)
+  async removerManual(@Body() corpo: unknown, @Req() req: PedidoComUsuario) {
+    void usuarioDe(req);
+    const obj =
+      typeof corpo === "object" && corpo
+        ? (corpo as { id?: unknown })
+        : {};
+    const id = typeof obj.id === "string" ? obj.id : "";
+    return this.conhecimento.removerManual(id);
+  }
 }

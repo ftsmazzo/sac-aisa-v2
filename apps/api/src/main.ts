@@ -124,6 +124,28 @@ async function iniciar() {
     })();
   });
 
+  // Upload de manuais (PDF/DOCX/TXT) para o RAG — base64 até ~8 MB.
+  app.use("/admin/ia/conhecimento", (req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== "POST" || !req.path.endsWith("/importar-manual")) {
+      next();
+      return;
+    }
+    void (async () => {
+      const usuario = await auth
+        .validar(lerCookie(req.headers.cookie, COOKIE_SESSAO))
+        .catch(() => null);
+      if (!usuario) {
+        res.status(401).json({ message: "Entre para continuar." });
+        return;
+      }
+      if (!temPermissao(usuario.permissoes, "ia.gerir")) {
+        res.status(403).json({ message: "Sem permissão para esta ação." });
+        return;
+      }
+      json({ limit: "8mb" })(req, res, next);
+    })();
+  });
+
   // Marketplace simulado (só responde com o modo ligado). Aceita o formulário do OAuth do Mercado Livre.
   app.use(
     "/simulado",
